@@ -4647,7 +4647,11 @@ const Ctl = {
 };
 function lockPointer() {
     if (Touch.active || !document.body.requestPointerLock) return;
-    try { const p = document.body.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not supported */ }
+    const plain = () => { try { const q = document.body.requestPointerLock(); if (q && q.catch) q.catch(() => {}); } catch (e) { /* not supported */ } };
+    try {                                                                      // raw movement (no OS acceleration jumps) where the browser offers it
+        const p = document.body.requestPointerLock({ unadjustedMovement: true });
+        if (p && p.catch) p.catch(err => { if (err && err.name === 'NotSupportedError') plain(); });
+    } catch (e) { plain(); }
 }
 
 // =====================================================================
@@ -6074,7 +6078,7 @@ GFX.init();
 //      low-resolution touchpad events never make the camera stutter.
 const Look = {
     key: 'surveySim.look', v: { sens: 100, smooth: 30, zoom: 100, invert: false, pad: false },
-    px: 0, py: 0, free: false, drag: null, fpAcc: 0, zq: 0, padSeen: 0,
+    px: 0, py: 0, tx: 0, ty: 0, free: false, drag: null, fpAcc: 0, zq: 0, padSeen: 0, avg: 6, skip: 0,
     init() {
         try { Object.assign(this.v, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (e) { /* ignore */ }
         [['look-sens', 'sens'], ['look-smooth', 'smooth'], ['look-zoom', 'zoom']].forEach(([id, k]) => {
@@ -6090,7 +6094,15 @@ const Look = {
     save() { try { localStorage.setItem(this.key, JSON.stringify(this.v)); } catch (e) { /* ignore */ } },
     live() { return cam.locked || this.free; },
     add(dx, dy) {
-        if (!isFinite(dx) || !isFinite(dy) || Math.abs(dx) > 400 || Math.abs(dy) > 400) return;     // browsers sometimes emit one huge bogus jump
+        if (!isFinite(dx) || !isFinite(dy)) return;
+        if (this.skip > 0) { this.skip--; return; }                                                  // the first moves right after the pointer locks carry the cursor's old position
+        // trackpads / some mice: every so often one event reports a huge bogus jump. Anything far outside how fast you've
+        // actually been moving is trimmed (a real flick ramps up over a few events, so it still gets through at full speed)
+        const m = Math.hypot(dx, dy);
+        if (m > 600) return;
+        const cap = Math.max(60, this.avg * 6);                                                     // a lone spike gets trimmed to a sane step instead of whipping the view
+        if (m > cap) { dx *= cap / m; dy *= cap / m; }
+        this.avg += (Math.min(m, cap) - this.avg) * 0.3;
         if (this.v.pad) {                                                                            // gentle curve: slow = precise, fast flick = further
             const sp = Math.hypot(dx, dy), g = 0.85 + Math.min(sp / 45, 1) * 0.9;
             dx *= g; dy *= g;
@@ -6109,6 +6121,16 @@ const Look = {
             cam.yaw -= ax * s;
             cam.pitch = clamp(cam.pitch + ay * s * (this.v.invert ? -1 : 1), minPitch(), 1.2);
         }
+        // touch look: finger moves arrive ~60×/s (and sometimes bunched up); spread them across frames so the view glides
+        if (this.tx || this.ty) {
+            const g = 1 - Math.exp(-delta / 0.028);
+            let bx = this.tx * g, by = this.ty * g;
+            if (Math.abs(this.tx - bx) < 0.05) bx = this.tx; if (Math.abs(this.ty - by) < 0.05) by = this.ty;
+            this.tx -= bx; this.ty -= by;
+            const s = CONFIG.camera.touchSensitivity;
+            cam.yaw -= bx * s;
+            cam.pitch = clamp(cam.pitch + by * s, minPitch(), 1.2);
+        }
         this.fpAcc *= Math.exp(-delta * 4);
         // scroll zoom is queued the same way
         if (this.zq) {
@@ -6119,7 +6141,9 @@ const Look = {
 };
 Look.init();
 document.body.addEventListener('click', () => { if (!menusOpen() && !cam.locked) lockPointer(); });
-document.addEventListener('pointerlockchange', () => { cam.locked = document.pointerLockElement === document.body; if (cam.locked) Look.free = false; });
+document.addEventListener('pointerlockchange', () => { cam.locked = document.pointerLockElement === document.body; if (cam.locked) { Look.free = false; Look.skip = 2; Look.px = Look.py = 0; } });
+// a mouse / trackpad on a phone or tablet (no pointer lock there): click-and-drag looks around, like the fallback below
+document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && Touch.active && !Look.free) Look.free = true; }, true);
 document.addEventListener('pointerlockerror', () => {                      // sandboxed frame / blocked: fall back to press-and-drag look
     if (!Look.free) { Look.free = true; showToast('Mouse capture blocked here: hold the button and drag to look around'); }
 });
@@ -6202,7 +6226,7 @@ document.addEventListener('keyup', e => { if (S.miniGame) MiniGame.key(e, false)
 window.addEventListener('blur', () => { if (Ctl.sprintHold) { keys.shift = false; Touch.sprint = false; } });
 document.addEventListener('mousedown', e => {
     if (menusOpen() || S.caught) return;
-    const onWorld = cam.locked || (Look.free && (e.target === renderer.domElement || e.target === document.body || e.target === document.documentElement));
+    const onWorld = cam.locked || (Look.free && (e.target === renderer.domElement || e.target === document.body || e.target === document.documentElement || e.target.id === 'look-zone' || e.target.id === 'joy-zone'));
     if (!onWorld) return;
     if (e.button === 2 && S.gunOut && !S.driving && !S.seat) { Aim.set(true); return; }                 // right mouse with the shotgun out = aim down the sights (hold)
     if (!cam.locked) { if (e.button === 0) Look.drag = { moved: 0 }; if (e.button === 2) Combat.secondary(); return; }   // free mode: a click that doesn't drag fires on release
@@ -6277,9 +6301,8 @@ const TouchUI = {
                 zoomBy((this.pinch - d) * 0.06); this.pinch = d; return;
             }
             for (const t of e.changedTouches) if (t.identifier === this.lookId) {
-                const s = CONFIG.camera.touchSensitivity;
-                cam.yaw -= (t.clientX - this.lookLast.x) * s;
-                cam.pitch = clamp(cam.pitch + (t.clientY - this.lookLast.y) * s, minPitch(), 1.2);
+                const dx = t.clientX - this.lookLast.x, dy = t.clientY - this.lookLast.y;
+                if (Math.hypot(dx, dy) < 160) { Look.tx += dx; Look.ty += dy; }      // (a finger can't really jump 160 px between two events)
                 this.lookLast = { x: t.clientX, y: t.clientY };
             }
         }, { passive: false });
@@ -14135,7 +14158,7 @@ const Title = {
             <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
             ${B('BACK TO MENU', 'back', 2)}
         </section>
-        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.56.0</span></div>`;
+        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.56.1</span></div>`;
         document.body.appendChild(el); this.el = el;
         el.addEventListener('click', e => {
             const card = e.target.closest('.tm-card');
