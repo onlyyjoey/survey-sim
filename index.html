@@ -29,7 +29,6 @@
     };
     // host tools: ?host=<key> once on this device (it sticks)
     try { var q = new URLSearchParams(location.search).get('host'); if (q) ls.set('surveySim.hostKey', q); } catch (e) { /* old browser */ }
-    var isHost = ls.get('surveySim.hostKey') === HOST_KEY;
     var myId = ls.get('surveySim.uid');
     if (!myId) { myId = 'u' + Math.random().toString(36).slice(2, 12); ls.set('surveySim.uid', myId); }
     var tabId = myId + '-' + Math.random().toString(36).slice(2, 6);
@@ -42,9 +41,12 @@
         }
         return n;
     }
+    // host tools: the ?host key on this device, or the name Joey (any capitalisation)
+    function isHost() { return ls.get('surveySim.hostKey') === HOST_KEY || String(ls.get('surveySim.name') || '').trim().toLowerCase() === 'joey'; }
+    myName();                                                   // ask once, right away, so the host check knows who you are
     var user = {
         id: function () { return Promise.resolve(myId); },
-        isOwner: function () { return Promise.resolve(isHost); },
+        isOwner: function () { return Promise.resolve(isHost()); },
         profiles: function (ids) {
             var out = {};
             (ids || []).forEach(function (id) { var p = room._byUser[id]; if (p && p.nm) out[id] = { name: p.nm }; });
@@ -112,6 +114,7 @@
     var started = false;
     window.claude = {
         hosted: true,
+        isHostNow: function () { return isHost(); },
         use: function (what) {
             if (what === 'user') return Promise.resolve(user);
             if (what === 'room') {
@@ -124,7 +127,7 @@
 })();
 
     </script>
-    <title>Solar Site Survey Sim v1.52.0</title>
+    <title>Solar Site Survey Sim v1.53.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
     <style>
@@ -1301,7 +1304,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
         <div id="boost-chip">&#9889; ENERGY <span id="boost-t">30</span>s</div>
     </div>
     <div id="controls-card">
-        <b>SOLAR SITE SURVEY SIM v1.52.0</b> <span style="color:#94a3b8">— Memphis, TN</span><br>
+        <b>SOLAR SITE SURVEY SIM v1.53.0</b> <span style="color:#94a3b8">— Memphis, TN</span><br>
         <b>F1</b> / <b>`</b> / <b>⚙</b>: Settings (Graphics / Props / Audio / Debug) | <b>X</b>: Expand Map | <b>K</b> / <b>?</b>: this list<br>
         <b>SCROLL WHEEL</b>: Roblox Zoom (1st &leftrightarrow; 3rd Person)<br>
         <b>WASD</b>: Walk | <b>SHIFT</b>: Sprint on/off | <b>CTRL</b>: Slide | <b>SPACE</b>: Jump (at a hood = slide over, at a cab or conex wall = climb up)<br>
@@ -1427,6 +1430,9 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                 <div class="dev-sub">Pick a tool:</div>
                 <button class="dev-nav-btn" id="dev-look">
                     <span><svg class="di" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Change appearance<small>Male / female, skin tone, jacket colour</small></span><span class="chev">&rsaquo;</span>
+                </button>
+                <button class="dev-nav-btn" id="dev-name">
+                    <span><svg class="di" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>Change name<small>The name over your head online</small></span><span class="chev">&rsaquo;</span>
                 </button>
                 <button class="dev-nav-btn" id="dev-leave">
                     <span><svg class="di" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H5v18h9"/><path d="M10 12h11M17 8l4 4-4 4"/></svg>Leave session<small>Back to the title screen (leaves your online room)</small></span><span class="chev">&rsaquo;</span>
@@ -7548,6 +7554,19 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
             },
         };
         Music.init();
+        // hosted build only (home-screen app): change the name shown over your head (Joey = host tools)
+        (() => {
+            const b = $('dev-name'); if (!b) return;
+            if (!(window.claude && window.claude.hosted)) { b.remove(); return; }
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                let n = ''; try { n = (window.prompt('Your name for the crew:', localStorage.getItem('surveySim.name') || '') || '').trim().slice(0, 20); } catch (er) { n = ''; }
+                if (!n) return;
+                try { localStorage.setItem('surveySim.name', n); } catch (er) { /* storage blocked */ }
+                if (window.claude.isHostNow) Owner.set(window.claude.isHostNow());
+                showToast(`👷 You're "${n}" now — crewmates see it next time you join a room.`);
+            });
+        })();
         Ctl.init();
         Owner.init();
         // mission card: tap / click to read the whole title (folds back after a few seconds)
@@ -13700,7 +13719,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
             allWorn() { return this.KEYS.every(k => S.ppe[k] === 2); },
             missing() { return this.KEYS.filter(k => S.ppe[k] !== 2); },
             toolsOut() { return !!(S.hasRtkRod || S.bags.lath.has || S.bags.pin.has || S.bags.nail.has || S.hasGasCan || S.gunOut); },
-            required() { return this.toolsOut() || !!TaskManager.active; },
+            required() { return true; },                                   // PPE on whenever you're out past the office yard (job or not)
             inFree(p) {
                 const z = this.ZONE;
                 return (p.x > z.x0 && p.x < z.x1 && p.z > z.z0 && p.z < z.z1) || !!conexAt(p.x, p.y + 1, p.z, 0.4);
@@ -13712,7 +13731,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
             // why you're in trouble, for the whistle card
             reasons() {
                 const miss = this.missing().map(k => this.INFO[k].name.toLowerCase());
-                const why = S.gunOut ? (S.weapon === 'pistol' ? 'a pistol out' : 'a shotgun out') : S.hasRtkRod ? 'the RTK rod' : S.hasLathFlags ? `${MK[S.mk].plural} on you` : S.hasGasCan ? 'a gas can' : 'a job running';
+                const why = S.gunOut ? (S.weapon === 'pistol' ? 'a pistol out' : 'a shotgun out') : S.hasRtkRod ? 'the RTK rod' : S.hasLathFlags ? `${MK[S.mk].plural} on you` : S.hasGasCan ? 'a gas can' : TaskManager.active ? 'a job running' : '';
                 return { miss, why };
             },
             wear(k) {
@@ -14400,7 +14419,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                 this.bubble.say('HEY! STOP!! Where\'s your PPE?!', 3000);
                 Pow.show(V(this.pos.x, this.pos.y + 8.5, this.pos.z), 'TWEEEET!', true);
                 Shake.add && Shake.add(0.25);
-                $('osha-why').textContent = `No ${miss.join(', ')} — with ${why}.`;
+                $('osha-why').textContent = why ? `No ${miss.join(', ')} — with ${why}.` : `No ${miss.join(', ')} — out on the job site.`;
                 $('osha-card').classList.remove('out'); $('osha-card').hidden = false;
                 Save.touch();
             },
@@ -15858,7 +15877,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                     <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
                     ${B('BACK TO MENU', 'back', 2)}
                 </section>
-                <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.52.0</span></div>`;
+                <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.53.0</span></div>`;
                 document.body.appendChild(el); this.el = el;
                 el.addEventListener('click', e => {
                     const card = e.target.closest('.tm-card');
