@@ -127,7 +127,7 @@
 })();
 
     </script>
-    <title>Solar Site Survey Sim v1.53.0</title>
+    <title>Solar Site Survey Sim v1.53.1</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
     <style>
@@ -1304,7 +1304,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
         <div id="boost-chip">&#9889; ENERGY <span id="boost-t">30</span>s</div>
     </div>
     <div id="controls-card">
-        <b>SOLAR SITE SURVEY SIM v1.53.0</b> <span style="color:#94a3b8">— Memphis, TN</span><br>
+        <b>SOLAR SITE SURVEY SIM v1.53.1</b> <span style="color:#94a3b8">— Memphis, TN</span><br>
         <b>F1</b> / <b>`</b> / <b>⚙</b>: Settings (Graphics / Props / Audio / Debug) | <b>X</b>: Expand Map | <b>K</b> / <b>?</b>: this list<br>
         <b>SCROLL WHEEL</b>: Roblox Zoom (1st &leftrightarrow; 3rd Person)<br>
         <b>WASD</b>: Walk | <b>SHIFT</b>: Sprint on/off | <b>CTRL</b>: Slide | <b>SPACE</b>: Jump (at a hood = slide over, at a cab or conex wall = climb up)<br>
@@ -2201,10 +2201,30 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
         const scene = new THREE.Scene();
         scene.fog = new THREE.Fog(CONFIG.world.skyHorizon, 160, 450);          // linear haze; near / far follow Settings › Graphics › View distance (GFX.apply)
 
-        const camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, innerWidth / innerHeight, 0.1, 2400);
+        // Screen size. The home-screen (standalone) iPhone app can report a stale, too-short window height after
+        // rotating — that left a black bar along the bottom — so there the real screen size wins and the page is sized to it.
+        const STANDALONE = !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+        function viewWH() {
+            let w = innerWidth, h = innerHeight;
+            if (STANDALONE && /iPhone|iPod|iPad/.test(navigator.userAgent) && screen.width && screen.height) {
+                const L = Math.max(screen.width, screen.height), s = Math.min(screen.width, screen.height);
+                const land = (typeof window.orientation === 'number') ? Math.abs(window.orientation) === 90 : w > h;
+                w = land ? L : s; h = land ? s : L;
+            }
+            return [w, h];
+        }
+        const VW = () => viewWH()[0], VH = () => viewWH()[1];
+        function fitPage() {
+            if (!STANDALONE) return;
+            const [w, h] = viewWH();
+            [document.documentElement, document.body].forEach(el => { el.style.width = w + 'px'; el.style.height = h + 'px'; });
+            document.body.style.position = 'relative';
+        }
+        fitPage();
+        const camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, VW() / VH(), 0.1, 2400);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-        renderer.setSize(innerWidth, innerHeight);
+        renderer.setSize(VW(), VH());
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
@@ -7182,7 +7202,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                     const d = camera.position.distanceTo(w), p = w.clone().project(camera);
                     if (p.z > 1 || d > 420 || Math.abs(p.x) > 1.2 || Math.abs(p.y) > 1.2) { el.style.display = 'none'; return; }
                     el.style.display = 'block';
-                    el.style.left = ((p.x + 1) / 2 * innerWidth).toFixed(1) + 'px'; el.style.top = ((1 - p.y) / 2 * innerHeight).toFixed(1) + 'px';
+                    el.style.left = ((p.x + 1) / 2 * VW()).toFixed(1) + 'px'; el.style.top = ((1 - p.y) / 2 * VH()).toFixed(1) + 'px';
                     el.style.setProperty('--s', clamp(1.2 - d / 420, 0.75, 1).toFixed(2));         // bars stay readable from across the field
                     const hp = Math.round(R.hpGuess !== undefined ? R.hpGuess : R.hp);
                     el.querySelector('s').style.width = hp + '%';
@@ -7768,7 +7788,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                 const nowEl = $('gfx-res-now'); if (nowEl) nowEl.textContent = this.v.auto ? `auto: ${this.cur || this.v.res}%` : '';
                 const ae = $('gfx-auto'); if (ae) ae.checked = !!this.v.auto;
                 document.documentElement.style.setProperty('--hud', this.v.hud / 100);
-                renderer.setSize(innerWidth, innerHeight);
+                renderer.setSize(VW(), VH());
             },
             save() { try { localStorage.setItem(this.key, JSON.stringify(this.v)); } catch (e) { /* ignore */ } },
         };
@@ -8898,7 +8918,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                     hp.project(camera);
                     const vis = hp.z < 1 && dist < 130 && Math.abs(hp.x) < 1.2 && Math.abs(hp.y) < 1.2;
                     el.style.visibility = vis ? 'visible' : 'hidden';
-                    if (vis) { el.style.left = ((hp.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - hp.y) / 2 * innerHeight) + 'px'; el.style.setProperty('--bs', clamp(46 / Math.max(8, dist), 0.55, 1.1).toFixed(2)); }
+                    if (vis) { el.style.left = ((hp.x + 1) / 2 * VW()) + 'px'; el.style.top = ((1 - hp.y) / 2 * VH()) + 'px'; el.style.setProperty('--bs', clamp(46 / Math.max(8, dist), 0.55, 1.1).toFixed(2)); }
                 },
             };
         }
@@ -12464,7 +12484,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                 const p = world.clone().project(camera); if (p.z > 1) return;
                 const el = document.createElement('div'); el.className = 'pow' + (big ? ' big' : '') + (cls ? ' ' + cls : '');
                 el.textContent = word || this.WORDS[Math.floor(Math.random() * this.WORDS.length)];
-                el.style.left = ((p.x + 1) / 2 * innerWidth + rr(-30, 30)) + 'px'; el.style.top = ((1 - p.y) / 2 * innerHeight + rr(-30, 10)) + 'px';
+                el.style.left = ((p.x + 1) / 2 * VW() + rr(-30, 30)) + 'px'; el.style.top = ((1 - p.y) / 2 * VH() + rr(-30, 10)) + 'px';
                 el.style.color = this.COLORS[Math.floor(Math.random() * this.COLORS.length)];
                 el.style.setProperty('--rot', rr(-18, 18).toFixed(0) + 'deg');
                 $('pow-layer').appendChild(el);
@@ -15877,7 +15897,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                     <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
                     ${B('BACK TO MENU', 'back', 2)}
                 </section>
-                <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.53.0</span></div>`;
+                <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.53.1</span></div>`;
                 document.body.appendChild(el); this.el = el;
                 el.addEventListener('click', e => {
                     const card = e.target.closest('.tm-card');
@@ -16838,11 +16858,15 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
 
         TouchUI.init();
 
-        window.addEventListener('resize', () => {
-            camera.aspect = innerWidth / innerHeight;
+        function refit() {
+            fitPage();
+            camera.aspect = VW() / VH();
             camera.updateProjectionMatrix();
-            renderer.setSize(innerWidth, innerHeight);
-        });
+            renderer.setSize(VW(), VH());
+        }
+        window.addEventListener('resize', refit);
+        window.addEventListener('orientationchange', () => { refit(); setTimeout(refit, 250); setTimeout(refit, 800); });      // iOS settles late after a rotate
+        if (STANDALONE) setInterval(() => { const [w, h] = viewWH(), c = renderer.domElement; if (Math.abs(c.clientWidth - w) > 2 || Math.abs(c.clientHeight - h) > 2) refit(); }, 1000);
 
         // Debug handle for the browser console
         window.GAME = { Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
