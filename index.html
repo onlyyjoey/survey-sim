@@ -127,7 +127,7 @@
 })();
 
     </script>
-    <title>Solar Site Survey Sim v1.53.1</title>
+    <title>Solar Site Survey Sim v1.54.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
     <style>
@@ -1304,7 +1304,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
         <div id="boost-chip">&#9889; ENERGY <span id="boost-t">30</span>s</div>
     </div>
     <div id="controls-card">
-        <b>SOLAR SITE SURVEY SIM v1.53.1</b> <span style="color:#94a3b8">— Memphis, TN</span><br>
+        <b>SOLAR SITE SURVEY SIM v1.54.0</b> <span style="color:#94a3b8">— Memphis, TN</span><br>
         <b>F1</b> / <b>`</b> / <b>⚙</b>: Settings (Graphics / Props / Audio / Debug) | <b>X</b>: Expand Map | <b>K</b> / <b>?</b>: this list<br>
         <b>SCROLL WHEEL</b>: Roblox Zoom (1st &leftrightarrow; 3rd Person)<br>
         <b>WASD</b>: Walk | <b>SHIFT</b>: Sprint on/off | <b>CTRL</b>: Slide | <b>SPACE</b>: Jump (at a hood = slide over, at a cab or conex wall = climb up)<br>
@@ -1582,6 +1582,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                     <output id="out-gfx-res">65%</output>
                 </div>
                 <label class="slider-row wide" style="cursor:pointer"><span>Auto resolution<small class="mod-sub">Lowers resolution when the frame rate dips (slider above = highest it will use)</small></span><input type="checkbox" id="gfx-auto"><output id="gfx-res-now" style="width:auto;color:#94a3b8"></output></label>
+                <label class="slider-row wide" style="cursor:pointer"><span>High refresh rate (up to 120 FPS)<small class="mod-sub">For 120 Hz / ProMotion screens. Auto resolution aims for 120 instead of 60. iPhone: also turn off Safari › Advanced › Feature Flags › "Prefer Page Rendering Updates near 60fps"</small></span><input type="checkbox" id="gfx-hifps"><output></output></label>
                 <label class="slider-row wide" style="cursor:pointer"><span>Show FPS on screen<small class="mod-sub">Small counter in the bottom-left corner</small></span><input type="checkbox" id="gfx-fpsov"><output></output></label>
                 <div class="slider-row wide">
                     <span>FPS</span>
@@ -7712,6 +7713,14 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                 const fo = $('gfx-fpsov'), ov = $('fps-ov');
                 if (fo) { fo.checked = this.fpsOv; fo.addEventListener('change', () => { this.fpsOv = fo.checked; if (ov) ov.hidden = !this.fpsOv; try { localStorage.setItem('surveySim.fpsOv', this.fpsOv ? '1' : '0'); } catch (e) { /* ignore */ } }); }
                 if (ov) ov.hidden = !this.fpsOv;
+                // high refresh (ProMotion 120 Hz): auto resolution aims for up to 120 FPS instead of 60
+                try { this.hiFps = localStorage.getItem('surveySim.hiFps') === '1'; } catch (e) { this.hiFps = false; }
+                const hf = $('gfx-hifps');
+                if (hf) { hf.checked = this.hiFps; hf.addEventListener('change', () => {
+                    this.hiFps = hf.checked; this.autoReset();
+                    try { localStorage.setItem('surveySim.hiFps', this.hiFps ? '1' : '0'); } catch (e) { /* ignore */ }
+                    if (this.hiFps) setTimeout(() => { if (this.hiFps && this.st && this.st.cap <= 62 && /iPhone|iPad/.test(navigator.userAgent)) showToast('📱 Still 60? iPhone caps web pages at 60 FPS unless you turn OFF Settings › Apps › Safari › Advanced › Feature Flags › "Prefer Page Rendering Updates near 60fps".'); }, 6000);
+                }); }
                 const fmt = { view: v => v + "'", grass: v => v + '%', grassDist: v => v, res: v => v + '%', hud: v => v + '%', shadows: v => this.SHADOW_NAMES[v] };
                 this.sliders = [['gfx-view', 'view'], ['gfx-grass', 'grass'], ['gfx-grass-dist', 'grassDist'], ['gfx-shadows', 'shadows'], ['gfx-res', 'res'], ['gfx-hud', 'hud']];
                 this.fmt = fmt;
@@ -7743,7 +7752,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                 if (document.hidden || now < st.hold) return;                                     // grace period after load / a change / a tab switch
                 if (fps > st.cap) st.cap = Math.min(fps, 144);                                    // the display's refresh rate shows up as the best fps we ever see
                 if (!this.v.auto) { if (this.cur !== this.v.res) { this.cur = this.v.res; this.apply(); } return; }
-                const target = Math.min(60, st.cap), low = target * 0.8, high = target * 0.93;
+                const target = Math.min(this.hiFps ? 120 : 60, st.cap), low = target * 0.8, high = target * 0.93;
                 let next = this.cur;
                 if (fps < low) {
                     st.hi = 0; st.lo++;
@@ -15897,7 +15906,7 @@ body.touch-mode #task-tip .tt-r em { width: 40px; }
                     <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
                     ${B('BACK TO MENU', 'back', 2)}
                 </section>
-                <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.53.1</span></div>`;
+                <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.54.0</span></div>`;
                 document.body.appendChild(el); this.el = el;
                 el.addEventListener('click', e => {
                     const card = e.target.closest('.tm-card');
