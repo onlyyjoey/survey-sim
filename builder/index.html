@@ -938,6 +938,52 @@ function pilePoints(of) {
   return out;
 }
 
+// ---------------------------------------------------------------- auto LOD + silt fence: one field = how far inside the workable land a spot is
+// (the coast, river buffers and — for "around my work" — a hull round everything you've placed); LOD is its 0 line, silt fence `silt` ft further in
+function convexHull(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+  p.forEach(q => { while (lo.length >= 2 && cr(lo.at(-2), lo.at(-1), q) <= 0) lo.pop(); lo.push(q); });
+  p.slice().reverse().forEach(q => { while (up.length >= 2 && cr(up.at(-2), up.at(-1), q) <= 0) up.pop(); up.push(q); });
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+function autoBorders(o) {
+  const g = 8, half = P.world.size / 2, n = Math.floor(2 * half / g) + 1, x0 = -half, F = new Float32Array(n * n), isl = P.world.island && P.world.island.on ? P.world.island : null;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = x0 + i * g, z = x0 + j * g, d = Math.hypot(x, z);
+    F[j * n + i] = (isl ? Shore.r(isl, x, z) - d : Math.min(half - Math.abs(x), half - Math.abs(z))) - o.coast; }
+  P.features.filter(f => f.layer === 'river').forEach(f => { const S = centerline(f), keep = (f.w || 30) / 2 + o.river, reach = keep + 3 * g;
+    S.forEach((p, k) => { if (k % 2) return; for (let j = Math.max(0, Math.floor((p[1] - reach - x0) / g)); j <= Math.min(n - 1, Math.ceil((p[1] + reach - x0) / g)); j++) for (let i = Math.max(0, Math.floor((p[0] - reach - x0) / g)); i <= Math.min(n - 1, Math.ceil((p[0] + reach - x0) / g)); i++) {
+      const v = Math.hypot(x0 + i * g - p[0], x0 + j * g - p[1]) - keep, q = j * n + i; if (v < F[q]) F[q] = v; } }); });
+  if (o.scope === 'work') {
+    const pts = []; P.features.forEach(f => { if (['lod', 'silt', 'river', 'habitat', 'note'].includes(f.layer) || f.existing) return; pts.push(...(f.layer === 'road' ? centerline(f) : f.pts)); });
+    P.objects.forEach(q => { if (!['wreck', 'controlpoint', 'tree', 'boulder'].includes(q.type)) pts.push([q.x, q.z]); });
+    const H = convexHull(pts);
+    if (H.length >= 3) for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = x0 + i * g, z = x0 + j * g, d = lineDist(H, x, z, true), sd = inPoly(H, x, z) ? -d : d, q = j * n + i; F[q] = Math.min(F[q], o.work - sd); }
+  }
+  const loopsAt = lv => { const G = new Float32Array(n * n); for (let q = 0; q < n * n; q++) G[q] = lv - F[q]; return marchingLoops(G, n, n, x0, x0, g).filter(L => L.closed && L.pts.length > 8).map(L => simplify([...L.pts, L.pts[0]], 2.5).slice(0, -1).map(p => p.map(r1))); };
+  const split = loops => { const big = loops.filter(L => polyArea(L) > 20000).sort((a, b) => polyArea(b) - polyArea(a)), outer = [], holes = [];
+    big.forEach(L => (big.some(M => M !== L && polyArea(M) > polyArea(L) && inPoly(M, ...L[0])) ? holes : outer).push(L)); return { outer, holes }; };
+  const lod = split(loopsAt(0)), silt = split(loopsAt(o.silt));
+  return { lods: lod.outer, silts: silt.outer, rings: silt.holes };
+}
+function applyBorders(o) {
+  const r = autoBorders(o); if (!r.lods.length) { toast('No room for an LOD — move things away from the coast', 'err'); return; }
+  pushUndo();
+  const lods = P.features.filter(f => f.layer === 'lod'), silts = P.features.filter(f => f.layer === 'silt').sort((a, b) => polyArea(b.pts) - polyArea(a.pts));
+  const mainL = lods[0] || { id: 'lod', layer: 'lod', name: 'Limit of disturbance', closed: true }, ring = f => f.auto === 'ring' || f.auto !== 'silt' && polyArea(f.pts) < 8 * 43560 && P.features.some(w => (w.layer === 'water' || w.layer === 'river') && w.pts.some(p => inPoly(f.pts, ...p))), mainS = silts.find(f => f.closed && !ring(f)) || { id: uid('silt'), layer: 'silt', name: 'Silt fence', closed: true };      // (a fence round a pond or creek is never taken over)
+  const gone = new Map();                                                          // old id -> the id that replaces it in missions
+  P.features = P.features.filter(f => { if (f === mainL || f === mainS) return true; if (f.layer === 'lod') { gone.set(f.id, mainL.id); return false; } if (f.auto) { gone.set(f.id, f.layer === 'lod' ? mainL.id : mainS.id); return false; } return true; });
+  Object.assign(mainL, { pts: r.lods[0], closed: true, auto: 'lod' }); if (!P.features.includes(mainL)) P.features.push(mainL);
+  if (r.silts.length) { Object.assign(mainS, { pts: r.silts[0], closed: true, auto: 'silt' }); if (!P.features.includes(mainS)) P.features.push(mainS); }
+  const extra = [];
+  r.lods.slice(1).forEach((pts, k) => { const f = { id: uid('lod'), layer: 'lod', name: 'Limit of disturbance ' + (k + 2), pts, closed: true, auto: 'lod' }; P.features.push(f); extra.push([mainL.id, f.id]); });
+  r.silts.slice(1).forEach((pts, k) => { const f = { id: uid('silt'), layer: 'silt', name: 'Silt fence ' + (k + 2), pts, closed: true, auto: 'silt' }; P.features.push(f); extra.push([mainS.id, f.id]); });
+  r.rings.forEach((pts, k) => P.features.push({ id: uid('silt'), layer: 'silt', name: 'Silt fence round the river' + (k ? ' ' + (k + 1) : ''), pts, closed: true, auto: 'ring' }));
+  P.missions.forEach(m => { let fs = (m.features || []).map(id => gone.get(id) || id); extra.forEach(([main, id]) => { if (fs.includes(main)) fs.push(id); }); m.features = [...new Set(fs)]; });
+  UI.sel = { kind: 'f', id: mainL.id }; UI.tab = 'sel'; renderPanel(); draw();
+  toast(`LOD ${(r.lods.reduce((s, p) => s + polyArea(p), 0) / 43560).toFixed(1)} ac + silt fence made`, 'ok');
+}
+
 // --- stake previews (what each mission would put in the ground; mirrors the game's generators)
 function missionStakes(m) {
   const fs = (m.features || []).map(id => P.features.find(f => f.id === id)).filter(Boolean), runs = [];
@@ -1500,6 +1546,13 @@ function paneSite() {
     <div class="row"><span>Location</span><input type="text" id="sLoc" value="${esc(P.meta.location)}" placeholder="City, State"></div>
     <div class="row"><span>Author</span><input type="text" id="sAuthor" value="${esc(P.meta.author)}" placeholder="Your name"></div>
     <div class="row" style="align-items:start"><span>Notes for Claude</span><textarea id="sNotes" placeholder="What the map should feel like: landmarks, what the crew does here, special rules…">${esc(P.meta.notes)}</textarea></div></div>
+  <div class="sect"><h3>Auto LOD &amp; silt fence</h3>
+    <p class="note">Draws the LOD and the silt fence for you — everywhere except near the coast and rivers. Run it again any time after you change things.</p>
+    <div class="row"><span>Cover</span><span class="seg" id="bScope"><button data-v="island" class="${(UI.bScope || 'island') === 'island' ? 'on' : ''}">Whole island</button><button data-v="work" class="${UI.bScope === 'work' ? 'on' : ''}">Around my work</button></span></div>
+    <div class="row"><span>Stay off coast (ft)</span><input type="number" id="bCoast" value="${UI.bCoast ?? 60}" min="10" max="400" inputmode="numeric"></div>
+    <div class="row"><span>Stay off rivers (ft)</span><input type="number" id="bRiver" value="${UI.bRiver ?? 40}" min="0" max="300" inputmode="numeric"></div>
+    <div class="row"><span>Silt inside LOD (ft)</span><input type="number" id="bSilt" value="${UI.bSilt ?? 10}" min="2" max="100" inputmode="numeric"></div>
+    <div class="btns"><button class="btn go" id="bGo">✨ Make LOD + silt fence</button></div></div>
   <div class="sect"><h3>Roads</h3>
     <div class="row"><span>Corner rounding</span><input type="range" id="sFillet" min="4" max="60" step="1" value="${P.world.fillet ?? 18}"></div>
     <p class="note">How round the curb returns are where roads meet (${P.world.fillet ?? 18} ft). Bigger = wider, smoother turns.</p></div>
@@ -1604,6 +1657,7 @@ function paneSel() {
         <div class="row"><span>Row spacing (ft)</span><input type="number" id="fPitch" value="${f.pitch || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Pile spacing (ft)</span><input type="number" id="fStep" value="${f.step || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Keep off edge (ft)</span><input type="number" id="fEdge" value="${f.edge ?? 10}" min="0" max="60" inputmode="numeric"></div>
         <p class="note">Rows run north–south like Memphis. Piles stay off roads, cables and utilities, rivers, ponds, the yard, buildings, LBDs and the inverter pad, and inside the LOD.</p>`; })() : ''}
       ${f.layer === 'water' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fDepth" value="${f.depth || 3}" min="1" max="30" step=".5" inputmode="decimal"></div>` : ''}
+      ${f.layer === 'lod' || f.layer === 'silt' ? `<div class="btns"><button class="btn" id="fAutoB">✨ Redo LOD + silt automatically</button></div>` : ''}
       <div class="row"><span>Used by</span><span class="mono">${used.length ? used.join(', ') : 'no missions yet'}</span></div>
       <div class="btns"><button class="btn go" id="fMission">Make a mission</button><button class="btn" id="fDup">Duplicate</button><button class="btn danger" id="fDel">Delete</button></div></div>
     ${lineish ? `<div class="sect"><h3>Move &amp; shape</h3>
@@ -1653,6 +1707,9 @@ function wirePane(pane) {
   on('lAdd', 'click', () => openCatalog());
   // site
   on('sLoc', 'change', e => { P.meta.location = e.target.value; markDirty(); renderPanel(); }); on('sAuthor', 'change', e => { P.meta.author = e.target.value; markDirty(); }); on('sNotes', 'change', e => { P.meta.notes = e.target.value; markDirty(); });
+  pane.querySelectorAll('#bScope button').forEach(b => b.addEventListener('click', () => { UI.bScope = b.dataset.v; renderPanel(); }));
+  on('bCoast', 'change', e => { UI.bCoast = clamp(+e.target.value || 60, 10, 400); }); on('bRiver', 'change', e => { UI.bRiver = clamp(+e.target.value || 0, 0, 300); }); on('bSilt', 'change', e => { UI.bSilt = clamp(+e.target.value || 10, 2, 100); });
+  on('bGo', 'click', () => { applyBorders(bordersOpt()); closeSheetOnPhone(); });
   on('sFillet', 'input', e => { P.world.fillet = +e.target.value; RoadNet.live = false; draw(); }); on('sFillet', 'change', e => { pushUndo(); P.world.fillet = +e.target.value; RoadNet.live = true; renderPanel(); draw(); });
   on('sIsland', 'change', edit(e => { P.world.island = { shore: 1185, sea: -5, rough: 0, seed: 1, ...P.world.island, on: e.target.checked, chosen: true }; terrainDirty = true; }));
   on('sShore', 'change', edit(e => { P.world.island.shore = clamp(+e.target.value || 1185, 500, P.world.size / 2); terrainDirty = true; }));
@@ -1725,7 +1782,7 @@ function wirePane(pane) {
         if (curvy(f)) c.curve = 'smooth'; if (layer === 'road') Object.assign(c, { w: UI.road, surface: UI.roadSurf, curve: f.curve || 'smooth', closed: false }); if (layer === 'power') c.poleStep = 180; if (sides.length > 1) c.name += i ? ' (right)' : ' (left)'; P.features.push(c); last = c; });
       UI.sel = { kind: 'f', id: last.id }; setStatus('Copy made ' + d + ' ft ' + ({ in: 'inside', out: 'outside', l: 'left', r: 'right', both: 'each side' })[side], 'ok'); }));
     on('fDup', 'click', edit(() => { const c = JSON.parse(JSON.stringify(f)); c.id = uid(f.layer); c.name += ' copy'; c.pts = c.pts.map(p => [p[0] + 30, p[1] + 30]); P.features.push(c); UI.sel = { kind: 'f', id: c.id }; }));
-    on('fDel', 'click', () => deleteSel());
+    on('fDel', 'click', () => deleteSel()); on('fAutoB', 'click', () => applyBorders(bordersOpt()));
     on('fMission', 'click', edit(() => { const type = f.layer === 'road' ? 'roadEdges' : UTIL_LAYERS.includes(f.layer) ? 'locate' : Object.entries(MTYPES).find(([, t]) => t.layers.includes(f.layer))?.[0] || 'line'; addMission(type, [f.id]); UI.tab = 'missions'; }));
   }
   const o = selObject();
@@ -1758,6 +1815,7 @@ function catalogItems() {
   const items = [];
   Object.entries(LAYERS).filter(([, L]) => L.geom !== 'points').forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
     sub: k === 'road' ? 'Draw it — curves & junctions round off' : k === 'river' ? 'Draw it — cuts its own channel' : L.geom === 'points' ? 'Tap to drop points' : L.geom === 'area' ? 'Draw an area' : 'Draw a line' }));
+  items.push({ kind: 'auto', key: 'borders', label: 'Auto LOD + silt fence', cat: 'Survey', kw: 'automatic generate lod silt fence border boundary quick', sub: 'Around everything — not near rivers or the coast' });
   Object.entries(YARD_PRESETS).forEach(([k, Y]) => items.push({ kind: 'preset', key: k, label: Y.label, cat: 'Office yards', kw: 'office yard conex preset layout parking fuel porta ' + Y.sub, sub: Y.sub }));
   Object.entries(OBJECTS).forEach(([k, D]) => items.push({ kind: 'obj', key: k, label: D.label, cat: D.cat, kw: D.kw || '', color: D.color, icon: D.icon, sub: 'Tap to place' }));
   return items;
@@ -1768,6 +1826,7 @@ function presetSVG(key) {
   return `<svg viewBox="0 0 34 34" width="30" height="30"><rect x="${X(x0)}" y="${Z(z0)}" width="${(Math.max(...xs) - x0) * sc}" height="${(Math.max(...zs) - z0) * sc}" fill="#b4ada0" rx="1"/>${g.objs.filter(o => OBJECTS[o.type] && !OBJECTS[o.type].shape).map(o => { const D = OBJECTS[o.type], tw = Math.abs(Math.cos(o.yaw)) > .5; const w = (tw ? D.w : D.d) * sc, d = (tw ? D.d : D.w) * sc; return `<rect x="${X(o.x) - w / 2}" y="${Z(o.z) - d / 2}" width="${w}" height="${d}" fill="${D.color}" stroke="#333" stroke-width=".4"/>`; }).join('')}${g.objs.filter(o => o.type === 'utvpark' || o.type === 'truckpark').map(o => `<circle cx="${X(o.x)}" cy="${Z(o.z)}" r="1.4" fill="#fff"/>`).join('')}</svg>`;
 }
 function tileIcon(it) {
+  if (it.kind === 'auto') return `<i style="background:var(--accent);color:var(--accent-ink)">✨</i>`;
   if (it.kind === 'preset') return `<i style="background:var(--paper)">${presetSVG(it.key)}</i>`;
   if (it.kind === 'obj') return `<i style="background:color-mix(in srgb, ${it.color} 35%, var(--raise))">${it.icon || '■'}</i>`;
   const c = it.color, dash = (LAYERS[it.key].dash || []).join(' ');
@@ -1813,8 +1872,10 @@ function openCatalog() {
   $('modal').querySelector('.dlg').addEventListener('pointerup', e => { const d = down; down = null; if (!d || d.id !== e.pointerId || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return; e.preventDefault(); if (d.b.dataset.it) choose(d.b); else chip(d.b); });
   list.addEventListener('click', e => { if (e.detail === 0) { const b = e.target.closest('[data-it]'); if (b) choose(b); } });     // keyboard (Enter / Space) still works
 }
+const bordersOpt = () => ({ scope: UI.bScope || 'island', coast: UI.bCoast ?? 60, river: UI.bRiver ?? 40, silt: UI.bSilt ?? 10, work: 80 });
 function pickItem(kind, key) {
   UI.sel = null; UI.vtx = null;
+  if (kind === 'auto') { setTool('select'); applyBorders(bordersOpt()); return; }
   if (kind === 'preset') { UI.preset = key; UI.presetYaw = 0; setTool('preset'); }
   else if (kind === 'obj') { UI.obj = key; setTool('object'); }
   else if (key === 'road') setTool('road');
