@@ -263,7 +263,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2;
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-c';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -1237,7 +1237,7 @@ function renderToolbar() {
   const snap = `<button id="tbSnap" class="${UI.snap ? 'on' : ''}" title="Snap to other lines and corners">Snap</button>`;
   if (UI.tool === 'draw') {
     const lay = Object.fromEntries(Object.entries(LAYERS).filter(([k, v]) => v.geom !== 'points' && k !== 'road' && k !== 'river')), area = LAYERS[UI.layer].geom === 'area';
-    h = `<div class="tb"><select id="tbLayer" aria-label="What to draw">${opts(lay, UI.layer)}</select>${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand'], ...(area ? [['box', 'Box']] : [])], UI.drawMode)}${snap}${finish}</div>`;
+    h = `<div class="tb"><select id="tbLayer" aria-label="What to draw">${opts(lay, UI.layer)}</select>${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand'], ...(area ? [['box', 'Box']] : [])], UI.drawMode)}${snap}${finish}${!UI.draft && (UI.layer === 'lod' || UI.layer === 'silt') ? '<button class="go" id="tbAuto">✨ Auto LOD + silt</button>' : ''}</div>`;
     hint = UI.draft ? (UI.drawMode === 'tap' ? `Tap to add corners · ${area ? 'tap the first corner or Done to close' : 'double-tap or Done to end'}` : 'Keep drawing…') : UI.drawMode === 'free' ? 'Draw with your finger — it smooths into clean corners' : UI.drawMode === 'box' ? 'Drag a box' : 'Tap the map to start a ' + LAYERS[UI.layer].label.toLowerCase();
   } else if (UI.tool === 'road') {
     h = `<div class="tb"><label>Width</label><input type="number" id="tbRoadW" value="${UI.road}" min="6" max="60" step="1">${seg('tbSurf', [['gravel', 'Gravel'], ['caliche', 'Caliche'], ['dirt', 'Dirt'], ['paved', 'Paved']], UI.roadSurf)}${seg('tbCurve', [['smooth', 'Curvy'], ['straight', 'Straight']], UI.roadCurve)}${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand']], UI.drawMode === 'box' ? 'tap' : UI.drawMode)}${snap}${finish}</div>`;
@@ -1276,7 +1276,7 @@ function renderToolbar() {
   on('tbRoadW', 'change', e => { UI.road = clamp(+e.target.value || 16, 4, 80); draw(); });
   segOn('tbSurf', v => { UI.roadSurf = v; }); segOn('tbCurve', v => { UI.roadCurve = v; });
   on('tbRivW', 'change', e => { UI.river = clamp(+e.target.value || 30, 4, 300); draw(); }); on('tbRivD', 'change', e => { UI.rdepth = clamp(+e.target.value || 4, 1, 30); });
-  on('tbFinish', 'click', () => finishDraft()); on('tbCancel', 'click', () => { UI.draft = null; snapMark = null; renderToolbar(); draw(); });
+  on('tbFinish', 'click', () => finishDraft()); on('tbAuto', 'click', () => { setTool('select'); applyBorders(bordersOpt()); }); on('tbCancel', 'click', () => { UI.draft = null; snapMark = null; renderToolbar(); draw(); });
   segOn('tbPLayer', v => { UI.player = v; }); segOn('tbRepl', v => { UI.presetReplace = v === '1'; }); on('tbTurn', 'click', () => { UI.presetYaw = ((UI.presetYaw || 0) + 90) % 360; draw(); }); on('tbNewSet', 'click', () => { UI.sel = null; renderToolbar(); renderPanel(); draw(); });
   on('tbPick', 'click', () => openCatalog()); on('tbStop', 'click', () => setTool('select'));
   segOn('tbTMode', v => { UI.tmode = v; }); on('tbGround', 'change', e => { UI.ground = e.target.value; }); segOn('tbTrees', v => { UI.trmode = v; });
@@ -1580,7 +1580,7 @@ function paneSite() {
     <p class="note"><span class="tag game">game</span> already in the game. <span class="tag new">new</span> Claude builds it when the map is imported.</p>
     ${P.wildlife.map((w, i) => `<div class="wl"><span style="display:flex;gap:5px;align-items:center;min-width:0"><input type="text" data-wsp="${i}" value="${esc(w.species)}" list="spList" aria-label="Species"><span class="tag ${IN_GAME.has(w.species) ? 'game' : 'new'}">${IN_GAME.has(w.species) ? 'game' : 'new'}</span></span><input type="number" data-wct="${i}" value="${w.count}" min="0" max="60" aria-label="How many" inputmode="numeric"><select data-wmd="${i}" aria-label="Behaviour">${MOODS.map(m => opt(m, m, w.mood)).join('')}</select><button class="x" data-wdel="${i}" aria-label="Remove">×</button></div>`).join('')}
     <datalist id="spList">${Object.keys(SPECIES_NAMES).map(s => `<option value="${s}">${SPECIES_NAMES[s]}</option>`).join('')}</datalist></div>
-  <div class="sect"><h3>File</h3><p class="note">Saves as <span class="mono">survey-sim-site v${VERSION}</span>. Game feet: N = 5000 − z, E = 5000 + x, Elev = 100 + h.</p>
+  <div class="sect"><h3>File</h3><p class="note">Site Builder build <span class="mono">${BUILD}</span> · saves as <span class="mono">survey-sim-site v${VERSION}</span>. Game feet: N = 5000 − z, E = 5000 + x, Elev = 100 + h.</p>
     <div class="btns"><button class="btn" id="sExport">Download .json</button><button class="btn" id="sCopy">Copy JSON</button><button class="btn" id="sImport">Import…</button></div></div>
   <div class="sect"><h3>Site summary</h3>${summaryHTML()}</div>`;
 }
@@ -1813,9 +1813,9 @@ function addMission(type, features) {
 const CATS = ['Office yards', 'Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
 function catalogItems() {
   const items = [];
+  items.push({ kind: 'auto', key: 'borders', label: '✨ Auto LOD + silt fence', cat: 'Survey', kw: 'automatic generate lod silt fence border boundary quick', sub: 'One tap: around everything, off rivers & coast' });
   Object.entries(LAYERS).filter(([, L]) => L.geom !== 'points').forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
     sub: k === 'road' ? 'Draw it — curves & junctions round off' : k === 'river' ? 'Draw it — cuts its own channel' : L.geom === 'points' ? 'Tap to drop points' : L.geom === 'area' ? 'Draw an area' : 'Draw a line' }));
-  items.push({ kind: 'auto', key: 'borders', label: 'Auto LOD + silt fence', cat: 'Survey', kw: 'automatic generate lod silt fence border boundary quick', sub: 'Around everything — not near rivers or the coast' });
   Object.entries(YARD_PRESETS).forEach(([k, Y]) => items.push({ kind: 'preset', key: k, label: Y.label, cat: 'Office yards', kw: 'office yard conex preset layout parking fuel porta ' + Y.sub, sub: Y.sub }));
   Object.entries(OBJECTS).forEach(([k, D]) => items.push({ kind: 'obj', key: k, label: D.label, cat: D.cat, kw: D.kw || '', color: D.color, icon: D.icon, sub: 'Tap to place' }));
   return items;
@@ -2051,7 +2051,16 @@ $('btn3d').onclick = open3D; $('close3d').onclick = () => { $('three').hidden = 
 new ResizeObserver(resize).observe($('mapwrap'));
 addEventListener('resize', () => { renderToolbar(); });
 renderRail(); renderToolbar();
+// the hosted copy (GitHub) checks for a newer build so phones don't keep running a cached one
+async function checkUpdate() {
+  if (window.claude || !/^https?:/.test(location.protocol)) return;
+  try { const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json();
+    if (v && v.build && v.build !== BUILD) { saveDraft(); const b = document.createElement('button'); b.className = 'hbtn primary'; b.textContent = 'Update ready — tap'; b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 62px);z-index:60;box-shadow:0 6px 20px rgb(0 0 0/.35)';
+      b.onclick = () => location.replace(location.pathname + '?v=' + encodeURIComponent(v.build)); document.body.appendChild(b); } } catch (e) { /* offline */ }
+}
+addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 (async () => {
+  setTimeout(checkUpdate, 1500);
   try { const r = await fetch('memphis.json'); if (r.ok) example = await r.json(); } catch (e) { /* offline preview */ }
   let draft = null; try { draft = JSON.parse(localStorage.getItem('ssb.draft') || 'null'); } catch (e) { /* blocked */ }
   try { if (draft && draft.format === FORMAT) loadProject(draft); else if (example) loadProject(example); else newProject('highplains'); }
