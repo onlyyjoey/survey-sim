@@ -142,10 +142,12 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 .tag.game { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good); }
 .tag.new { background: color-mix(in srgb, var(--survey) 22%, transparent); color: var(--survey); }
 .modal { position: fixed; inset: 0; background: rgb(8 10 9 / .55); display: grid; place-items: center; z-index: 50; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
-.dlg { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: min(720px, 100%); max-height: 100%; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgb(0 0 0 / .35); min-width: 0; }
+.dlg { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: min(720px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; box-shadow: 0 20px 50px rgb(0 0 0 / .35); min-width: 0; }
 .dlg > header { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .dlg h2 { margin: 0; font: 700 20px var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
-.dlg .body { padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.dlg .body { padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1 1 auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.dlg .body > * { flex-shrink: 0; }
+.dlg > header, .dlg .foot { flex: none; }
 .dlg .foot { padding: 12px 14px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .projgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .pcard { text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--raise); padding: 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -209,7 +211,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
   .tiles { grid-template-columns: 1fr 1fr; }
   .dlg { border-radius: 18px; }
   .modal { place-items: end center; padding-bottom: 0; padding-left: 0; padding-right: 0; }
-  .modal .dlg { border-radius: 18px 18px 0 0; max-height: 92%; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .modal .dlg { border-radius: 18px 18px 0 0; max-height: 88vh; max-height: 88dvh; padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 @media (prefers-reduced-motion: reduce) { aside.panel { transition: none; } }
 </style>
@@ -465,7 +467,25 @@ function smoothPath(pts, closed, step = 2) {
   return out;
 }
 const curvy = f => (f.layer === 'road' || f.layer === 'river') ? f.curve !== 'straight' : !!f.curve && f.curve === 'smooth';
-function centerline(f) { return curvy(f) ? smoothPath(f.pts, f.closed) : (f.closed ? [...f.pts, f.pts[0]] : f.pts); }
+function rawCenterline(f) { return curvy(f) ? smoothPath(f.pts, f.closed) : (f.layer === 'road' || f.layer === 'river') ? along(f.pts, 2, f.closed) : (f.closed ? [...f.pts, f.pts[0]] : f.pts); }   // (straight roads/rivers sampled every 2 ft too)
+const CL = new WeakMap();
+const culR = f => Math.max(24, (f.w || 12) / 2 + 12);                // turnaround circle at a road's dead end (room for a truck)
+// roads and rivers are cut at the island's coast: the longest stretch on land is kept; f.dead = [start cut, end cut]
+function centerline(f) {
+  const wide = f.layer === 'road' || f.layer === 'river', isl = P && P.world.island;
+  if (!wide || !isl || !isl.on) { f.dead = undefined; return rawCenterline(f); }
+  let h = 0; f.pts.forEach((p, i) => { h = (h * 31 + p[0] * 7 + p[1] * 13 + i) % 1e9; });
+  const sig = [h, f.pts.length, f.curve, f.w, isl.shore, isl.rough, isl.seed].join();
+  const c = CL.get(f); if (c && c.sig === sig) { f.dead = c.dead; return c.S; }
+  const S = rawCenterline(f);
+  const lim = p => { const R = Shore.r(isl, p[0], p[1]); return f.layer === 'road' ? R - culR(f) - 10 : R + 14; };
+  const on = S.map(p => Math.hypot(p[0], p[1]) < lim(p));
+  let best = [0, -1], s0 = -1; for (let i = 0; i <= S.length; i++) { if (i < S.length && on[i]) { if (s0 < 0) s0 = i; } else if (s0 >= 0) { if (i - 1 - s0 > best[1] - best[0]) best = [s0, i - 1]; s0 = -1; } }
+  let out, dead = [false, false];
+  if (best[1] - best[0] < 1) out = S.slice(0, 2); else { out = S.slice(best[0], best[1] + 1); dead = [best[0] > 0, best[1] < S.length - 1]; }
+  if (f.layer === 'river') dead = [false, false];                     // a river just runs out to sea
+  f.dead = dead; CL.set(f, { sig, S: out, dead }); return out;
+}
 // offset a closed loop or open line by d feet (+ = to the left of travel / outward for clockwise loops)
 function offsetPts(pts, d, closed) {
   const n = pts.length, out = [];
@@ -503,6 +523,7 @@ function terrainToJSON(T) {
 }
 function projectJSON() {
   P.meta.updated = today();
+  P.features.forEach(f => { if (f.layer === 'road' || f.layer === 'river') { const S = centerline(f); f.path = simplify(S, .4).map(p => p.map(r1)); f.deadEnds = f.dead && (f.dead[0] || f.dead[1]) ? f.dead.map(d => d ? culR(f) : 0) : undefined; } });
   const isl = P.world.island; if (isl) { if (isl.on) isl.outline = Shore.poly(isl, 96); else delete isl.outline; }
   return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
 }
@@ -750,11 +771,12 @@ function marchingLoops(F, nx, nz, x0, z0, g) {
 }
 function smin(a, b, k) { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * .25; }
 function buildNet(roads, R, capped, defW) {
-    const RS = roads.map(f => { const S = centerline(f), n = S.length, t0 = [S[1][0] - S[0][0], S[1][1] - S[0][1]], t1 = [S[n - 1][0] - S[n - 2][0], S[n - 1][1] - S[n - 2][1]];
-      const l0 = Math.hypot(...t0) || 1, l1 = Math.hypot(...t1) || 1; return { f, S, half: (f.w || defW || 12) / 2, t0: [t0[0] / l0, t0[1] / l0], t1: [t1[0] / l1, t1[1] / l1] }; });
+    const RS = roads.filter(f => centerline(f).length >= 2).map(f => { const S = centerline(f), n = S.length, t0 = [S[1][0] - S[0][0], S[1][1] - S[0][1]], t1 = [S[n - 1][0] - S[n - 2][0], S[n - 1][1] - S[n - 2][1]];
+      const l0 = Math.hypot(...t0) || 1, l1 = Math.hypot(...t1) || 1; return { f, S, dead: f.dead || [false, false], half: (f.w || defW || 12) / 2, t0: [t0[0] / l0, t0[1] / l0], t1: [t1[0] / l1, t1[1] / l1] }; });
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, mh = 0;
     RS.forEach(r => { mh = Math.max(mh, r.half); r.S.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }); });
-    const pad = mh + R + 6, lim = T.n * T.cell / 2; x0 = Math.max(-lim, x0 - pad); x1 = Math.min(lim, x1 + pad); z0 = Math.max(-lim, z0 - pad); z1 = Math.min(lim, z1 + pad);
+    if (!RS.length) return { RS, G: null, own: null, raws: [], caps: [], nx: 1, nz: 1, x0: 0, z0: 0, g: 1, loops: [], R };
+    const pad = mh + R + 40, lim = T.n * T.cell / 2; x0 = Math.max(-lim, x0 - pad); x1 = Math.min(lim, x1 + pad); z0 = Math.max(-lim, z0 - pad); z1 = Math.min(lim, z1 + pad);
     let g = 2; while (((x1 - x0) / g) * ((z1 - z0) / g) > 1.3e6) g += 1;
     const nx = Math.ceil((x1 - x0) / g) + 1, nz = Math.ceil((z1 - z0) / g) + 1, N = nx * nz;
     const G = new Float32Array(N).fill(1e6), own = new Int16Array(N).fill(-1), raws = [], caps = [];
@@ -766,15 +788,19 @@ function buildNet(roads, R, capped, defW) {
           const x = x0 + i * g, q = j * nx + i;
           const oa = -((x - s0[0]) * r.t0[0] + (z - s0[1]) * r.t0[1]), ob = (x - s1[0]) * r.t1[0] + (z - s1[1]) * r.t1[1];
           let v;
-          if (capped && (oa > 0 || ob > 0)) {                                               // past an end: square-cut road end
+          const nearA = oa > 0 && Math.hypot(x - s0[0], z - s0[1]) < r.half * 1.5 + 3, nearB = ob > 0 && Math.hypot(x - s1[0], z - s1[1]) < r.half * 1.5 + 3;
+          if (capped && (nearA || nearB) && !(r.dead[0] && nearA) && !(r.dead[1] && nearB)) {                                               // past an end: square-cut road end
             v = 1e6;
-            if (oa > 0) v = Math.min(v, Math.max(Math.abs((x - s0[0]) * r.t0[1] - (z - s0[1]) * r.t0[0]) - r.half, oa));
-            if (ob > 0) v = Math.min(v, Math.max(Math.abs((x - s1[0]) * r.t1[1] - (z - s1[1]) * r.t1[0]) - r.half, ob));
+            if (nearA) v = Math.min(v, Math.max(Math.abs((x - s0[0]) * r.t0[1] - (z - s0[1]) * r.t0[0]) - r.half, oa));
+            if (nearB) v = Math.min(v, Math.max(Math.abs((x - s1[0]) * r.t1[1] - (z - s1[1]) * r.t1[0]) - r.half, ob));
             cap[q] = 1;
           } else v = Math.hypot(x - p[0], z - p[1]) - r.half;
           if (v < rv[q]) rv[q] = v;
         } }
       }
+      if (capped) [[r.dead[0], s0], [r.dead[1], s1]].forEach(([dead, e]) => { if (!dead) return; const cr = culR(r.f), rr = cr + R + 4;     // dead end at the coast: round turnaround
+        for (let j = Math.max(0, Math.floor((e[1] - rr - z0) / g)); j <= Math.min(nz - 1, Math.ceil((e[1] + rr - z0) / g)); j++) for (let i = Math.max(0, Math.floor((e[0] - rr - x0) / g)); i <= Math.min(nx - 1, Math.ceil((e[0] + rr - x0) / g)); i++) {
+          const q = j * nx + i, c = Math.hypot(x0 + i * g - e[0], z0 + j * g - e[1]) - cr; rv[q] = rv[q] > 1e5 ? c : smin(rv[q], c, R * .8); } });
       for (let q = 0; q < N; q++) { const v = rv[q]; if (v > 1e5) continue; const was = G[q]; G[q] = was > 1e5 ? v : smin(was, v, R); if (own[q] < 0 || v < raws[own[q]][q]) own[q] = ri; }
       raws.push(rv); caps.push(cap);
     });
@@ -785,7 +811,7 @@ const RoadNet = {
   sig: '', net: null, live: true,
   get() {
     const roads = P.features.filter(f => f.layer === 'road' && f.pts.length >= 2);
-    const sig = JSON.stringify([roads.map(f => [f.id, f.pts, f.w, f.curve, f.existing]), P.world.fillet ?? 18]);
+    const isl = P.world.island || {}, sig = JSON.stringify([roads.map(f => [f.id, f.pts, f.w, f.curve, f.existing]), P.world.fillet ?? 18, isl.on, isl.shore, isl.rough, isl.seed]);
     if (sig !== this.sig) { this.sig = sig; this.net = roads.length ? this.build(roads, P.world.fillet ?? 18) : null; }
     return this.net;
   },
@@ -815,7 +841,7 @@ const RiverNet = {
   sig: '', net: null, live: true,
   get() {
     const rv = P.features.filter(f => f.layer === 'river' && f.pts.length >= 2);
-    const sig = JSON.stringify(rv.map(f => [f.id, f.pts, f.w, f.curve]));
+    const isl = P.world.island || {}, sig = JSON.stringify([rv.map(f => [f.id, f.pts, f.w, f.curve]), isl.on, isl.shore, isl.rough, isl.seed]);
     if (sig !== this.sig) { this.sig = sig; this.net = rv.length ? buildNet(rv, Math.max(12, Math.min(...rv.map(f => f.w || 30)) * .9), false, 30) : null; }
     return this.net;
   },
@@ -1810,7 +1836,9 @@ async function open3D() {
   if (net) net.loops.filter(L => L.closed && L.pts.length > 3).forEach(L => { try { const shp = new TH.Shape(L.pts.map(p => new TH.Vector2(p[0], -p[1]))), sg = new TH.ShapeGeometry(shp); sg.rotateX(-Math.PI / 2); const pa = sg.attributes.position; for (let i = 0; i < pa.count; i++) pa.setY(i, hAt(pa.getX(i), pa.getZ(i)) + .35); sc.add(new TH.Mesh(sg, new TH.MeshLambertMaterial({ color: 0xb5b0a5, side: TH.DoubleSide }))); } catch (e) { /* odd loop */ } });
   P.features.forEach(f => { const L = LAYERS[f.layer] || LAYERS.note;
     if (L.geom === 'points') { const pg = new TH.CylinderGeometry(.6, .6, 4, 6), mat = new TH.MeshLambertMaterial({ color: L.color }); f.pts.forEach(p => { const m = new TH.Mesh(pg, mat); m.position.set(p[0], hAt(p[0], p[1]) + 2, p[1]); sc.add(m); }); return; }
-    if (f.layer === 'road') { sc.add(ribbon(TH, centerline(f), (f.w || 12) / 2, .45, { dirt: 0x9c7d57, caliche: 0xe3d9c0, paved: 0x4b4f53 }[f.surface] || 0xb5b0a5)); return; }
+    if (f.layer === 'road') { const S = centerline(f), col = { dirt: 0x9c7d57, caliche: 0xe3d9c0, paved: 0x4b4f53 }[f.surface] || 0xb5b0a5; sc.add(ribbon(TH, S, (f.w || 12) / 2, .45, col));
+      (f.dead || []).forEach((d, k) => { if (!d) return; const e = k ? S.at(-1) : S[0], disc = new TH.Mesh(new TH.CircleGeometry(culR(f), 28), new TH.MeshLambertMaterial({ color: col })); disc.rotation.x = -Math.PI / 2; disc.position.set(e[0], hAt(e[0], e[1]) + .4, e[1]); sc.add(disc); });
+      return; }
     if (f.layer === 'river') { sc.add(ribbon(TH, centerline(f), (f.w || 30) / 2, -.6, 0x3b7fb4, { alpha: .9 })); return; }
     if (f.layer === 'water' || f.layer === 'yard') {
       const shp = new TH.Shape(f.pts.map(p => new TH.Vector2(p[0], -p[1]))), sg = new TH.ShapeGeometry(shp); sg.rotateX(-Math.PI / 2);
