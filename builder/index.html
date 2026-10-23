@@ -1760,6 +1760,7 @@ function openCatalog() {
   let recent = []; try { recent = JSON.parse(localStorage.getItem('ssb.recent') || '[]'); } catch (e) { /* blocked */ }
   openModal('Add to the map', `<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="catQ" placeholder="Search: road, gas line, forklift, pole…" autocomplete="off" enterkeyhint="go"></div>
     <div class="cats" id="catChips">${['All', ...CATS].map(c => `<button data-cat="${esc(c)}" class="${c === cat ? 'on' : ''}">${esc(c)}</button>`).join('')}</div><div id="catList"></div>`, '');
+  $('modal').querySelector('.dlg').style.height = isPhone() ? '88dvh' : 'min(760px, calc(100dvh - 32px))';     // fixed height: the sheet doesn't jump as results change
   const list = $('catList'), tile = it => `<button class="tile" data-it="${it.kind}:${it.key}">${tileIcon(it)}<span><b>${esc(it.label)}</b><small>${esc(it.sub)}</small></span></button>`;
   const paint = () => {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -1777,10 +1778,17 @@ function openCatalog() {
   const qi = $('catQ'); qi.addEventListener('input', () => { q = qi.value; paint(); });
   qi.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('[data-it]'); if (b) b.click(); } });
   if (!isPhone()) setTimeout(() => qi.focus(), 30);
-  $('catChips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; cat = UI.cat = b.dataset.cat; $('catChips').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); q = qi.value = ''; paint(); });
-  list.addEventListener('click', e => { const b = e.target.closest('[data-it]'); if (!b) return; const [kind, key] = b.dataset.it.split(':');
+  const chip = b => { cat = UI.cat = b.dataset.cat; $('catChips').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); q = qi.value = ''; paint(); };
+  const choose = b => { const [kind, key] = b.dataset.it.split(':');
     recent = [b.dataset.it, ...recent.filter(r => r !== b.dataset.it)].slice(0, 8); try { localStorage.setItem('ssb.recent', JSON.stringify(recent)); } catch (er) { /* blocked */ }
-    closeModal(); closeSheetOnPhone(); pickItem(kind, key); });
+    closeModal(); closeSheetOnPhone(); pickItem(kind, key); };
+  // act on what the finger went DOWN on: on iPhone, tapping while the search keyboard is open closes the keyboard first,
+  // the sheet drops, and the click lands on whatever slid under the finger (the tile above — e.g. DC cable instead of Substation)
+  let down = null;
+  $('modal').querySelector('.dlg').addEventListener('pointerdown', e => { const b = e.target.closest('[data-it], [data-cat]'); down = b ? { b, x: e.clientX, y: e.clientY, id: e.pointerId } : null; });
+  $('modal').querySelector('.dlg').addEventListener('pointercancel', () => { down = null; });
+  $('modal').querySelector('.dlg').addEventListener('pointerup', e => { const d = down; down = null; if (!d || d.id !== e.pointerId || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return; e.preventDefault(); if (d.b.dataset.it) choose(d.b); else chip(d.b); });
+  list.addEventListener('click', e => { if (e.detail === 0) { const b = e.target.closest('[data-it]'); if (b) choose(b); } });     // keyboard (Enter / Space) still works
 }
 function pickItem(kind, key) {
   UI.sel = null; UI.vtx = null;
@@ -1870,7 +1878,7 @@ async function openProjects() {
   m.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => { if (b.dataset.sure) { localDel(b.dataset.ldel); openProjects(); } else { b.dataset.sure = 1; b.textContent = 'Sure?'; } });
   $('pImport').onclick = openImport;
 }
-function openModal(title, body, foot) { const m = $('modal'); m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header><h2>${esc(title)}</h2><button class="btn sm" data-close aria-label="Close">✕</button></header><div class="body">${body}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`; m.hidden = false; m.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal); m.onclick = e => { if (e.target === m) closeModal(); }; }
+function openModal(title, body, foot) { const m = $('modal'); m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header><h2>${esc(title)}</h2><button class="btn sm" data-close aria-label="Close">✕</button></header><div class="body">${body}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`; m.hidden = false; m.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal); let downBack = false; m.onpointerdown = e => { downBack = e.target === m; }; m.onclick = e => { if (e.target === m && downBack) closeModal(); downBack = false; }; }   // (only a tap that starts AND ends on the backdrop closes it)
 function closeModal() { $('modal').hidden = true; $('modal').innerHTML = ''; }
 $('btnProjects').onclick = openProjects;
 $('btnSend').onclick = () => saveProject(true);
