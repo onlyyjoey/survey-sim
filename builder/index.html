@@ -263,7 +263,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-d';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-e';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -526,6 +526,7 @@ function projectJSON() {
   P.meta.updated = today();
   P.features.forEach(f => { if (f.layer === 'array' && f.closed) { const R = rackFor(f); f.rack = { pitch: f.pitch || 20, step: f.step || 20, rows: R.rows }; } });
   P.missions.forEach(m => { if (m.type === 'topo' || m.type === 'piles') m.points = missionStakes(m).flat(); });
+  P.features.forEach(f => { const fr = (f.layer === 'lod' || f.layer === 'silt') ? fenceRuns(f) : null; if (fr) f.runs = fr.map(r => r.map(p => p.map(r1))); else delete f.runs; });
   P.scabs = scabs().map(s => ({ ...s, w: 6, d: 3.5, h: 5 }));            // green SCAB junction boxes where AC cables join (made automatically)
   P.features.forEach(f => { if (f.layer === 'road' || f.layer === 'river') { const S = centerline(f); f.path = simplify(S, .4).map(p => p.map(r1)); f.deadEnds = f.dead && (f.dead[0] || f.dead[1]) ? f.dead.map(d => d ? culR(f) : 0) : undefined; } });
   const isl = P.world.island; if (isl) { if (isl.on) isl.outline = Shore.poly(isl, 96); else delete isl.outline; }
@@ -592,7 +593,7 @@ function newProject(biome, name, blank) {
   stampPreset('row', 0, -41, 0, false);
   [[50, 70], [-45, 70], [-100, -65], [60, -95]].forEach(([x, z], i) => P.objects.push({ id: uid('cp'), type: 'controlpoint', x, z, yaw: 0, name: 'CP-' + (i + 1) }));
   if (biome === 'highplains') {
-    const road = []; for (let x = -1300; x <= 1300; x += 100) { const p = [x, 8 + Math.round(Math.sin(x / 400) * 6)]; if (Math.hypot(...p) < Shore.r(P.world.island, ...p) - 30) road.push(p); }      // (stops at the beach)
+    const road = []; for (let x = -1300; x <= 1300; x += 100) road.push([x, 8 + Math.round(Math.sin(x / 400) * 6)]);      // (the coast cuts it, with a turnaround at each end)
     P.features.push({ id: uid('road'), layer: 'road', name: 'County road (caliche, existing)', pts: road, closed: false, w: 22, surface: 'caliche', existing: true, curve: 'smooth' });
     paintAlong(road, 13, GROUND.findIndex(g => g.id === 'caliche'));
     P.features.push({ id: 'lod', layer: 'lod', name: 'Limit of disturbance', pts: [[-260, 40], [300, 40], [300, 520], [-260, 520]], closed: true });
@@ -1036,10 +1037,31 @@ function applyPull() {
   renderPanel(); draw(); toast(`Moved ${r.moved} corner${r.moved > 1 ? 's' : ''} on ${r.touched} cable${r.touched > 1 ? 's' : ''} — ${clear} ft inside now`, 'ok');
 }
 
+// ---------------------------------------------------------------- LOD / silt fence breaks where a road crosses (an open gap the width of the road)
+const gapsOn = f => (f.layer === 'lod' || f.layer === 'silt') && f.closed && f.pts.length >= 3 && (f.roadGaps === true || (f.roadGaps !== false && !!f.auto));
+const FR = new WeakMap();
+function fenceRuns(f) {
+  if (!gapsOn(f)) return null;
+  const net = RoadNet.get(); if (!net || !net.G) return null;
+  const sig = RoadNet.sig + JSON.stringify(f.pts), c = FR.get(f); if (c && c.sig === sig) return c.runs;
+  const S = along(f.pts, 2, true), n = S.length;
+  const road = p => { const i = Math.round((p[0] - net.x0) / net.g), j = Math.round((p[1] - net.z0) / net.g); return i >= 0 && j >= 0 && i < net.nx && j < net.nz && net.G[j * net.nx + i] < 1.5; };
+  const flags = S.map(p => !road(p));
+  let runs;
+  if (flags.every(Boolean)) runs = null;
+  else {
+    runs = []; const start = flags.indexOf(false); let cur = [];
+    for (let s = 1; s <= n; s++) { const k = (start + s) % n; if (flags[k]) cur.push(S[k]); else { if (cur.length > 1) runs.push(cur); cur = []; } }
+    if (cur.length > 1) runs.push(cur);
+    runs = runs.filter(r => polyLen(r) > 4).map(r => simplify(r, .4));
+  }
+  FR.set(f, { sig, runs }); return runs;
+}
+
 // --- stake previews (what each mission would put in the ground; mirrors the game's generators)
 function missionStakes(m) {
   const fs = (m.features || []).map(id => P.features.find(f => f.id === id)).filter(Boolean), runs = [];
-  if (m.type === 'boundary') fs.forEach(f => runs.push(m.spacing > 0 ? along(f.pts, m.spacing, f.closed) : f.pts.map(p => [...p])));
+  if (m.type === 'boundary') fs.forEach(f => { const fr = fenceRuns(f); if (fr) fr.forEach(r => runs.push(m.spacing > 0 ? resample(r, m.spacing) : r.map(p => p.map(r1)))); else runs.push(m.spacing > 0 ? along(f.pts, m.spacing, f.closed) : f.pts.map(p => [...p])); });
   else if (m.type === 'line') fs.forEach(f => runs.push(along(curvy(f) ? simplify(centerline(f), 1) : f.pts, m.spacing || 0, f.closed)));
   else if (m.type === 'points') fs.forEach(f => runs.push(f.pts.map(p => [...p])));
   else if (m.type === 'topo') { const areas = fs.filter(f => f.closed && LAYERS[f.layer]?.geom === 'area'); runs.push(topoFor(areas, m.spacing || 70)); fs.filter(f => LAYERS[f.layer]?.geom === 'points').forEach(f => runs.push(f.pts.map(p => [...p]))); }
@@ -1198,7 +1220,8 @@ function drawRoads() {
   if (net) {
     ctx.beginPath(); net.loops.forEach(L => { L.pts.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (L.closed) ctx.closePath(); });
     ctx.strokeStyle = 'rgba(40,35,28,.6)'; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = SURF.gravel; ctx.fill('evenodd');
-    roads.filter(f => f.existing && f.surface !== 'gravel').forEach(f => { const S = centerline(f); ctx.lineCap = 'butt'; ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = SURF[f.surface] || SURF.dirt; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s - 1); ctx.stroke(); });
+    roads.filter(f => f.existing && f.surface !== 'gravel').forEach(f => { const S = centerline(f); ctx.lineCap = 'butt'; ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = SURF[f.surface] || SURF.dirt; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s - 1); ctx.stroke();
+      (f.dead || []).forEach((d, k) => { if (!d) return; const e = k ? S.at(-1) : S[0]; ctx.fillStyle = SURF[f.surface] || SURF.dirt; ctx.beginPath(); ctx.arc(sx(e[0]), sz(e[1]), Math.max(2, culR(f) * view.s - 1), 0, Math.PI * 2); ctx.fill(); }); });
     if (roads.some(f => f.existing && f.surface !== 'gravel')) roads.filter(f => !f.existing).forEach(f => { const S = centerline(f); ctx.lineCap = 'butt'; ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = SURF[f.surface] || SURF.gravel; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s - 1); ctx.stroke(); });
     if (UI.showEdges && view.s > .45) { ctx.beginPath(); net.loops.forEach(L => { L.pts.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (L.closed) ctx.closePath(); }); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); }
   } else roads.forEach(f => { const S = centerline(f); ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = 'rgba(40,35,28,.55)'; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s) + 3; ctx.stroke(); ctx.strokeStyle = SURF[f.surface] || SURF.gravel; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s); ctx.stroke(); });
@@ -1235,7 +1258,9 @@ function drawFeature(f, sel) {
     strokePath(S, f.closed && !curvy(f));
     if (L.fill && f.closed) { ctx.fillStyle = L.color; ctx.globalAlpha = L.fill; ctx.fill(); ctx.globalAlpha = 1; }
     if (f.layer === 'array' && f.closed && view.s > .3) drawRack(f);
-    strokePath(S, f.closed && !curvy(f));
+    const fr = fenceRuns(f);
+    if (fr) { ctx.beginPath(); fr.forEach(r => r.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1])))); ctx.lineCap = 'butt'; }      // broken where roads cross
+    else strokePath(S, f.closed && !curvy(f));
     if (L.halo) { ctx.strokeStyle = L.halo; ctx.lineWidth = 5; ctx.stroke(); } else { ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 4.5; ctx.stroke(); }
     ctx.strokeStyle = L.color; ctx.lineWidth = f.layer === 'silt' ? 2.5 : f.layer === 'power' ? 1.6 : 2.2; ctx.setLineDash(L.dash || []); ctx.stroke(); ctx.setLineDash([]);
     if (f.layer === 'power') along(S, f.poleStep || 180, false).forEach(p => { const X = sx(p[0]), Y = sz(p[1]); ctx.fillStyle = '#8b5a2b'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X, Y, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
@@ -1347,6 +1372,7 @@ function finishDraft() {
     if (d.layer === 'river') { Object.assign(f, { w: UI.river, depth: UI.rdepth || 4, curve: 'smooth' }); }
     if (d.layer === 'array') Object.assign(f, { pitch: 20, step: 20, edge: 10 });
     if (d.layer === 'water') f.depth = 3;
+    if (d.layer === 'lod' || d.layer === 'silt') f.roadGaps = true;
     if (d.layer === 'power') f.poleStep = 180;
     if (d.sketch && d.layer !== 'road' && d.layer !== 'river' && L.geom !== 'area') f.curve = 'smooth';
     P.features.push(f); UI.sel = { kind: 'f', id: f.id };
@@ -1710,6 +1736,7 @@ function paneSel() {
         <p class="note">Rows run north–south like Memphis. Piles stay off roads, cables and utilities, rivers, ponds, the yard, buildings, LBDs and the inverter pad, and inside the LOD.</p>`; })() : ''}
       ${f.layer === 'water' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fDepth" value="${f.depth || 3}" min="1" max="30" step=".5" inputmode="decimal"></div>` : ''}
       ${f.layer === 'ac' || f.layer === 'dc' ? `<div class="sect" style="gap:6px"><div class="row"><span>Keep off LOD/silt (ft)</span><input type="number" id="fPullD" value="${UI.pullClear ?? 20}" min="3" max="100" inputmode="numeric"></div><div class="btns"><button class="btn go" id="fPull">↩ Pull all AC &amp; DC cables in</button></div></div>` : ''}
+      ${(f.layer === 'lod' || f.layer === 'silt') && f.closed ? `<label class="checks"><label><input type="checkbox" id="fGaps" ${gapsOn(f) ? 'checked' : ''}> Leave a gap where roads cross</label></label>` : ''}
       ${f.layer === 'lod' || f.layer === 'silt' ? `<div class="btns"><button class="btn" id="fAutoB">✨ Redo LOD + silt automatically</button></div>` : ''}
       <div class="row"><span>Used by</span><span class="mono">${used.length ? used.join(', ') : 'no missions yet'}</span></div>
       <div class="btns"><button class="btn go" id="fMission">Make a mission</button><button class="btn" id="fDup">Duplicate</button><button class="btn danger" id="fDel">Delete</button></div></div>
@@ -1835,7 +1862,7 @@ function wirePane(pane) {
         if (curvy(f)) c.curve = 'smooth'; if (layer === 'road') Object.assign(c, { w: UI.road, surface: UI.roadSurf, curve: f.curve || 'smooth', closed: false }); if (layer === 'power') c.poleStep = 180; if (sides.length > 1) c.name += i ? ' (right)' : ' (left)'; P.features.push(c); last = c; });
       UI.sel = { kind: 'f', id: last.id }; setStatus('Copy made ' + d + ' ft ' + ({ in: 'inside', out: 'outside', l: 'left', r: 'right', both: 'each side' })[side], 'ok'); }));
     on('fDup', 'click', edit(() => { const c = JSON.parse(JSON.stringify(f)); c.id = uid(f.layer); c.name += ' copy'; c.pts = c.pts.map(p => [p[0] + 30, p[1] + 30]); P.features.push(c); UI.sel = { kind: 'f', id: c.id }; }));
-    on('fDel', 'click', () => deleteSel()); on('fAutoB', 'click', () => applyBorders(bordersOpt()));
+    on('fDel', 'click', () => deleteSel()); on('fAutoB', 'click', () => applyBorders(bordersOpt())); on('fGaps', 'change', edit(e => { f.roadGaps = e.target.checked; }));
     on('fPullD', 'change', e => { UI.pullClear = clamp(+e.target.value || 20, 3, 100); }); on('fPull', 'click', () => applyPull());
     on('fMission', 'click', edit(() => { const type = f.layer === 'road' ? 'roadEdges' : UTIL_LAYERS.includes(f.layer) ? 'locate' : Object.entries(MTYPES).find(([, t]) => t.layers.includes(f.layer))?.[0] || 'line'; addMission(type, [f.id]); UI.tab = 'missions'; }));
   }
