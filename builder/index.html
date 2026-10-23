@@ -309,6 +309,8 @@ const OBJECTS = {
   controlpoint: { label: 'Control point', w: 3, d: 3, color: '#f8fafc', shape: 'tri', cat: 'Survey', icon: '△', kw: 'cp monument benchmark' },
   utv:          { label: 'UTV', w: 6.5, d: 11, color: '#6b7280', cat: 'Vehicles', icon: '🚙', kw: 'buggy polaris' },
   truck:        { label: 'Crew cab pickup', w: 7, d: 21, color: '#e5e7eb', cat: 'Vehicles', icon: '🛻', kw: 'truck' },
+  utvpark:      { label: 'UTV parking (spawn)', w: 7, d: 12, color: '#f8fafc', shape: 'stall', cat: 'Vehicles', icon: 'Ⓟ', kw: 'buggy parking spawn spot stall' },
+  truckpark:    { label: 'Truck parking (spawn)', w: 9, d: 22, color: '#f8fafc', shape: 'stall', cat: 'Vehicles', icon: 'Ⓟ', kw: 'pickup parking spawn spot stall' },
   forklift:     { label: 'Forklift', w: 4.5, d: 9, color: '#f59e0b', cat: 'Vehicles', icon: '🏗', kw: 'delivery boxes' },
   wreck:        { label: 'Delivery semi (flipped trailer)', w: 60, d: 12, color: '#b91c1c', cat: 'Vehicles', icon: '🚛', kw: 'semi truck delivery panels boxes mission' },
   justin:       { label: 'Justin (boss)', w: 3, d: 3, color: '#0ea5e9', shape: 'circle', cat: 'People', icon: '🧑‍💼', kw: 'npc missions' },
@@ -330,6 +332,30 @@ const OBJECTS = {
   boulder:      { label: 'Boulder', w: 6, d: 6, color: '#8a857a', shape: 'circle', cat: 'Nature', icon: '🪨', kw: 'rock' },
   sign:         { label: 'Sign', w: 3, d: 1, color: '#16a34a', cat: 'Site & crew', icon: '🪧', kw: 'sign post' },
   gate:         { label: 'Gate', w: 16, d: 1, color: '#cbd5e1', cat: 'Site & crew', icon: '🚧', kw: 'fence entrance' },
+};
+// office yard presets (local feet; the entrance side is +z / south). [type, x, z, yaw, name]
+const PI = Math.PI, HP = Math.PI / 2;
+const YARD_PRESETS = {
+  row: { label: 'Row yard', sub: 'Conexes in a row, parking out front (like Memphis)', yard: [[-55, -29], [55, -29], [55, 29], [-55, 29]], objs: [
+    ['office', -22, -6, 0], ['upperoffice', -22, -6, 0, "Greg's office"], ['justin', -22, -2, 0], ['breakroom', 26, -6, 0], ['storage', 22, -23, 0], ['becky', 35, -23, 0],
+    ['forklift', 44, -18.5, -1.57], ['forklift', 44, -26.5, -1.57], ['generator', -6, -22, 0], ['fueltank', -46, -21, 0], ['portajohn', 40, 6, 0], ['portajohn', 44, 6, 0], ['jobbox', 34, -12.5, 0],
+    ['utvpark', -12, 13, PI, 'P1'], ['utvpark', -21, 13, PI, 'P2'], ['utvpark', -30, 13, PI, 'P3'], ['utvpark', -39, 13, PI, 'P4'], ['truckpark', 32, 17, PI, 'Truck'],
+    ['basestation', -48, 24, 0], ['spawn', -4, 24, -0.8]] },
+  lshape: { label: 'L-shape yard', sub: 'Office down the west side, break room across the back', yard: [[-60, -40], [60, -40], [60, 40], [-60, 40]], objs: [
+    ['office', -48, -6, HP], ['upperoffice', -48, -6, HP, "Greg's office"], ['justin', -48, -2, HP], ['breakroom', 10, -30, 0], ['storage', 46, -28, 0], ['becky', 46, -19, 0],
+    ['forklift', 40, -10, 0], ['forklift', 50, -10, 0], ['generator', -30, -34, 0], ['fueltank', 50, 10, 0], ['portajohn', -22, -18, 0], ['portajohn', -17, -18, 0], ['jobbox', 30, -20, 0],
+    ['utvpark', -24, 28, PI, 'P1'], ['utvpark', -15, 28, PI, 'P2'], ['utvpark', -6, 28, PI, 'P3'], ['utvpark', 3, 28, PI, 'P4'], ['truckpark', 30, 26, PI, 'Truck'],
+    ['basestation', -50, 33, 0], ['spawn', 8, 10, 0]] },
+  court: { label: 'Courtyard yard', sub: 'Conexes round a square, parking in the middle', yard: [[-50, -50], [50, -50], [50, 50], [-50, 50]], objs: [
+    ['office', 0, -40, 0], ['upperoffice', 0, -40, 0, "Greg's office"], ['justin', 0, -36, 0], ['breakroom', -40, 0, HP], ['storage', 40, -6, HP], ['becky', 32, -6, 0],
+    ['forklift', 30, 14, 0], ['forklift', 38, 14, 0], ['generator', 36, -40, 0], ['fueltank', -36, -38, 0], ['portajohn', -36, 40, 0], ['portajohn', -31, 40, 0], ['jobbox', -26, -26, 0],
+    ['utvpark', -15, 6, PI, 'P1'], ['utvpark', -6, 6, PI, 'P2'], ['utvpark', 3, 6, PI, 'P3'], ['utvpark', 12, 6, PI, 'P4'], ['truckpark', 20, 36, PI, 'Truck'],
+    ['basestation', 42, 42, 0], ['spawn', 0, -22, 0]] },
+  strip: { label: 'Roadside strip', sub: 'Long, shallow yard to sit along a road', yard: [[-80, -22], [80, -22], [80, 22], [-80, 22]], objs: [
+    ['office', -55, -14, 0], ['upperoffice', -55, -14, 0, "Greg's office"], ['justin', -55, -10, 0], ['breakroom', -8, -14, 0], ['storage', 30, -15, 0], ['becky', 30, -6, 0],
+    ['forklift', 46, 0, 0], ['forklift', 56, 0, 0], ['generator', 50, -16, 0], ['fueltank', 68, -14, 0], ['portajohn', 15, -15, 0], ['portajohn', 15, -10, 0], ['jobbox', 2, -6, 0],
+    ['utvpark', -70, 14, PI, 'P1'], ['utvpark', -61, 14, PI, 'P2'], ['utvpark', -52, 14, PI, 'P3'], ['utvpark', -43, 14, PI, 'P4'], ['truckpark', -26, 10, PI, 'Truck'],
+    ['basestation', 70, 13, 0], ['spawn', 0, 10, 0]] },
 };
 const RIBBONS = [ ['Pink', '#ff007f'], ['Orange', '#ff6600'], ['Blue', '#00bfff'], ['Yellow', '#ffee00'], ['Red', '#ff2222'], ['White', '#ffffff'], ['Green', '#22c55e'] ];
 const MARKERS = { lath: 'Wood lath & ribbon', pin: 'Pin flags', nail: 'Nails & tassel', paint: 'Spray paint', forklift: 'Forklift', rod: 'Rod on the UTV' };
@@ -462,20 +488,28 @@ let T = null;                 // { n, cell, origin, h: Int16Array (tenths of ft)
 const UI = { tool: 'select', tab: 'site', sel: null, layer: 'lod', road: 16, roadSurf: 'gravel', roadCurve: 'smooth', river: 30, obj: 'portajohn', ground: 'gravel', brush: 60, strength: 50, relief: 'gentle',
   draft: null, hideLayers: new Set(), contours: true, showTrees: true, showEdges: true, mission: null, measure: null, flatH: null, dirty: false, drawMode: 'tap', snap: true, moveWhole: false };
 
-function emptyTerrain(size) { const n = Math.round(size / 20) + 1; return { n, cell: 20, origin: -size / 2, h: new Int16Array(n * n), paint: new Uint8Array(n * n), trees: new Uint8Array(n * n) }; }
+function emptyTerrain(size) { const n = Math.round(size / 20) + 1; return { n, cell: 20, origin: -size / 2, h: new Int16Array(n * n), paint: new Uint8Array(n * n), trees: new Uint8Array(n * n), cut: new Int16Array(n * n) }; }
+function i16FromB64(b, n) { const out = new Int16Array(n), dv = new DataView(bytesFromB64(b).buffer); for (let i = 0; i < n; i++) out[i] = dv.getInt16(i * 2, true); return out; }
+function i16ToB64(a) { const b = new Uint8Array(a.length * 2), dv = new DataView(b.buffer); a.forEach((v, i) => dv.setInt16(i * 2, v, true)); return b64FromBytes(b); }
 function terrainFromJSON(t) {
   const n = t.n, h = new Int16Array(n * n), hb = bytesFromB64(t.h), dv = new DataView(hb.buffer);
   for (let i = 0; i < n * n; i++) h[i] = dv.getInt16(i * 2, true);
-  return { n, cell: t.cell, origin: t.origin, h, paint: t.paint ? bytesFromB64(t.paint) : new Uint8Array(n * n), trees: t.trees ? bytesFromB64(t.trees) : new Uint8Array(n * n) };
+  return { n, cell: t.cell, origin: t.origin, h, paint: t.paint ? bytesFromB64(t.paint) : new Uint8Array(n * n), trees: t.trees ? bytesFromB64(t.trees) : new Uint8Array(n * n), cut: t.cut ? i16FromB64(t.cut, n * n) : new Int16Array(n * n) };
 }
 function terrainToJSON(T) {
   const b = new Uint8Array(T.h.length * 2), dv = new DataView(b.buffer);
   T.h.forEach((v, i) => dv.setInt16(i * 2, v, true));
-  return { n: T.n, cell: T.cell, origin: T.origin, h: b64FromBytes(b), paint: b64FromBytes(T.paint), trees: b64FromBytes(T.trees), ground: GROUND.map(g => g.id), units: { h: 'tenths of a foot', trees: '0-255 = 0-4 trees per cell' } };
+  return { n: T.n, cell: T.cell, origin: T.origin, h: b64FromBytes(b), paint: b64FromBytes(T.paint), trees: b64FromBytes(T.trees), cut: i16ToB64(T.cut), ground: GROUND.map(g => g.id), units: { h: 'tenths of a foot (rivers already cut in)', cut: 'tenths of a foot the river channels lowered each cell', trees: '0-255 = 0-4 trees per cell' } };
 }
-function projectJSON() { P.meta.updated = today(); return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) }; }
+function projectJSON() {
+  P.meta.updated = today();
+  const isl = P.world.island; if (isl) { if (isl.on) isl.outline = Shore.poly(isl, 96); else delete isl.outline; }
+  return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
+}
 function upgrade(j) {                                            // v1 → v2: road curves, island, mission tips, renamed types
-  j.world = { fillet: 18, island: { on: false, shore: 1185, sea: -5 }, ...j.world };
+  j.world = { fillet: 18, ...j.world };
+  j.world.island = { on: true, shore: 1185, sea: -5, rough: 0, seed: 1, ...j.world.island };
+  if (!j.world.island.chosen) j.world.island.on = true;
   (j.features || []).forEach(f => { if (f.layer === 'road' && !f.curve) f.curve = 'smooth'; });
   (j.missions || []).forEach(m => { if (m.tip === undefined) m.tip = null; });
   return j;
@@ -487,7 +521,7 @@ function loadProject(j) {
   P.features ||= []; P.objects ||= []; P.missions ||= []; P.wildlife ||= []; P.vegetation ||= { mix: {}, bushes: .5 };
   T = terrain ? terrainFromJSON(terrain) : emptyTerrain(P.world?.size || 2600);
   UI.sel = null; UI.mission = null; UI.draft = null; history.length = 0; future.length = 0;
-  terrainDirty = true; contourDirty = true; RoadNet.sig = '';
+  terrainDirty = true; contourDirty = true; RoadNet.sig = ''; RiverNet.sig = '';
   $('pname').value = P.meta.name || 'Untitled site';
   fit(); renderPanel(); draw(); setStatus(P.meta.builtin ? 'Example — Save makes your own copy' : '');
 }
@@ -504,7 +538,7 @@ function generateTerrain(relief, seed, biome) {
     T.h[j * n + i] = Math.round(h * 10);
   }
   const gi = GROUND.findIndex(g => g.id === (BIOMES[biome]?.ground || 'grass'));
-  T.paint.fill(Math.max(0, gi));
+  T.paint.fill(Math.max(0, gi)); T.cut.fill(0);
   const dens = { midsouth: .9, highplains: .12, desert: .25, gulf: .7, prairie: .15 }[biome] ?? .4, n4 = noise2(seed + 13);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const x = T.origin + i * T.cell, z = T.origin + j * T.cell, r = Math.hypot(x, z) / (T.n * T.cell / 2);
@@ -517,7 +551,7 @@ function newProject(biome, name, blank) {
   const B = BIOMES[biome];
   P = { format: FORMAT, version: VERSION,
     meta: { id: uid('site'), name: name || (B.example.split(',')[0] + ' Solar'), location: B.example, author: '', notes: '', created: today(), updated: today() },
-    world: { size: 2600, biome, seed: Math.floor(Math.random() * 9000) + 1000, haze: B.haze, grass: B.grass, wind: B.wind, season: 'fall', fillet: 18, island: { on: false, shore: 1185, sea: -5 } },
+    world: { size: 2600, biome, seed: Math.floor(Math.random() * 9000) + 1000, haze: B.haze, grass: B.grass, wind: B.wind, season: 'fall', fillet: 18, island: { on: true, shore: 1185, sea: -5, rough: .35, seed: Math.floor(Math.random() * 9000) + 1 } },
     vegetation: { mix: Object.fromEntries(B.trees.map((t, i) => [t, B.trees.length - i])), bushes: .5 },
     features: [], objects: [], missions: [],
     wildlife: B.wildlife.map(([species, count, mood]) => ({ species, count, mood })) };
@@ -529,16 +563,11 @@ function newProject(biome, name, blank) {
     loadProject(projectJSON()); return;
   }
   generateTerrain(B.relief, P.world.seed, biome);
-  // a starter yard with the crew's gear (same layout as Memphis), so the site is playable from the first minute
-  const yard = [[-55, -70], [55, -70], [55, -12], [-55, -12]];
-  P.features.push({ id: uid('yard'), layer: 'yard', name: 'Office yard', pts: yard, closed: true });
-  flattenArea(yard, 0);
-  [['spawn', -4, -4, -0.8], ['office', -22, -47, 0], ['upperoffice', -22, -47, 0], ['breakroom', 26, -47, 0], ['storage', 22, -64, 0], ['becky', 35, -64, 0], ['generator', -6, -63, 0], ['fueltank', -45, -25, 0],
-   ['portajohn', 40, -35, 0], ['portajohn', 44, -35, 0], ['jobbox', 34, -53.5, 0], ['basestation', -30, -20, 0], ['utv', -12, -28, Math.PI], ['utv', -31, -28, Math.PI], ['truck', 32, -25, Math.PI],
-   ['forklift', 44, -59.5, -1.57], ['forklift', 44, -67.5, -1.57]].forEach(([t, x, z, yaw]) => P.objects.push({ id: uid(t), type: t, x, z, yaw }));
+  // a starter yard with the crew's gear (the Row preset, same layout as Memphis), so the site is playable from the first minute
+  stampPreset('row', 0, -41, 0, false);
   [[50, 70], [-45, 70], [-100, -65], [60, -95]].forEach(([x, z], i) => P.objects.push({ id: uid('cp'), type: 'controlpoint', x, z, yaw: 0, name: 'CP-' + (i + 1) }));
   if (biome === 'highplains') {
-    const road = []; for (let x = -1300; x <= 1300; x += 200) road.push([x, 8 + Math.round(Math.sin(x / 400) * 6)]);
+    const road = []; for (let x = -1300; x <= 1300; x += 100) { const p = [x, 8 + Math.round(Math.sin(x / 400) * 6)]; if (Math.hypot(...p) < Shore.r(P.world.island, ...p) - 30) road.push(p); }      // (stops at the beach)
     P.features.push({ id: uid('road'), layer: 'road', name: 'County road (caliche, existing)', pts: road, closed: false, w: 22, surface: 'caliche', existing: true, curve: 'smooth' });
     paintAlong(road, 13, GROUND.findIndex(g => g.id === 'caliche'));
     P.features.push({ id: 'lod', layer: 'lod', name: 'Limit of disturbance', pts: [[-260, 40], [300, 40], [300, 520], [-260, 520]], closed: true });
@@ -551,6 +580,32 @@ function newProject(biome, name, blank) {
   }
   loadProject(projectJSON());
 }
+function presetGeom(key, cx, cz, deg) {
+  const pr = YARD_PRESETS[key], a = deg * PI / 180, c = Math.cos(a), sn = Math.sin(a), at = (x, z) => [r1(cx + x * c - z * sn), r1(cz + x * sn + z * c)];
+  return { yard: pr.yard.map(p => at(...p)), objs: pr.objs.map(([type, x, z, yaw, name]) => { const [X, Z] = at(x, z); return { type, x: X, z: Z, yaw: Math.round((yaw - a) * 1000) / 1000, name }; }) };
+}
+const UNIQUE = new Set(['office', 'upperoffice', 'breakroom', 'storage', 'spawn', 'justin', 'becky']);
+function stampPreset(key, cx, cz, deg, replace) {
+  const g = presetGeom(key, cx, cz, deg);
+  if (replace) {
+    const yards = P.features.filter(f => f.layer === 'yard');
+    P.objects = P.objects.filter(o => !UNIQUE.has(o.type) && !yards.some(y => inPoly(y.pts, o.x, o.z)));
+    P.features = P.features.filter(f => f.layer !== 'yard');
+    yards.forEach(y => unpaintArea(y.pts, null));
+  }
+  const f = { id: uid('yard'), layer: 'yard', name: YARD_PRESETS[key].label, pts: g.yard, closed: true, preset: key };
+  P.features.push(f);
+  let hs = 0; g.yard.forEach(p => hs += hAt(...p)); flattenArea(g.yard, Math.round(hs / g.yard.length * 2) / 2); terrainDirty = contourDirty = true;
+  g.objs.forEach(o => { const q = { id: uid(o.type), type: o.type, x: o.x, z: o.z, yaw: o.yaw }; if (o.name) q.name = o.name; P.objects.push(q); });
+  return f;
+}
+// a yard moved away: its old patch goes back to the biome's ground (the gravel follows the yard)
+function unpaintArea(oldPts, newPts) {
+  const n = T.n, gi = Math.max(0, GROUND.findIndex(g => g.id === (BIOMES[P.world.biome]?.ground || 'grass')));
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell;
+    if ((inPoly(oldPts, x, z) || lineDist(oldPts, x, z, true) < T.cell) && !(newPts && (inPoly(newPts, x, z) || lineDist(newPts, x, z, true) < T.cell)) && !P.features.some(f => f.layer === 'yard' && f.pts !== newPts && inPoly(f.pts, x, z))) T.paint[j * n + i] = gi; }
+  terrainDirty = true;
+}
 function flattenArea(pts, h) { const n = T.n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (inPoly(pts, x, z) || lineDist(pts, x, z, true) < T.cell) { T.h[j * n + i] = Math.round(h * 10); T.trees[j * n + i] = 0; T.paint[j * n + i] = 6; } } }
 function paintAlong(pts, r, gi) { const n = T.n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (lineDist(pts, x, z) < r) { T.paint[j * n + i] = gi; T.trees[j * n + i] = 0; } } }
 // a river cuts its channel: lowered bed, sandy / muddy banks, no trees in the water
@@ -560,9 +615,9 @@ function carveRiver(f) {
   const sand = GROUND.findIndex(g => g.id === 'sand'), mud = GROUND.findIndex(g => g.id === 'mud');
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
     const x = T.origin + i * T.cell, z = T.origin + j * T.cell, near = nearestOnLine(S, x, z); if (near.d > bank) continue;
-    const q = j * n + i, base = T.h[q] / 10, u = near.d / w;
-    const lower = near.d < w ? depth * (1 - u * u) + 1 : 1 * (1 - (near.d - w) / (bank - w));
-    T.h[q] = Math.round((base - lower) * 10);
+    const q = j * n + i, u = near.d / w;
+    const want = Math.round((near.d < w ? depth * (1 - u * u) + 1 : 1 * (1 - (near.d - w) / (bank - w))) * 10);
+    if (want > T.cut[q]) { T.h[q] -= want - T.cut[q]; T.cut[q] = want; }        // crossing rivers: the deeper channel wins, they don't stack
     if (near.d < w + 4) { T.paint[q] = mud; T.trees[q] = 0; } else if (near.d < w + 10) { T.paint[q] = sand; T.trees[q] = Math.min(T.trees[q], 40); }
   }
   terrainDirty = contourDirty = true;
@@ -570,9 +625,9 @@ function carveRiver(f) {
 
 // ---------------------------------------------------------------- undo
 const history = [], future = [];
-function snapshot() { return { p: JSON.stringify({ ...P }), h: T.h.slice(), paint: T.paint.slice(), trees: T.trees.slice() }; }
+function snapshot() { return { p: JSON.stringify({ ...P }), h: T.h.slice(), paint: T.paint.slice(), trees: T.trees.slice(), cut: T.cut.slice() }; }
 function pushUndo() { history.push(snapshot()); if (history.length > 40) history.shift(); future.length = 0; markDirty(); }
-function restore(s) { P = JSON.parse(s.p); T.h = s.h; T.paint = s.paint; T.trees = s.trees; terrainDirty = contourDirty = true; if (UI.sel && !findSel(UI.sel)) UI.sel = null; renderPanel(); draw(); markDirty(); }
+function restore(s) { P = JSON.parse(s.p); T.h = s.h; T.paint = s.paint; T.trees = s.trees; T.cut = s.cut; terrainDirty = contourDirty = true; if (UI.sel && !findSel(UI.sel)) UI.sel = null; renderPanel(); draw(); markDirty(); }
 function undo() { if (!history.length) return; future.push(snapshot()); restore(history.pop()); }
 function redo() { if (!future.length) return; history.push(snapshot()); restore(future.pop()); }
 
@@ -595,19 +650,36 @@ function fit(toggle) {
 }
 function zoomAt(px, py, k) { const x = wx(px), z = wz(py); view.s = clamp(view.s * k, .05, 40); view.cx = x - (px - W / 2) / view.s; view.cz = z - (py - H / 2) / view.s; draw(); }
 
+// the island's shoreline: a circle, or (rough > 0) a seeded wobbly coast made of a few sine harmonics around the centre
+const Shore = {
+  key: '', tab: null,
+  table(isl) {
+    const key = [isl.shore, isl.rough || 0, isl.seed || 1, P.world.size].join();
+    if (key !== this.key) {
+      this.key = key; const r = mulberry((isl.seed || 1) * 7919 + 13), k = isl.rough || 0, lim = P.world.size / 2 - 12;
+      const H = [[2, .1], [3, .085], [4, .06], [5, .05], [7, .035], [10, .022], [15, .014], [23, .008]].map(([n, a]) => [n, a * (.55 + r() * .9), r() * 6.2832]);
+      const base = isl.shore * (1 - .18 * k); this.tab = new Float32Array(361);
+      for (let i = 0; i <= 360; i++) { const t = i * PI / 180; let v = 0; H.forEach(([n, a, p]) => { v += a * Math.sin(n * t + p); }); this.tab[i] = clamp(base * (1 + k * v * 1.7), isl.shore * .5, lim); }
+    }
+    return this.tab;
+  },
+  r(isl, x, z) { const tab = this.table(isl); let a = Math.atan2(z, x) * 180 / PI; if (a < 0) a += 360; const i = Math.min(359, Math.floor(a)), u = a - i; return tab[i] * (1 - u) + tab[i + 1] * u; },
+  poly(isl, n) { const out = []; for (let k = 0; k < n; k++) { const a = k / n * 2 * PI, R = this.r(isl, Math.cos(a), Math.sin(a)); out.push([r1(Math.cos(a) * R), r1(Math.sin(a) * R)]); } return out; },
+};
 function buildTerrainImage() {
   const n = T.n, S = 3, img = new ImageData(n * S, n * S), d = img.data, H_ = T.h, r = mulberry(7);
   const lx = -0.55, ly = 0.65, lz = -0.52;
-  const isl = P.world.island && P.world.island.on ? P.world.island : null, sea = isl ? isl.sea * 10 : -1e9;
+  const isl = P.world.island && P.world.island.on ? P.world.island : null;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const k = j * n + i, hx = (H_[j * n + Math.min(n - 1, i + 1)] - H_[j * n + Math.max(0, i - 1)]) / 10 / (2 * T.cell) * 4, hz = (H_[Math.min(n - 1, j + 1) * n + i] - H_[Math.max(0, j - 1) * n + i]) / 10 / (2 * T.cell) * 4;
     const nl = Math.hypot(hx, 1, hz), sh = clamp((-hx * lx + ly - hz * lz) / nl, 0, 1) * .55 + .55;
     const g = GROUND[T.paint[k]] || GROUND[0], tr = T.trees[k] / 255;
-    const x = T.origin + i * T.cell, z = T.origin + j * T.cell, wet = isl && (Math.hypot(x, z) > isl.shore || H_[k] < sea);
+    const x = T.origin + i * T.cell, z = T.origin + j * T.cell, d0 = Math.hypot(x, z), R0 = isl ? Shore.r(isl, x, z) : 0, wet = isl && d0 > R0, beach = isl && !wet && d0 > R0 - 30;
     for (let b = 0; b < S; b++) for (let a = 0; a < S; a++) {
       const o = ((j * S + b) * n * S + (i * S + a)) * 4, jit = .94 + r() * .1;
       let R = g.c[0] * sh * jit, G = g.c[1] * sh * jit, B = g.c[2] * sh * jit;
-      if (wet) { R = 47 * jit; G = 111 * jit; B = 138 * jit; }
+      if (wet) { const deep = clamp((d0 - R0) / 140, 0, 1); R = (70 - 30 * deep) * jit; G = (140 - 40 * deep) * jit; B = (160 - 25 * deep) * jit; }
+      else if (beach) { R = 214 * sh * jit; G = 196 * sh * jit; B = 150 * sh * jit; }
       else if (UI.showTrees && tr > 0 && r() < tr * .72) { const t = .55 + r() * .25; R = 38 * t * sh * 1.4; G = 66 * t * sh * 1.4; B = 34 * t * sh * 1.4; }
       d[o] = R; d[o + 1] = G; d[o + 2] = B; d[o + 3] = 255;
     }
@@ -677,17 +749,9 @@ function marchingLoops(F, nx, nz, x0, z0, g) {
   return loops;
 }
 function smin(a, b, k) { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * .25; }
-const RoadNet = {
-  sig: '', net: null, live: true,
-  get() {
-    const roads = P.features.filter(f => f.layer === 'road' && f.pts.length >= 2);
-    const sig = JSON.stringify([roads.map(f => [f.id, f.pts, f.w, f.curve, f.existing]), P.world.fillet ?? 18]);
-    if (sig !== this.sig) { this.sig = sig; this.net = roads.length ? this.build(roads, P.world.fillet ?? 18) : null; }
-    return this.net;
-  },
-  build(roads, R) {
+function buildNet(roads, R, capped, defW) {
     const RS = roads.map(f => { const S = centerline(f), n = S.length, t0 = [S[1][0] - S[0][0], S[1][1] - S[0][1]], t1 = [S[n - 1][0] - S[n - 2][0], S[n - 1][1] - S[n - 2][1]];
-      const l0 = Math.hypot(...t0) || 1, l1 = Math.hypot(...t1) || 1; return { f, S, half: (f.w || 12) / 2, t0: [t0[0] / l0, t0[1] / l0], t1: [t1[0] / l1, t1[1] / l1] }; });
+      const l0 = Math.hypot(...t0) || 1, l1 = Math.hypot(...t1) || 1; return { f, S, half: (f.w || defW || 12) / 2, t0: [t0[0] / l0, t0[1] / l0], t1: [t1[0] / l1, t1[1] / l1] }; });
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, mh = 0;
     RS.forEach(r => { mh = Math.max(mh, r.half); r.S.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }); });
     const pad = mh + R + 6, lim = T.n * T.cell / 2; x0 = Math.max(-lim, x0 - pad); x1 = Math.min(lim, x1 + pad); z0 = Math.max(-lim, z0 - pad); z1 = Math.min(lim, z1 + pad);
@@ -702,7 +766,7 @@ const RoadNet = {
           const x = x0 + i * g, q = j * nx + i;
           const oa = -((x - s0[0]) * r.t0[0] + (z - s0[1]) * r.t0[1]), ob = (x - s1[0]) * r.t1[0] + (z - s1[1]) * r.t1[1];
           let v;
-          if (oa > 0 || ob > 0) {                                               // past an end: square-cut road end
+          if (capped && (oa > 0 || ob > 0)) {                                               // past an end: square-cut road end
             v = 1e6;
             if (oa > 0) v = Math.min(v, Math.max(Math.abs((x - s0[0]) * r.t0[1] - (z - s0[1]) * r.t0[0]) - r.half, oa));
             if (ob > 0) v = Math.min(v, Math.max(Math.abs((x - s1[0]) * r.t1[1] - (z - s1[1]) * r.t1[0]) - r.half, ob));
@@ -715,8 +779,17 @@ const RoadNet = {
       raws.push(rv); caps.push(cap);
     });
     const loops = marchingLoops(G, nx, nz, x0, z0, g);
-    return { RS, G, own, raws, caps, nx, nz, x0, z0, g, loops, R, fill: new Path2D() };
+    return { RS, G, own, raws, caps, nx, nz, x0, z0, g, loops, R };
+}
+const RoadNet = {
+  sig: '', net: null, live: true,
+  get() {
+    const roads = P.features.filter(f => f.layer === 'road' && f.pts.length >= 2);
+    const sig = JSON.stringify([roads.map(f => [f.id, f.pts, f.w, f.curve, f.existing]), P.world.fillet ?? 18]);
+    if (sig !== this.sig) { this.sig = sig; this.net = roads.length ? this.build(roads, P.world.fillet ?? 18) : null; }
+    return this.net;
   },
+  build(roads, R) { return buildNet(roads, R, true); },
   cell(net, x, z) { const i = clamp(Math.round((x - net.x0) / net.g), 0, net.nx - 1), j = clamp(Math.round((z - net.z0) / net.g), 0, net.nz - 1); return j * net.nx + i; },
   // edge-of-road stake runs for the roads in `ids` (curb returns included, road ends / yards / other roads left out)
   edgeRuns(ids, spacing) {
@@ -735,6 +808,16 @@ const RoadNet = {
       if (cur.length > 2) runs.push(cur);
     });
     return runs.filter(r => polyLen(r) > spacing * .5).map(r => resample(r, spacing));
+  },
+};
+// rivers blend the same way where they meet or cross (round ends, softer joins sized to the narrowest river)
+const RiverNet = {
+  sig: '', net: null, live: true,
+  get() {
+    const rv = P.features.filter(f => f.layer === 'river' && f.pts.length >= 2);
+    const sig = JSON.stringify(rv.map(f => [f.id, f.pts, f.w, f.curve]));
+    if (sig !== this.sig) { this.sig = sig; this.net = rv.length ? buildNet(rv, Math.max(12, Math.min(...rv.map(f => f.w || 30)) * .9), false, 30) : null; }
+    return this.net;
   },
 };
 
@@ -819,9 +902,10 @@ function drawNow() {
   for (let g = Math.ceil(-half / gstep) * gstep; g <= half; g += gstep) { ctx.moveTo(sx(g), sz(-half)); ctx.lineTo(sx(g), sz(half)); ctx.moveTo(sx(-half), sz(g)); ctx.lineTo(sx(half), sz(g)); }
   ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.strokeRect(sx(-half), sz(-half), half * 2 * view.s, half * 2 * view.s);
-  const isl = P.world.island; if (isl && isl.on) { ctx.strokeStyle = 'rgba(160,220,255,.6)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx(0), sz(0), isl.shore * view.s, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
-  const order = { water: 0, river: 1, yard: 2, array: 3, habitat: 4 };
-  const fs = P.features.filter(f => !UI.hideLayers.has(f.layer) && f.layer !== 'road').sort((a, b) => (order[a.layer] ?? 9) - (order[b.layer] ?? 9));
+  const isl = P.world.island; if (isl && isl.on) { ctx.strokeStyle = 'rgba(160,220,255,.6)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5; strokePath(Shore.poly(isl, 180), true); ctx.stroke(); ctx.setLineDash([]); }
+  const order = { water: 0, yard: 2, array: 3, habitat: 4 };
+  if (!UI.hideLayers.has('river')) drawRivers();
+  const fs = P.features.filter(f => !UI.hideLayers.has(f.layer) && f.layer !== 'road' && f.layer !== 'river').sort((a, b) => (order[a.layer] ?? 9) - (order[b.layer] ?? 9));
   fs.filter(f => (order[f.layer] ?? 9) < 9).forEach(f => drawFeature(f, isSel(f)));
   if (!UI.hideLayers.has('road')) drawRoads();
   fs.filter(f => (order[f.layer] ?? 9) === 9).forEach(f => drawFeature(f, isSel(f)));
@@ -836,6 +920,7 @@ function drawNow() {
         ctx.fillStyle = '#d8b482'; ctx.fillRect(X - 1.5, Y - 9, 3, 10); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X + 1.5, Y - 9); ctx.lineTo(X + 8, Y - 7); ctx.lineTo(X + 1.5, Y - 5); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = .8; ctx.stroke();
         if (view.s > .9) { ctx.fillStyle = '#fff'; ctx.font = '600 10px JetBrains Mono, monospace'; ctx.fillText(k, X + 3, Y + 9); } }); });
   }
+  drawPresetGhost();
   // the line being drawn
   if (UI.draft) {
     const d = UI.draft, L = LAYERS[d.layer] || LAYERS.note, pts = d.sketch && d.sketch.length ? d.sketch : d.pts;
@@ -854,6 +939,25 @@ function drawNow() {
   if (!isPhone()) { ctx.save(); ctx.translate(W - 34, 76); ctx.fillStyle = 'rgba(15,18,16,.7)'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(6, 6); ctx.lineTo(0, 2); ctx.lineTo(-6, 6); ctx.fill(); ctx.font = '700 10px Barlow Condensed, sans-serif'; ctx.fillText('N', -3, 17); ctx.restore(); }
   const target = 120 / view.s, nice = [10, 25, 50, 100, 200, 250, 500, 1000, 2000].find(v => v >= target * .6) || 2000;
   $('scale').innerHTML = `<span style="display:inline-block;width:${Math.round(nice * view.s)}px;height:6px;border:2px solid #e8eee6;border-top:0;vertical-align:middle"></span> ${nice}'`;
+}
+// all rivers as one body of water: banks per river, then the blended water surface (smooth where they meet or cross)
+function drawRivers() {
+  const rv = P.features.filter(f => f.layer === 'river'); if (!rv.length) return;
+  ctx.lineJoin = ctx.lineCap = 'round';
+  rv.forEach(f => { const w = Math.max(3, (f.w || 30) * view.s); strokePath(centerline(f)); ctx.strokeStyle = '#c9b88a'; ctx.lineWidth = w + Math.max(3, 12 * view.s); ctx.stroke(); });
+  rv.forEach(f => { const w = Math.max(3, (f.w || 30) * view.s); strokePath(centerline(f)); ctx.strokeStyle = '#5e5236'; ctx.lineWidth = w + Math.max(2, 4 * view.s); ctx.stroke(); });
+  const net = RiverNet.live ? RiverNet.get() : null;
+  if (net) { ctx.beginPath(); net.loops.forEach(L => { L.pts.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (L.closed) ctx.closePath(); }); ctx.fillStyle = '#3b7fb4'; ctx.fill('evenodd'); }
+  else rv.forEach(f => { strokePath(centerline(f)); ctx.strokeStyle = '#3b7fb4'; ctx.lineWidth = Math.max(3, (f.w || 30) * view.s); ctx.stroke(); });
+  rv.forEach(f => { const w = Math.max(3, (f.w || 30) * view.s); strokePath(centerline(f)); ctx.strokeStyle = 'rgba(160,210,240,.5)'; ctx.lineWidth = Math.max(1, w * .16); ctx.setLineDash([10, 14]); ctx.stroke(); ctx.setLineDash([]);
+    if (isSel(f)) drawHandles(f); else if (view.s > .75 && f.name) label(f.name, centerline(f)[Math.floor(centerline(f).length / 2)]); });
+}
+// the yard preset you're about to drop, following the pointer
+function drawPresetGhost() {
+  if (UI.tool !== 'preset' || !brushRing || !YARD_PRESETS[UI.preset]) return;
+  const g = presetGeom(UI.preset, brushRing[0], brushRing[1], UI.presetYaw || 0);
+  ctx.globalAlpha = .75; strokePath(g.yard, true); ctx.fillStyle = 'rgba(180,173,160,.6)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+  g.objs.forEach(o => drawObject(o, false)); ctx.globalAlpha = 1;
 }
 const isSel = f => !!(UI.sel && UI.sel.kind === 'f' && UI.sel.id === f.id);
 let snapMark = null;
@@ -917,6 +1021,8 @@ function drawObject(o, sel) {
   ctx.fillStyle = D.color; ctx.strokeStyle = sel ? '#ff7a2f' : 'rgba(0,0,0,.7)'; ctx.lineWidth = sel ? 3 : 1.4;
   if (D.shape === 'circle') { ctx.beginPath(); ctx.arc(0, 0, Math.max(mn / 2, w / 2), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
   else if (D.shape === 'tri') { const r = Math.max(6, w); ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r * .87, r * .5); ctx.lineTo(-r * .87, r * .5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  else if (D.shape === 'stall') { const ww = Math.max(mn, w), dd = Math.max(mn, d); ctx.strokeStyle = sel ? '#ff7a2f' : 'rgba(255,255,255,.9)'; ctx.lineWidth = sel ? 3 : 1.5; ctx.setLineDash([4, 3]); ctx.strokeRect(-ww / 2, -dd / 2, ww, dd); ctx.setLineDash([]);
+    ctx.rotate(o.yaw || 0); ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = `700 ${Math.max(9, Math.min(16, ww * .7))}px Barlow Condensed, sans-serif`; const t = o.type === 'truckpark' ? 'T' : (o.name || 'P').replace(/^P/, 'P'); const tw = ctx.measureText(t).width; ctx.fillText(t, -tw / 2, 5); }
   else if (D.shape === 'star') { const r = 10; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, q = i % 2 ? r * .45 : r; ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q); } ctx.closePath(); ctx.fill(); ctx.stroke(); }
   else { const ww = Math.max(mn, w), dd = Math.max(mn * .6, d); ctx.fillRect(-ww / 2, -dd / 2, ww, dd); ctx.strokeRect(-ww / 2, -dd / 2, ww, dd);
     if (['truck', 'utv', 'forklift'].includes(o.type)) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(-ww / 2 + 1, -dd / 2 + 1, ww - 2, Math.max(2, dd * .12)); }
@@ -940,7 +1046,7 @@ const ICON = {
 const TOOLS = [['select', 'Select', 'V'], ['add', 'Add', 'A'], ['road', 'Road', 'D'], ['draw', 'Draw', 'L'], ['river', 'River', 'W'], ['points', 'Points', 'P'], '|',
   ['terrain', 'Sculpt', 'T'], ['paint', 'Ground', 'G'], ['trees', 'Trees', 'R'], ['measure', 'Measure', 'M'], '|', ['undo', 'Undo', ''], ['redo', 'Redo', '']];
 function renderRail() {
-  $('rail').innerHTML = TOOLS.map(t => t === '|' ? '<div class="sep"></div>' : `<button class="tool${UI.tool === t[0] || (t[0] === 'add' && UI.tool === 'object') ? ' on' : ''}${t[0] === 'add' ? ' add' : ''}" data-tool="${t[0]}" title="${t[1]}${t[2] ? ' (' + t[2] + ')' : ''}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${t[0] === 'add' ? 2.6 : 1.8}" stroke-linejoin="round" stroke-linecap="round">${ICON[t[0]]}</svg><span>${t[1]}</span></button>`).join('');
+  $('rail').innerHTML = TOOLS.map(t => t === '|' ? '<div class="sep"></div>' : `<button class="tool${UI.tool === t[0] || (t[0] === 'add' && (UI.tool === 'object' || UI.tool === 'preset')) ? ' on' : ''}${t[0] === 'add' ? ' add' : ''}" data-tool="${t[0]}" title="${t[1]}${t[2] ? ' (' + t[2] + ')' : ''}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${t[0] === 'add' ? 2.6 : 1.8}" stroke-linejoin="round" stroke-linecap="round">${ICON[t[0]]}</svg><span>${t[1]}</span></button>`).join('');
 }
 $('rail').addEventListener('click', e => { const b = e.target.closest('[data-tool]'); if (!b) return; const t = b.dataset.tool; if (t === 'undo') return undo(); if (t === 'redo') return redo(); if (t === 'add') return openCatalog(); setTool(t); });
 function setTool(t) { if (UI.draft && !['draw', 'road', 'river'].includes(t)) finishDraft(); UI.tool = t; UI.measure = t === 'measure' ? {} : null; snapMark = null; renderRail(); renderToolbar(); renderSelbar(); draw(); }
@@ -965,6 +1071,10 @@ function renderToolbar() {
     const sel = selFeature(), into = sel && LAYERS[sel.layer].geom === 'points';
     h = `<div class="tb">${seg('tbPLayer', [['piles', 'Piles'], ['topo', 'Topo']], UI.player || 'piles')}${into ? `<span class="val">adding to “${esc(sel.name)}”</span><button id="tbNewSet">New set</button>` : ''}</div>`;
     hint = into ? 'Tap to add points to the selected set' : 'Tap to start a new point set';
+  } else if (UI.tool === 'preset') {
+    const pr = YARD_PRESETS[UI.preset], has = P.features.some(f => f.layer === 'yard');
+    h = `<div class="tb"><span class="val" style="font:600 14px var(--f-body)">🏗 ${esc(pr.label)}</span>${has ? seg('tbRepl', [['1', 'Replace my yard'], ['0', 'Add another']], UI.presetReplace === false ? '0' : '1') : ''}<button id="tbTurn">Turn 90°</button><button id="tbPick">Change…</button><button id="tbStop">Stop</button></div>`;
+    hint = 'Tap where the office yard goes · drag the yard later and everything on it comes along';
   } else if (UI.tool === 'object') {
     const D = OBJECTS[UI.obj];
     h = `<div class="tb"><span class="val" style="font:600 14px var(--f-body)">${D.icon || ''} ${esc(D.label)}</span><button id="tbPick">Change…</button><button id="tbStop">Stop</button></div>`; hint = 'Tap the map to place it · drag it afterwards to move';
@@ -989,7 +1099,7 @@ function renderToolbar() {
   segOn('tbSurf', v => { UI.roadSurf = v; }); segOn('tbCurve', v => { UI.roadCurve = v; });
   on('tbRivW', 'change', e => { UI.river = clamp(+e.target.value || 30, 4, 300); draw(); }); on('tbRivD', 'change', e => { UI.rdepth = clamp(+e.target.value || 4, 1, 30); });
   on('tbFinish', 'click', () => finishDraft()); on('tbCancel', 'click', () => { UI.draft = null; snapMark = null; renderToolbar(); draw(); });
-  segOn('tbPLayer', v => { UI.player = v; }); on('tbNewSet', 'click', () => { UI.sel = null; renderToolbar(); renderPanel(); draw(); });
+  segOn('tbPLayer', v => { UI.player = v; }); segOn('tbRepl', v => { UI.presetReplace = v === '1'; }); on('tbTurn', 'click', () => { UI.presetYaw = ((UI.presetYaw || 0) + 90) % 360; draw(); }); on('tbNewSet', 'click', () => { UI.sel = null; renderToolbar(); renderPanel(); draw(); });
   on('tbPick', 'click', () => openCatalog()); on('tbStop', 'click', () => setTool('select'));
   segOn('tbTMode', v => { UI.tmode = v; }); on('tbGround', 'change', e => { UI.ground = e.target.value; }); segOn('tbTrees', v => { UI.trmode = v; });
   on('tbBrush', 'input', e => { UI.brush = +e.target.value; e.target.nextElementSibling.textContent = UI.brush + "'"; draw(); }); on('tbStr', 'input', e => { UI.strength = +e.target.value; });
@@ -998,7 +1108,8 @@ function renderToolbar() {
 function draftLayer() { return UI.tool === 'road' ? 'road' : UI.tool === 'river' ? 'river' : UI.layer; }
 function finishDraft() {
   const d = UI.draft; UI.draft = null; snapMark = null;
-  if (d && d.sketch && d.sketch.length > 1) { d.pts = simplify(d.sketch, Math.max(2, 7 / view.s)); if (UI.snap && (d.layer === 'road')) { d.pts[0] = snapPoint(...d.pts[0], d.layer, true) || d.pts[0]; d.pts[d.pts.length - 1] = snapPoint(...d.pts.at(-1), d.layer, true) || d.pts.at(-1); } }
+  if (d && d.sketch && d.sketch.length > 1) { d.pts = simplify(d.sketch, Math.max(2, 7 / view.s)); if (UI.snap && (d.layer === 'road' || d.layer === 'river')) { d.pts[0] = snapPoint(...d.pts[0], d.layer, true) || d.pts[0]; d.pts[d.pts.length - 1] = snapPoint(...d.pts.at(-1), d.layer, true) || d.pts.at(-1); } }
+  if (d && d.pts.length >= 2 && (d.layer === 'road' || d.layer === 'river')) { joinLine(d); renderToolbar(); draw(); return; }
   if (d && d.pts.length >= 2) {
     pushUndo();
     const L = LAYERS[d.layer], closed = L.geom === 'area' && d.pts.length >= 3, f = { id: uid(d.layer), layer: d.layer, name: defaultName(d.layer), pts: d.pts.map(p => p.map(r1)), closed };
@@ -1016,6 +1127,43 @@ function finishDraft() {
   }
   renderToolbar(); draw();
 }
+const halfW = f => (f.w || (f.layer === 'river' ? 30 : 12)) / 2;
+// is p at one end of a road / river of this layer? → { f, atStart }
+function lineEnd(layer, p, not) {
+  let best = null, bd = Infinity;
+  P.features.forEach(f => { if (f.layer !== layer || f === not || f.pts.length < 2) return; const tol = Math.max(halfW(f) + 3, 16 / view.s);
+    [[f.pts[0], true], [f.pts.at(-1), false]].forEach(([q, atStart]) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < tol && d < bd) { bd = d; best = { f, atStart }; } }); });
+  return best;
+}
+function joinLine(d) {
+  const layer = d.layer, same = P.features.filter(f => f.layer === layer && f.pts.length >= 2), inside = (f, p) => lineDist(centerline(f), p[0], p[1]) < halfW(f) - .5;
+  let pts = d.pts.map(p => p.map(r1));
+  const st = lineEnd(layer, pts[0]);
+  // drop taps that just run along an existing road / river (that's what made it "double fat"); keep the point where it leaves
+  const g0 = st ? null : same.find(f => inside(f, pts[0]));
+  if (g0) { while (pts.length > 2 && inside(g0, pts[1])) pts.shift(); pts[0] = nearestOnLine(centerline(g0), ...pts[0]).p.map(r1); }
+  const en0 = lineEnd(layer, pts.at(-1), st && st.f), g1 = en0 ? null : same.find(f => inside(f, pts.at(-1)));
+  if (g1) { while (pts.length > 2 && inside(g1, pts.at(-2))) pts.pop(); pts[pts.length - 1] = nearestOnLine(centerline(g1), ...pts.at(-1)).p.map(r1); }
+  if (pts.length < 2 || Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < 3 || (pts.length === 2 && (g0 || st) && same.some(f => inside(f, pts[0]) && inside(f, pts[1]) && inside(f, [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2])))) { toast('That part is already ' + (layer === 'road' ? 'road' : 'river'), 'err'); return; }
+  pushUndo();
+  let f;
+  if (st) { f = st.f; const add = pts.slice(1); f.pts = st.atStart ? [...add.reverse(), ...f.pts] : [...f.pts, ...add]; }
+  else { f = { id: uid(layer), layer, name: defaultName(layer), pts, closed: false };
+    if (layer === 'road') Object.assign(f, { w: UI.road, surface: UI.roadSurf, curve: UI.roadCurve }); else Object.assign(f, { w: UI.river, depth: UI.rdepth || 4, curve: 'smooth' });
+    P.features.push(f); }
+  // the far end landed on the end of another one: make them a single road / river
+  const tail = st && st.atStart ? f.pts[0] : f.pts.at(-1), en = lineEnd(layer, tail, f);
+  if (en && Math.hypot(tail[0] - (en.atStart ? en.f.pts[0] : en.f.pts.at(-1))[0], tail[1] - (en.atStart ? en.f.pts[0] : en.f.pts.at(-1))[1]) < halfW(en.f) + 3) {
+    const g = en.f, gp = en.atStart ? g.pts.slice(1) : g.pts.slice(0, -1).reverse();
+    f.pts = st && st.atStart ? [...gp.reverse(), ...f.pts] : [...f.pts, ...gp];
+    P.features = P.features.filter(q => q !== g);
+    P.missions.forEach(m => { if ((m.features || []).includes(g.id)) m.features = [...new Set(m.features.map(id => id === g.id ? f.id : id))]; });
+    toast('Joined ' + g.name + ' into ' + f.name, 'ok');
+  } else if (st) toast('Extended ' + f.name, 'ok');
+  UI.sel = { kind: 'f', id: f.id };
+  if (layer === 'river') carveRiver(f); else paintRoadGround(f);
+  UI.tab = 'sel'; renderPanel();
+}
 function paintRoadGround(f) { if (f.existing) return; const S = centerline(f), n = T.n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (lineDist(S, x, z) < (f.w || 12) / 2) T.trees[j * n + i] = 0; } terrainDirty = true; }
 function defaultName(layer) { const n = P.features.filter(f => f.layer === layer).length + 1; return ({ lod: 'Limit of disturbance', silt: 'Silt fence', road: 'Road', river: 'Creek', ac: 'AC run', dc: 'DC run', array: 'Solar array', piles: 'Pile layout', topo: 'Topo shots', water: 'Pond', yard: 'Office yard', fence: 'Fence', habitat: 'Wildlife area', note: 'Note', power: 'Power line', ugpower: 'Buried electric', gas: 'Gas line', waterline: 'Water line', sewer: 'Sewer line', telecom: 'Fiber line' }[layer] || layer) + (n > 1 ? ' ' + n : ''); }
 function selFeature() { return UI.sel && UI.sel.kind === 'f' ? P.features.find(f => f.id === UI.sel.id) : null; }
@@ -1024,12 +1172,12 @@ function findSel(s) { return s.kind === 'f' ? P.features.find(f => f.id === s.id
 // snapping: corners first, then onto lines (roads snap onto other roads' centre lines = a junction)
 function snapPoint(x, z, layer, force) {
   if (!UI.snap && !force) return null;
-  const tolPx = isPhone() ? 22 : 14, tol = tolPx / view.s, skip = UI.sel && UI.sel.kind === 'f' ? UI.sel.id : null;
+  const tolPx = isPhone() ? 22 : 14, tol = tolPx / view.s, skip = drag && drag.f ? drag.f.id : drag && drag.whole ? drag.whole.id : null;      // (only the thing being dragged is skipped)
   let best = null, bd = tol;
   P.features.forEach(f => { if (f.id === skip || UI.hideLayers.has(f.layer)) return; f.pts.forEach(p => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; best = [p[0], p[1]]; } }); });
   if (best) return best;
-  P.features.forEach(f => { if (f.id === skip || UI.hideLayers.has(f.layer) || LAYERS[f.layer]?.geom === 'points') return; if (layer === 'road' && f.layer !== 'road') return;
-    const reach = layer === 'road' && f.layer === 'road' ? Math.max(tol, (f.w || 12) / 2 + 2) : tol, nr = nearestOnLine(centerline(f), x, z); if (nr.d < reach && nr.d < bd + (layer === 'road' ? 99 : 0)) { bd = nr.d; best = nr.p; } });
+  P.features.forEach(f => { if (f.id === skip || UI.hideLayers.has(f.layer) || LAYERS[f.layer]?.geom === 'points') return; const wide = layer === 'road' || layer === 'river'; if (wide && f.layer !== layer) return;
+    const reach = wide ? Math.max(tol, (f.w || (layer === 'river' ? 30 : 12)) / 2 + 2) : tol, nr = nearestOnLine(centerline(f), x, z); if (nr.d < reach && nr.d < bd + (wide ? 999 : 0)) { bd = nr.d; best = nr.p; } });
   return best;
 }
 
@@ -1059,13 +1207,17 @@ cv.addEventListener('pointerdown', e => {
     const sp = snapPoint(x, z, layer); if (sp) { x = sp[0]; z = sp[1]; }
     if (mode === 'free') { UI.draft = { layer, pts: [], sketch: [[x, z]] }; drag = { sketch: true }; draw(); return; }
     if (mode === 'box') { UI.draft = { layer, pts: [[x, z]], rect: true }; drag = { box: true, px, py }; draw(); return; }
-    if (!UI.draft) { UI.draft = { layer, pts: [[x, z]] }; renderToolbar(); }
+    if (!UI.draft) { UI.draft = { layer, pts: [[x, z]] };
+      const e = (layer === 'road' || layer === 'river') && lineEnd(layer, [x, z]);
+      if (e) { if (layer === 'road') { UI.road = e.f.w || 12; UI.roadSurf = e.f.surface || 'gravel'; } else UI.river = e.f.w || 30; toast('Continuing ' + e.f.name); }
+      renderToolbar(); }
     else {
       const d = UI.draft, f0 = d.pts[0], last = d.pts.at(-1);
       if (LAYERS[d.layer].geom === 'area' && d.pts.length >= 3 && Math.hypot(sx(f0[0]) - px, sz(f0[1]) - py) < (isPhone() ? 22 : 14)) return finishDraft();
       if ((dbl || Math.hypot(sx(last[0]) - px, sz(last[1]) - py) < (isPhone() ? 18 : 10)) && d.pts.length >= 2) return finishDraft();
       d.pts.push([x, z]);
-      if (layer === 'road' && d.pts.length >= 2 && sp && P.features.some(f => f.layer === 'road' && lineDist(centerline(f), x, z) < 1)) return finishDraft();     // ended on another road: junction done
+      const onLine = p => P.features.some(f => f.layer === layer && lineDist(centerline(f), p[0], p[1]) < halfW(f));
+      if ((layer === 'road' || layer === 'river') && d.pts.length >= 2 && sp && onLine([x, z]) && d.pts.slice(0, -1).some(p => !onLine(p))) return finishDraft();     // came back onto a road / river: joined
     }
     draw(); return;
   }
@@ -1075,6 +1227,7 @@ cv.addEventListener('pointerdown', e => {
     else pushUndo();
     f.pts.push([r1(x), r1(z)]); renderPanel(); draw(); return;
   }
+  if (UI.tool === 'preset') { pushUndo(); const y = stampPreset(UI.preset, r1(x), r1(z), UI.presetYaw || 0, UI.presetReplace !== false && P.features.some(f => f.layer === 'yard')); UI.sel = { kind: 'f', id: y.id }; UI.tab = 'sel'; toast(YARD_PRESETS[UI.preset].label + ' placed', 'ok'); setTool('select'); renderPanel(); draw(); return; }
   if (UI.tool === 'object') { pushUndo(); const o = { id: uid(UI.obj), type: UI.obj, x: r1(x), z: r1(z), yaw: 0 }; if (UI.obj === 'controlpoint') o.name = 'CP-' + (P.objects.filter(q => q.type === 'controlpoint').length + 1); P.objects.push(o); UI.sel = { kind: 'o', id: o.id }; renderPanel(); draw(); return; }
   if (UI.tool === 'measure') { const m = UI.measure; if (!m.a || m.b) { UI.measure = { a: [x, z] }; } else m.b = [x, z]; renderToolbar(); draw(); return; }
   if (['terrain', 'paint', 'trees'].includes(UI.tool)) { pushUndo(); painting = true; UI.flatH = hAt(x, z); drag = { paint: true, last: performance.now() }; applyBrush(x, z, 1 / 30); draw(); return; }
@@ -1083,9 +1236,9 @@ cv.addEventListener('pointerdown', e => {
   if (f) {
     if (UI.moveWhole) { const c = featCenter(f); if (Math.hypot(sx(c[0]) - px, sz(c[1]) - py) < 22) { drag = { whole: f, x, z, moved: false }; return; } }
     const vi = f.pts.findIndex(p => Math.hypot(sx(p[0]) - px, sz(p[1]) - py) < hr);
-    if (vi >= 0) { pushUndo(); drag = { vertex: vi, f }; UI.vtx = vi; RoadNet.live = f.layer !== 'road'; renderSelbar(); draw(); return; }
+    if (vi >= 0) { pushUndo(); drag = { vertex: vi, f }; UI.vtx = vi; RoadNet.live = f.layer !== 'road'; RiverNet.live = f.layer !== 'river'; renderSelbar(); draw(); return; }
     if (LAYERS[f.layer].geom !== 'points') { const P2 = f.closed ? [...f.pts, f.pts[0]] : f.pts;
-      for (let i = 0; i < P2.length - 1; i++) { const X = (sx(P2[i][0]) + sx(P2[i + 1][0])) / 2, Y = (sz(P2[i][1]) + sz(P2[i + 1][1])) / 2; if (Math.hypot(X - px, Y - py) < hr) { pushUndo(); f.pts.splice(i + 1, 0, [x, z]); drag = { vertex: i + 1, f }; UI.vtx = i + 1; RoadNet.live = f.layer !== 'road'; draw(); return; } } }
+      for (let i = 0; i < P2.length - 1; i++) { const X = (sx(P2[i][0]) + sx(P2[i + 1][0])) / 2, Y = (sz(P2[i][1]) + sz(P2[i + 1][1])) / 2; if (Math.hypot(X - px, Y - py) < hr) { pushUndo(); f.pts.splice(i + 1, 0, [x, z]); drag = { vertex: i + 1, f }; UI.vtx = i + 1; RoadNet.live = f.layer !== 'road'; RiverNet.live = f.layer !== 'river'; draw(); return; } } }
     if (LAYERS[f.layer].geom !== 'points') { const sp = centerline(f).map(p => [sx(p[0]), sz(p[1])]), wide = (f.layer === 'road' || f.layer === 'river') ? (f.w || 12) * view.s / 2 : 0;   // grab the selected line / area itself: move it all
       if (lineDist(sp, px, py, f.closed && !curvy(f)) - wide < (isPhone() ? 18 : 11)) { drag = { whole: f, x, z, moved: false }; return; } }
   }
@@ -1110,7 +1263,7 @@ cv.addEventListener('pointermove', e => {
     else if (drag.sketch && UI.draft) { const s = UI.draft.sketch, l = s.at(-1); if (Math.hypot(sx(l[0]) - px, sz(l[1]) - py) > 3) s.push([x, z]); }
     else if (drag.box && UI.draft) UI.draft.hover = [x, z];
     else if (drag.vertex !== undefined) { const sp = drag.f.layer === 'road' || UI.snap ? snapPoint(x, z, drag.f.layer) : null; snapMark = sp; drag.f.pts[drag.vertex] = (sp || [x, z]).map(r1); }
-    else if (drag.whole) { if (!drag.moved) { if (Math.hypot(x - drag.x, z - drag.z) * view.s < 6) { draw(); return; } pushUndo(); drag.moved = true; RoadNet.live = drag.whole.layer !== 'road'; } const dx = x - drag.x, dz = z - drag.z; drag.x = x; drag.z = z; drag.whole.pts = drag.whole.pts.map(p => [r1(p[0] + dx), r1(p[1] + dz)]); }
+    else if (drag.whole) { if (!drag.moved) { if (Math.hypot(x - drag.x, z - drag.z) * view.s < 6) { draw(); return; } pushUndo(); drag.moved = true; RoadNet.live = drag.whole.layer !== 'road'; RiverNet.live = drag.whole.layer !== 'river'; drag.from = drag.whole.pts.map(p => [...p]); drag.carry = drag.whole.layer === 'yard' ? P.objects.filter(o => inPoly(drag.whole.pts, o.x, o.z)) : []; } const dx = x - drag.x, dz = z - drag.z; drag.x = x; drag.z = z; drag.whole.pts = drag.whole.pts.map(p => [r1(p[0] + dx), r1(p[1] + dz)]); drag.carry.forEach(o => { o.x = r1(o.x + dx); o.z = r1(o.z + dz); }); }
     else if (drag.obj) { if (!drag.moved) { pushUndo(); drag.moved = true; } drag.obj.x = r1(x + drag.ox); drag.obj.z = r1(z + drag.oz); }
     else if (drag.paint) { const now = performance.now(), dt = Math.min(.1, (now - drag.last) / 1000); drag.last = now; applyBrush(x, z, dt); }
   }
@@ -1122,8 +1275,9 @@ const endPtr = e => {
   if (ptrs.size === 0) {
     if (drag && drag.sketch) { drag = null; finishDraft(); return; }
     if (drag && drag.box && UI.draft) { const a = UI.draft.pts[0], b = UI.draft.hover; drag = null; if (b && Math.hypot(sx(a[0]) - sx(b[0]), sz(a[1]) - sz(b[1])) > 12) { UI.draft.pts = [a, [b[0], a[1]], b, [a[0], b[1]]]; finishDraft(); } else { UI.draft = null; draw(); } return; }
-    const wasRoad = !RoadNet.live; RoadNet.live = true; snapMark = null;
-    if (drag && drag.whole && drag.moved && drag.whole.layer === 'river') { carveRiver(drag.whole); }
+    const wasRoad = !RoadNet.live || !RiverNet.live; RoadNet.live = RiverNet.live = true; snapMark = null;
+    if (drag && drag.whole && drag.moved && drag.whole.layer === 'yard') { const y = drag.whole; let hs = 0; y.pts.forEach(p => hs += hAt(...p)); unpaintArea(drag.from, y.pts); flattenArea(y.pts, Math.round(hs / y.pts.length * 2) / 2); terrainDirty = contourDirty = true; }
+    if (drag && ((drag.whole && drag.moved) || drag.vertex !== undefined) && (drag.whole || drag.f).layer === 'river') carveRiver(drag.whole || drag.f);
     if (drag && (drag.vertex !== undefined || drag.obj || (drag.whole && drag.moved))) renderPanel();
     if (painting) endPaint(); drag = null; if (wasRoad) draw();
   }
@@ -1219,7 +1373,10 @@ function paneSite() {
     <p class="note">How round the curb returns are where roads meet (${P.world.fillet ?? 18} ft). Bigger = wider, smoother turns.</p></div>
   <div class="sect"><h3>Island &amp; sea</h3>
     <label class="checks"><label><input type="checkbox" id="sIsland" ${isl.on ? 'checked' : ''}> The site is on an island (sea all around; fall in and you respawn)</label></label>
-    ${isl.on ? `<div class="row"><span>Shoreline (ft)</span><input type="number" id="sShore" value="${isl.shore}" min="300" max="${P.world.size / 2}" step="5"></div>` : ''}</div>
+    ${isl.on ? `<div class="row"><span>Size (ft from centre)</span><input type="number" id="sShore" value="${isl.shore}" min="500" max="${P.world.size / 2}" step="5" inputmode="numeric"></div>
+    <div class="row"><span>Coastline</span><input type="range" id="sRough" min="0" max="1" step=".05" value="${isl.rough || 0}" aria-label="Coastline: round to wild"></div>
+    <p class="note" style="display:flex;justify-content:space-between"><span>◯ Perfect circle</span><span>Wild coast ✺</span></p>
+    <div class="btns"><button class="btn go" id="sShoreRnd">🎲 New random coastline</button></div>` : ''}</div>
   <div class="sect"><h3>Biome</h3>
     <div class="row"><span>Biome</span><select id="sBiome">${Object.entries(BIOMES).map(([k, b]) => opt(k, `${b.name} (${b.example})`, P.world.biome)).join('')}</select></div>
     <div class="row"><span>Season</span><select id="sSeason">${['spring', 'summer', 'fall', 'winter'].map(s => opt(s, s[0].toUpperCase() + s.slice(1), P.world.season)).join('')}</select></div>
@@ -1315,7 +1472,7 @@ function paneSel() {
       <div class="row"><span>Used by</span><span class="mono">${used.length ? used.join(', ') : 'no missions yet'}</span></div>
       <div class="btns"><button class="btn go" id="fMission">Make a mission</button><button class="btn" id="fDup">Duplicate</button><button class="btn danger" id="fDel">Delete</button></div></div>
     ${lineish ? `<div class="sect"><h3>Move &amp; shape</h3>
-      <p class="note">Drag the ${area ? 'outline' : 'line'} itself to move all of it. Drag a dot to move a corner; tap a small dot to add one.</p>
+      <p class="note">${f.layer === 'yard' ? '<b>Moving or turning the yard brings everything standing on it.</b> ' : ''}Drag the ${area ? 'outline' : 'line'} itself to move all of it. Drag a dot to move a corner; tap a small dot to add one.</p>
       <div class="btns"><button class="btn" data-rot="-15">↺ 15°</button><button class="btn" data-rot="15">↻ 15°</button><button class="btn" data-rot="-90">↺ 90°</button><button class="btn" id="fReverse">Reverse</button></div>
       <div class="btns">${!isRoad && !isRiver && f.pts.length >= 3 ? '<button class="btn" id="fRound">Round the corners</button>' : ''}<button class="btn" id="fSimp">Fewer corners</button>${area ? '<button class="btn" id="fSquare">Square it up</button>' : ''}</div></div>
     <div class="sect"><h3>Copy alongside</h3>
@@ -1363,8 +1520,10 @@ function wirePane(pane) {
   // site
   on('sLoc', 'change', e => { P.meta.location = e.target.value; markDirty(); renderPanel(); }); on('sAuthor', 'change', e => { P.meta.author = e.target.value; markDirty(); }); on('sNotes', 'change', e => { P.meta.notes = e.target.value; markDirty(); });
   on('sFillet', 'input', e => { P.world.fillet = +e.target.value; RoadNet.live = false; draw(); }); on('sFillet', 'change', e => { pushUndo(); P.world.fillet = +e.target.value; RoadNet.live = true; renderPanel(); draw(); });
-  on('sIsland', 'change', edit(e => { P.world.island = { shore: 1185, sea: -5, ...P.world.island, on: e.target.checked }; terrainDirty = true; }));
-  on('sShore', 'change', edit(e => { P.world.island.shore = clamp(+e.target.value || 1185, 300, P.world.size / 2); terrainDirty = true; }));
+  on('sIsland', 'change', edit(e => { P.world.island = { shore: 1185, sea: -5, rough: 0, seed: 1, ...P.world.island, on: e.target.checked, chosen: true }; terrainDirty = true; }));
+  on('sShore', 'change', edit(e => { P.world.island.shore = clamp(+e.target.value || 1185, 500, P.world.size / 2); terrainDirty = true; }));
+  on('sRough', 'input', e => { P.world.island.rough = +e.target.value; terrainDirty = true; draw(); }); on('sRough', 'pointerdown', () => pushUndo()); on('sRough', 'change', () => markDirty());
+  on('sShoreRnd', 'click', edit(() => { const i = P.world.island; i.seed = Math.floor(Math.random() * 9000) + 1; if (!(i.rough > .05)) i.rough = .4; terrainDirty = true; }));
   on('sBiome', 'change', edit(e => { const b = e.target.value, B = BIOMES[b]; P.world.biome = b; Object.assign(P.world, { haze: B.haze, wind: B.wind, grass: B.grass }); P.vegetation.mix = Object.fromEntries(B.trees.map((t, i) => [t, B.trees.length - i])); P.wildlife = B.wildlife.map(([species, count, mood]) => ({ species, count, mood })); UI.relief = B.relief; }));
   on('sSeason', 'change', e => { P.world.season = e.target.value; markDirty(); });
   ['Haze', 'Wind', 'Grass'].forEach(k => on('s' + k, 'change', e => { P.world[k.toLowerCase()] = +e.target.value; markDirty(); }));
@@ -1417,7 +1576,8 @@ function wirePane(pane) {
     on('fPole', 'change', edit(e => { f.poleStep = clamp(+e.target.value || 180, 60, 400); })); on('fBury', 'change', edit(e => { f.depth = +e.target.value; }));
     on('fPitch', 'change', edit(e => { f.pitch = +e.target.value; })); on('fStep', 'change', edit(e => { f.step = +e.target.value; })); on('fDepth', 'change', edit(e => { f.depth = +e.target.value; }));
     on('fReverse', 'click', edit(() => f.pts.reverse()));
-    pane.querySelectorAll('[data-rot]').forEach(el => el.addEventListener('click', edit(() => { f.pts = rotatePts(f.pts, +el.dataset.rot, featCenter(f)); })));
+    pane.querySelectorAll('[data-rot]').forEach(el => el.addEventListener('click', edit(() => { const c = featCenter(f), deg = +el.dataset.rot, carry = f.layer === 'yard' ? P.objects.filter(o => inPoly(f.pts, o.x, o.z)) : [];
+      const from = f.pts; f.pts = rotatePts(f.pts, deg, c); if (f.layer === 'yard') unpaintArea(from, f.pts); carry.forEach(o => { const [p] = rotatePts([[o.x, o.z]], deg, c); o.x = p[0]; o.z = p[1]; o.yaw = Math.round(((o.yaw || 0) - deg * Math.PI / 180) * 1000) / 1000; }); if (f.layer === 'yard') flattenArea(f.pts, hAt(...c)); })));
     on('fRound', 'click', edit(() => { f.pts = simplify(smoothPath(f.pts, f.closed, 3), .6).map(p => p.map(r1)); if (f.closed && f.pts.length > 3 && Math.hypot(f.pts[0][0] - f.pts.at(-1)[0], f.pts[0][1] - f.pts.at(-1)[1]) < 1) f.pts.pop(); f.curve = undefined; }));
     on('fSimp', 'click', edit(() => { const k = f.pts.length; let tol = 1.5; do { f.pts = simplify(f.closed ? [...f.pts, f.pts[0]] : f.pts, tol); if (f.closed) f.pts.pop(); tol *= 2; } while (f.pts.length > Math.max(f.closed ? 3 : 2, k * .75) && tol < 50); setStatus(`${k} → ${f.pts.length} corners`); }));
     on('fSquare', 'click', edit(() => { f.pts = squareUp(f.pts); }));
@@ -1460,15 +1620,22 @@ function addMission(type, features) {
 }
 
 // ---------------------------------------------------------------- Add catalog: one searchable list of everything you can put on the map
-const CATS = ['Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
+const CATS = ['Office yards', 'Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
 function catalogItems() {
   const items = [];
   Object.entries(LAYERS).forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
     sub: k === 'road' ? 'Draw it — curves & junctions round off' : k === 'river' ? 'Draw it — cuts its own channel' : L.geom === 'points' ? 'Tap to drop points' : L.geom === 'area' ? 'Draw an area' : 'Draw a line' }));
+  Object.entries(YARD_PRESETS).forEach(([k, Y]) => items.push({ kind: 'preset', key: k, label: Y.label, cat: 'Office yards', kw: 'office yard conex preset layout parking fuel porta ' + Y.sub, sub: Y.sub }));
   Object.entries(OBJECTS).forEach(([k, D]) => items.push({ kind: 'obj', key: k, label: D.label, cat: D.cat, kw: D.kw || '', color: D.color, icon: D.icon, sub: 'Tap to place' }));
   return items;
 }
+function presetSVG(key) {
+  const g = presetGeom(key, 0, 0, 0), xs = g.yard.map(p => p[0]), zs = g.yard.map(p => p[1]), x0 = Math.min(...xs), z0 = Math.min(...zs), sc = 30 / Math.max(Math.max(...xs) - x0, Math.max(...zs) - z0);
+  const X = x => 2 + (x - x0) * sc, Z = z => 2 + (z - z0) * sc;
+  return `<svg viewBox="0 0 34 34" width="30" height="30"><rect x="${X(x0)}" y="${Z(z0)}" width="${(Math.max(...xs) - x0) * sc}" height="${(Math.max(...zs) - z0) * sc}" fill="#b4ada0" rx="1"/>${g.objs.filter(o => OBJECTS[o.type] && !OBJECTS[o.type].shape).map(o => { const D = OBJECTS[o.type], tw = Math.abs(Math.cos(o.yaw)) > .5; const w = (tw ? D.w : D.d) * sc, d = (tw ? D.d : D.w) * sc; return `<rect x="${X(o.x) - w / 2}" y="${Z(o.z) - d / 2}" width="${w}" height="${d}" fill="${D.color}" stroke="#333" stroke-width=".4"/>`; }).join('')}${g.objs.filter(o => o.type === 'utvpark' || o.type === 'truckpark').map(o => `<circle cx="${X(o.x)}" cy="${Z(o.z)}" r="1.4" fill="#fff"/>`).join('')}</svg>`;
+}
 function tileIcon(it) {
+  if (it.kind === 'preset') return `<i style="background:var(--paper)">${presetSVG(it.key)}</i>`;
   if (it.kind === 'obj') return `<i style="background:color-mix(in srgb, ${it.color} 35%, var(--raise))">${it.icon || '■'}</i>`;
   const c = it.color, dash = (LAYERS[it.key].dash || []).join(' ');
   const g = it.key === 'road' ? `<path d="M4 28 C12 18 20 16 30 6" stroke="#8d8676" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M4 28 C12 18 20 16 30 6" stroke="#fff" stroke-width="1" stroke-dasharray="3 3" fill="none"/>`
@@ -1507,7 +1674,8 @@ function openCatalog() {
 }
 function pickItem(kind, key) {
   UI.sel = null; UI.vtx = null;
-  if (kind === 'obj') { UI.obj = key; setTool('object'); }
+  if (kind === 'preset') { UI.preset = key; UI.presetYaw = 0; setTool('preset'); }
+  else if (kind === 'obj') { UI.obj = key; setTool('object'); }
   else if (key === 'road') setTool('road');
   else if (key === 'river') setTool('river');
   else if (LAYERS[key].geom === 'points') { UI.player = key; setTool('points'); }
@@ -1519,7 +1687,7 @@ function pickItem(kind, key) {
 let db = null, user = null, downloads = null, dirtyTimer = 0;
 function setStatus(t, cls) { const s = $('status'); s.textContent = t; s.className = 'status hide-sm' + (cls ? ' ' + cls : ''); if (cls === 'ok' || cls === 'err') toast(t, cls); }
 let toastT = 0;
-function toast(t, cls) { let el = $('toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'hint'; el.style.cssText = 'top:12px;bottom:auto;z-index:30'; $('mapwrap').appendChild(el); } el.textContent = t; el.style.background = cls === 'err' ? 'var(--bad)' : 'rgb(20 60 30 / .92)'; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 2600); }
+function toast(t, cls) { let el = $('toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'hint'; el.style.cssText = 'top:auto;bottom:64px;z-index:30'; $('mapwrap').appendChild(el); } el.textContent = t; el.style.background = cls === 'err' ? 'var(--bad)' : 'rgb(20 60 30 / .92)'; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 2600); }
 function markDirty() { UI.dirty = true; clearTimeout(dirtyTimer); dirtyTimer = setTimeout(saveDraft, 1200); setStatus('Unsaved changes'); }
 function saveDraft() { try { localStorage.setItem('ssb.draft', JSON.stringify(projectJSON())); setStatus('Draft kept on this device'); } catch (e) { /* storage blocked: fine */ } }
 const LOCAL = 'ssb.projects';
@@ -1610,7 +1778,7 @@ function closeSheetOnPhone() { if (isPhone()) $('panel').classList.remove('open'
 // ---------------------------------------------------------------- 3D preview (three.js loaded on first use)
 let three = null;
 function load3() { return new Promise((res, rej) => { if (window.THREE) return res(); const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'; s.onload = res; s.onerror = () => rej(new Error('3D library did not load')); document.head.appendChild(s); }); }
-const H3 = { office: 9, upperoffice: 18, breakroom: 9, storage: 8.5, balcony: 9, substation: 14, truck: 7, utv: 6, forklift: 7, wreck: 12, generator: 5, fueltank: 5, portajohn: 7.5, tree: 30, inverterpad: 1.5, powerpole: 35, transformer: 5, hydrant: 3, gasmeter: 3.5, marker: 4, manhole: .3, culvert: 2, justin: 6, greg: 6, becky: 6, inspector: 6, gate: 5, jobbox: 3, ppecloset: 6 };
+const H3 = { utvpark: .08, truckpark: .08, office: 9, upperoffice: 18, breakroom: 9, storage: 8.5, balcony: 9, substation: 14, truck: 7, utv: 6, forklift: 7, wreck: 12, generator: 5, fueltank: 5, portajohn: 7.5, tree: 30, inverterpad: 1.5, powerpole: 35, transformer: 5, hydrant: 3, gasmeter: 3.5, marker: 4, manhole: .3, culvert: 2, justin: 6, greg: 6, becky: 6, inspector: 6, gate: 5, jobbox: 3, ppecloset: 6 };
 function ribbon(TH, S, w, lift, color, opts) {
   const v = [], idx = []; S.forEach((p, i) => { const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)], L2 = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L2, nz = (b[0] - a[0]) / L2;
     [-1, 1].forEach(sd => { const x = p[0] + nx * w * sd, z = p[1] + nz * w * sd; v.push(x, (opts && opts.flat != null ? opts.flat : hAt(x, z)) + lift, z); }); if (i) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
@@ -1627,7 +1795,8 @@ async function open3D() {
   sc.add(new TH.HemisphereLight(0xdfe8f0, 0x6b5a3a, 1.1)); const sun = new TH.DirectionalLight(0xfff0d4, 1.6); sun.position.set(-400, 600, -300); sc.add(sun);
   const n = T.n, g = new TH.PlaneGeometry((n - 1) * T.cell, (n - 1) * T.cell, n - 1, n - 1); g.rotateX(-Math.PI / 2);
   const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
-  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i); pos.setY(i, hAt(x, z)); const gi = Math.round((z - T.origin) / T.cell) * n + Math.round((x - T.origin) / T.cell), gc = (GROUND[T.paint[gi]] || GROUND[0]).c; col.set([gc[0] / 255, gc[1] / 255, gc[2] / 255], i * 3); }
+  const isl0 = P.world.island && P.world.island.on ? P.world.island : null;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i); let y = hAt(x, z); if (isl0) { const R = Shore.r(isl0, x, z), d = Math.hypot(x, z); if (d > R - 40) y = d > R ? isl0.sea - 3 - Math.min(10, (d - R) * .05) : y + (isl0.sea - 1 - y) * (d - R + 40) / 40; } pos.setY(i, y); const gi = Math.round((z - T.origin) / T.cell) * n + Math.round((x - T.origin) / T.cell), gc = (GROUND[T.paint[gi]] || GROUND[0]).c; col.set([gc[0] / 255, gc[1] / 255, gc[2] / 255], i * 3); }
   g.setAttribute('color', new TH.BufferAttribute(col, 3)); g.computeVertexNormals();
   sc.add(new TH.Mesh(g, new TH.MeshLambertMaterial({ vertexColors: true })));
   const isl = P.world.island; if (isl && isl.on) { const sea = new TH.Mesh(new TH.PlaneGeometry(9000, 9000), new TH.MeshLambertMaterial({ color: 0x2f6f8a, transparent: true, opacity: .92 })); sea.rotation.x = -Math.PI / 2; sea.position.y = isl.sea; sc.add(sea); }
