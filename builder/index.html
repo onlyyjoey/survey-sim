@@ -526,6 +526,7 @@ function projectJSON() {
   P.meta.updated = today();
   P.features.forEach(f => { if (f.layer === 'array' && f.closed) { const R = rackFor(f); f.rack = { pitch: f.pitch || 20, step: f.step || 20, rows: R.rows }; } });
   P.missions.forEach(m => { if (m.type === 'topo' || m.type === 'piles') m.points = missionStakes(m).flat(); });
+  P.scabs = scabs().map(s => ({ ...s, w: 6, d: 3.5, h: 5 }));            // green SCAB junction boxes where AC cables join (made automatically)
   P.features.forEach(f => { if (f.layer === 'road' || f.layer === 'river') { const S = centerline(f); f.path = simplify(S, .4).map(p => p.map(r1)); f.deadEnds = f.dead && (f.dead[0] || f.dead[1]) ? f.dead.map(d => d ? culR(f) : 0) : undefined; } });
   const isl = P.world.island; if (isl) { if (isl.on) isl.outline = Shore.poly(isl, 96); else delete isl.outline; }
   return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
@@ -851,9 +852,27 @@ const RiverNet = {
 };
 
 // ---------------------------------------------------------------- auto layouts (mirror the game's Plan): racking piles in each array, topo shots
-const AUTO = { key: '', rack: new Map(), topo: new Map() };
+const AUTO = { key: '', rack: new Map(), topo: new Map(), scabs: null };
 function autoKey() { return JSON.stringify([P.features.map(f => [f.id, f.layer, f.pts, f.w, f.pitch, f.step, f.edge, f.curve]), P.objects.map(o => [o.type, o.x, o.z, o.yaw, o.w, o.d]), P.world.island]); }
-function autoFresh() { const k = autoKey(); if (k !== AUTO.key) { AUTO.key = k; AUTO.rack.clear(); AUTO.topo.clear(); } }
+function autoFresh() { const k = autoKey(); if (k !== AUTO.key) { AUTO.key = k; AUTO.rack.clear(); AUTO.topo.clear(); AUTO.scabs = null; } }
+// SCAB boxes (green AC junction cabinets): wherever two AC cables cross, one tees into another, or two meet end to end
+function scabs() {
+  autoFresh(); if (AUTO.scabs) return AUTO.scabs;
+  const acs = P.features.filter(f => f.layer === 'ac' && f.pts.length >= 2).map(f => ({ f, S: curvy(f) ? simplify(centerline(f), .5) : (f.closed ? [...f.pts, f.pts[0]] : f.pts) }));
+  const out = [], add = (p, a, b) => { const dir = Math.atan2(b[1] - a[1], b[0] - a[0]); if (!out.some(q => Math.hypot(q.x - p[0], q.z - p[1]) < 8)) out.push({ x: r1(p[0]), z: r1(p[1]), yaw: Math.round(-dir * 1000) / 1000 }); };
+  const TOUCH = 3;
+  for (let i = 0; i < acs.length; i++) for (let j = i + 1; j < acs.length; j++) {
+    const A = acs[i].S, B = acs[j].S;
+    for (let a = 0; a < A.length - 1; a++) for (let b = 0; b < B.length - 1; b++) {               // crossings
+      const p = A[a], r = [A[a + 1][0] - p[0], A[a + 1][1] - p[1]], q = B[b], s = [B[b + 1][0] - q[0], B[b + 1][1] - q[1]], den = r[0] * s[1] - r[1] * s[0];
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((q[0] - p[0]) * s[1] - (q[1] - p[1]) * s[0]) / den, u = ((q[0] - p[0]) * r[1] - (q[1] - p[1]) * r[0]) / den;
+      if (t >= -1e-6 && t <= 1 + 1e-6 && u >= -1e-6 && u <= 1 + 1e-6) add([p[0] + r[0] * t, p[1] + r[1] * t], p, A[a + 1]);
+    }
+    [[A, B], [B, A]].forEach(([X, Y]) => [X[0], X.at(-1)].forEach((e, k) => { const n = nearestOnLine(Y, e[0], e[1]); if (n.d < TOUCH) add(n.p, Y[n.i], Y[n.i + 1]); }));   // tees + end-to-end
+  }
+  AUTO.scabs = out; return out;
+}
 const CABLES = ['ac', 'dc', 'ugpower', 'gas', 'waterline', 'sewer', 'telecom'];
 function objRectDist(o, x, z) { const D = OBJECTS[o.type] || OBJECTS.sign, c = Math.cos(o.yaw || 0), s = Math.sin(o.yaw || 0), dx = x - o.x, dz = z - o.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
   return Math.hypot(Math.max(0, Math.abs(lx) - (o.w || D.w) / 2), Math.max(0, Math.abs(lz) - (o.d || D.d) / 2)); }
@@ -869,6 +888,7 @@ function blockedAt(x, z, m) {
     if (m.cable && CABLES.includes(L) && lineDist(centerline(f), x, z) < m.cable) return 'cable';
     if (m.cable && L === 'power' && lineDist(centerline(f), x, z) < m.cable + 2) return 'power line';
   }
+  if (m.obj && scabs().some(s => Math.hypot(x - s.x, z - s.z) < m.obj + 3)) return 'scab box';
   for (const o of P.objects) {
     if (['substation', 'inverterpad', 'office', 'breakroom', 'storage', 'upperoffice', 'wreck', 'transformer', 'culvert'].includes(o.type) && objRectDist(o, x, z) < m.obj) return o.type === 'inverterpad' ? 'inverter' : o.type === 'substation' ? 'substation' : 'building';
     if (o.type === 'lbd' && Math.hypot(x - o.x, z - o.z) < m.lbd) return 'lbd';
@@ -1010,6 +1030,9 @@ function drawNow() {
   fs.filter(f => (order[f.layer] ?? 9) < 9).forEach(f => drawFeature(f, isSel(f)));
   if (!UI.hideLayers.has('road')) drawRoads();
   fs.filter(f => (order[f.layer] ?? 9) === 9).forEach(f => drawFeature(f, isSel(f)));
+  if (!UI.hideLayers.has('ac')) scabs().forEach(s => { const X = sx(s.x), Y = sz(s.z), w = Math.max(13, 6 * view.s), d = Math.max(9, 3.5 * view.s);
+    ctx.save(); ctx.translate(X, Y); ctx.rotate(-s.yaw); ctx.fillStyle = '#16a34a'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.fillRect(-w / 2, -d / 2, w, d); ctx.strokeRect(-w / 2, -d / 2, w, d); ctx.restore();
+    if (view.s > .9) { ctx.font = '700 11px Barlow Condensed, sans-serif'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(X + 8, Y - 18, 34, 14); ctx.fillStyle = '#bbf7d0'; ctx.fillText('SCAB', X + 11, Y - 7); } });
   if (!UI.hideLayers.has('objects')) { P.objects.forEach(o => drawObject(o, UI.sel && UI.sel.kind === 'o' && UI.sel.id === o.id)); P.objects.forEach(o => objLabel(o, UI.sel && UI.sel.kind === 'o' && UI.sel.id === o.id)); }
   // mission stake preview
   const m = UI.tab === 'missions' && UI.mission && P.missions.find(q => q.id === UI.mission);
@@ -1611,7 +1634,7 @@ function summaryHTML() {
   const by = {}; P.features.forEach(f => by[f.layer] = (by[f.layer] || 0) + 1);
   const ob = {}; P.objects.forEach(o => ob[o.type] = (ob[o.type] || 0) + 1);
   let trees = 0; T.trees.forEach(v => trees += v); trees = Math.round(trees / 255 * 4);
-  return `<div class="chips">${Object.entries(by).map(([k, v]) => `<span class="chip">${v} × ${LAYERS[k]?.label || k}</span>`).join('')}${Object.entries(ob).map(([k, v]) => `<span class="chip">${v} × ${OBJECTS[k]?.label || k}</span>`).join('')}<span class="chip">~${trees.toLocaleString()} trees</span><span class="chip">${P.missions.length} missions</span></div>`;
+  return `<div class="chips">${Object.entries(by).map(([k, v]) => `<span class="chip">${v} × ${LAYERS[k]?.label || k}</span>`).join('')}${Object.entries(ob).map(([k, v]) => `<span class="chip">${v} × ${OBJECTS[k]?.label || k}</span>`).join('')}${scabs().length ? `<span class="chip"><span class="dot" style="background:#16a34a;border-radius:2px"></span>${scabs().length} × SCAB box (auto, where AC cables join)</span>` : ''}<span class="chip">~${trees.toLocaleString()} trees</span><span class="chip">${P.missions.length} missions</span></div>`;
 }
 function rotatePts(pts, deg, c) { const a = deg * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a); return pts.map(p => { const dx = p[0] - c[0], dz = p[1] - c[1]; return [r1(c[0] + dx * cs - dz * sn), r1(c[1] + dx * sn + dz * cs)]; }); }
 function squareUp(pts) {                         // snap every corner angle to 90° around the longest side's direction
@@ -1943,6 +1966,7 @@ async function open3D() {
     const last = S.at(-1); dense.push(new TH.Vector3(last[0], hAt(last[0], last[1]) + (f.layer === 'power' ? 30 : .6), last[1]));
     sc.add(new TH.Line(new TH.BufferGeometry().setFromPoints(dense), new TH.LineBasicMaterial({ color: f.layer === 'silt' ? 0x111111 : f.layer === 'power' ? 0x222222 : L.color })));
     if (f.layer === 'power') { const pg = new TH.CylinderGeometry(.5, .7, 34, 6), mat = new TH.MeshLambertMaterial({ color: 0x8b5a2b }); along(S, f.poleStep || 180, false).forEach(p => { const m = new TH.Mesh(pg, mat); m.position.set(p[0], hAt(p[0], p[1]) + 17, p[1]); sc.add(m); }); } });
+  scabs().forEach(s => { const m = new TH.Mesh(new TH.BoxGeometry(6, 5, 3.5), new TH.MeshLambertMaterial({ color: 0x16a34a })); m.position.set(s.x, hAt(s.x, s.z) + 2.5, s.z); m.rotation.y = s.yaw; sc.add(m); });
   P.objects.forEach(o => { const D = OBJECTS[o.type] || OBJECTS.sign, w = o.w || D.w, d = o.d || D.d, h = H3[o.type] || 3, y0 = o.type === 'upperoffice' ? 9 : 0, hh = o.type === 'upperoffice' ? 9 : h;
     const geo = D.shape === 'circle' ? new TH.CylinderGeometry(Math.max(.6, w / 2), Math.max(.6, w / 2), hh, 10) : new TH.BoxGeometry(w, hh, d);
     const m = new TH.Mesh(geo, new TH.MeshLambertMaterial({ color: D.color })); m.position.set(o.x, hAt(o.x, o.z) + y0 + hh / 2, o.z); m.rotation.y = o.yaw || 0; if (o.type === 'wreck') m.rotation.z = .5; sc.add(m); });
