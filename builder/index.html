@@ -1,0 +1,1694 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<title>Survey Site Builder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Plan-sheet workbench: tool rail | aerial map | properties panel. On a phone the tools are a big labelled dock at the
+   bottom, tool options sit just above it, and the panel is a sheet that slides up. Everything you touch is ≥ 44 px. */
+:root {
+  --paper: #eef0ea; --ink: #1d2420; --muted: #5d675f; --line: #c9cfc4; --panel: #f8f9f5; --raise: #ffffff;
+  --accent: #e2580b; --accent-ink: #ffffff; --survey: #1f6f8b; --good: #2f7d3a; --warn: #b7791f; --bad: #b42318;
+  --map-bg: #2a2f2b; --chip: #e3e7de;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --rail: 72px; --panelw: 360px; --head: 54px; --ctl: 36px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #151917; --ink: #e6ebe4; --muted: #a3ada4; --line: #333d37; --panel: #1b201d; --raise: #252c28;
+  --accent: #ff7a2f; --accent-ink: #1a1208; --survey: #5fb3cf; --good: #6cc47a; --warn: #e0a84a; --bad: #f07167; --map-bg: #0f1210; --chip: #2c342f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #151917; --ink: #e6ebe4; --muted: #a3ada4; --line: #333d37; --panel: #1b201d; --raise: #252c28;
+  --accent: #ff7a2f; --accent-ink: #1a1208; --survey: #5fb3cf; --good: #6cc47a; --warn: #e0a84a; --bad: #f07167; --map-bg: #0f1210; --chip: #2c342f; color-scheme: dark }
+html, body { height: 100%; margin: 0; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.45 var(--f-body); overflow: hidden; -webkit-text-size-adjust: 100%; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, .mono { -webkit-user-select: text; user-select: text; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { height: 100%; display: grid; grid-template-rows: var(--head) 1fr; grid-template-columns: var(--rail) 1fr var(--panelw); grid-template-areas: "head head head" "rail map panel"; }
+header.top { grid-area: head; display: flex; align-items: center; gap: 8px; padding-top: env(safe-area-inset-top, 0px); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0; }
+.brand { font: 700 20px/1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.brand b { color: var(--accent); }
+.proj { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.proj input { border: 0; background: transparent; font: 600 16px/1.15 var(--f-body); padding: 3px 6px; border-radius: 6px; min-width: 0; width: 100%; }
+.proj input:focus { background: var(--chip); }
+.proj small { color: var(--muted); font: 500 11.5px/1.2 var(--f-mono); padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hbtn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--raise); font-weight: 600; white-space: nowrap; }
+.hbtn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.hbtn svg { width: 18px; height: 18px; }
+.status { font: 500 11.5px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.status.ok { color: var(--good); } .status.err { color: var(--bad); }
+nav.rail { grid-area: rail; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px; border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; }
+.tool { width: 60px; min-height: 56px; border-radius: 12px; border: 1px solid transparent; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink); flex: none; padding: 4px 2px; }
+.tool svg { width: 24px; height: 24px; }
+.tool span { font: 600 11.5px/1.1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.tool:hover { background: var(--chip); }
+.tool.on { background: var(--ink); color: var(--paper); }
+.tool.add { background: var(--accent); color: var(--accent-ink); }
+.rail .sep { height: 1px; background: var(--line); margin: 4px 2px; flex: none; }
+main.map { grid-area: map; position: relative; background: var(--map-bg); min-width: 0; overflow: hidden; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.toolbar { position: absolute; left: 10px; top: 10px; right: 64px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+.toolbar > * { pointer-events: auto; }
+.tb { display: flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--panel) 95%, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; box-shadow: 0 2px 12px rgb(0 0 0 / .2); flex-wrap: wrap; }
+.tb label { font: 600 12px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tb select, .tb input[type=number] { height: var(--ctl); border-radius: 8px; border: 1px solid var(--line); background: var(--raise); padding: 0 8px; }
+.tb input[type=number] { width: 72px; font-family: var(--f-mono); }
+.tb input[type=range] { width: 110px; accent-color: var(--accent); }
+.tb .val { font: 500 12px var(--f-mono); min-width: 38px; }
+.tb button { height: var(--ctl); padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); font-weight: 600; }
+.tb button.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tb button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg button { border: 0 !important; border-radius: 0 !important; background: var(--raise); }
+.seg button + button { border-left: 1px solid var(--line) !important; }
+.seg button.on { background: var(--ink); color: var(--paper); }
+.hud { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 8px; align-items: end; pointer-events: none; flex-wrap: wrap; }
+.coord { background: rgb(15 18 16 / .8); color: #e8eee6; font: 500 12px/1.5 var(--f-mono); padding: 6px 9px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+.coord b { color: #ffb37a; font-weight: 500; }
+.selbar { position: absolute; right: 10px; top: 96px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.selbar button { height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-weight: 700; display: inline-flex; gap: 7px; align-items: center; box-shadow: 0 2px 12px rgb(0 0 0 / .25); }
+.selbar button.danger { color: #fff; background: var(--bad); border-color: var(--bad); }
+.selbar button.on { background: var(--ink); color: var(--paper); }
+.selbar svg { width: 18px; height: 18px; }
+.zoombtns { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+.zoombtns button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font: 600 20px var(--f-mono); box-shadow: 0 2px 10px rgb(0 0 0 / .2); }
+.hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; background: rgb(15 18 16 / .86); color: #f1f5ef; padding: 8px 14px; border-radius: 20px; font-size: 14px; pointer-events: none; max-width: calc(100% - 140px); text-align: center; }
+aside.panel { grid-area: panel; border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.grab { display: none; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+.tabs button { flex: 1; height: 46px; border: 0; background: transparent; font: 700 14px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 3px solid transparent; }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .count { font: 500 11px var(--f-mono); background: var(--chip); border-radius: 8px; padding: 0 6px; margin-left: 3px; }
+.pane { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 16px; min-height: 0; -webkit-overflow-scrolling: touch; }
+.sect { display: flex; flex-direction: column; gap: 9px; }
+.sect h3 { margin: 0; font: 700 14px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.row { display: grid; grid-template-columns: 116px 1fr; gap: 10px; align-items: center; }
+.row > span { color: var(--muted); font-size: 14px; }
+.row input[type=text], .row input[type=number], .row select, textarea { width: 100%; min-width: 0; height: 40px; border-radius: 9px; border: 1px solid var(--line); background: var(--raise); padding: 0 10px; }
+textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; line-height: 1.4; }
+.row input[type=range] { width: 100%; accent-color: var(--accent); height: 30px; }
+.mono { font-family: var(--f-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 13.5px; margin: 0; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--raise); font-weight: 600; font-size: 14.5px; }
+.btn:disabled { opacity: .45; }
+.btn.danger { color: var(--bad); }
+.btn.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.sm { min-height: 34px; padding: 0 10px; font-size: 13.5px; }
+.list { display: flex; flex-direction: column; gap: 2px; }
+.li { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; min-height: 44px; padding: 6px 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; text-align: left; width: 100%; }
+.li:hover { background: var(--chip); }
+.li.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.li .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgb(0 0 0 / .35); }
+.li .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .meta { font: 500 12px var(--f-mono); color: var(--muted); }
+.grp { font: 700 12px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 8px; display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.grp input { accent-color: var(--accent); width: 18px; height: 18px; }
+.mcard { border: 1px solid var(--line); border-radius: 12px; background: var(--raise); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.mcard.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mhead { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.mid { font: 600 12px var(--f-mono); background: var(--ink); color: var(--paper); border-radius: 5px; padding: 3px 7px; }
+.mtitle { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; text-align: left; padding: 6px 0; min-height: 36px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 500 12px var(--f-mono); padding: 3px 8px; border-radius: 12px; background: var(--chip); color: var(--ink); display: inline-flex; align-items: center; gap: 5px; }
+.chip.warn { background: color-mix(in srgb, var(--warn) 24%, transparent); }
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgb(0 0 0 / .35); }
+.tip { border: 1px solid color-mix(in srgb, #ffcc00 55%, var(--line)); background: color-mix(in srgb, #ffcc00 9%, var(--raise)); border-radius: 10px; padding: 9px 11px; font-size: 13.5px; display: flex; flex-direction: column; gap: 3px; }
+.tip b.h { font: 700 12px var(--f-display); letter-spacing: .08em; color: #b8860b; }
+:root[data-theme="dark"] .tip b.h { color: #ffcc00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tip b.h { color: #ffcc00; } }
+.tip div { display: grid; grid-template-columns: 62px 1fr; gap: 8px; }
+.tip em { font-style: normal; color: var(--muted); font: 600 11px var(--f-display); letter-spacing: .06em; text-transform: uppercase; padding-top: 2px; }
+.swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); }
+.swatch.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--accent); }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.checks label { display: inline-flex; gap: 7px; align-items: center; font-size: 14px; min-height: 32px; }
+.checks input { accent-color: var(--accent); width: 18px; height: 18px; }
+.wl { display: grid; grid-template-columns: 1fr 62px 104px 30px; gap: 6px; align-items: center; }
+.wl input, .wl select { height: 38px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); padding: 0 6px; min-width: 0; width: 100%; }
+.wl .x { border: 0; background: transparent; color: var(--muted); font-size: 20px; }
+.tag { font: 600 10px var(--f-mono); padding: 1px 6px; border-radius: 5px; text-transform: uppercase; }
+.tag.game { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good); }
+.tag.new { background: color-mix(in srgb, var(--survey) 22%, transparent); color: var(--survey); }
+.modal { position: fixed; inset: 0; background: rgb(8 10 9 / .55); display: grid; place-items: center; z-index: 50; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.dlg { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: min(720px, 100%); max-height: 100%; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgb(0 0 0 / .35); min-width: 0; }
+.dlg > header { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.dlg h2 { margin: 0; font: 700 20px var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.dlg .body { padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.dlg .foot { padding: 12px 14px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.projgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.pcard { text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--raise); padding: 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pcard b { font-size: 15px; } .pcard small { color: var(--muted); font-size: 13px; }
+.pcard .tag { align-self: flex-start; }
+/* add catalog */
+.search { position: relative; }
+.search input { width: 100%; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); padding: 0 14px 0 42px; font-size: 17px; }
+.search svg { position: absolute; left: 13px; top: 14px; width: 20px; height: 20px; color: var(--muted); }
+.cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; flex: none; }
+.cats button { flex: none; height: 36px; padding: 0 13px; border-radius: 18px; border: 1px solid var(--line); background: var(--raise); font-weight: 600; font-size: 14px; }
+.cats button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tile { text-align: left; display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; min-height: 58px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); }
+.tile:active { transform: scale(.98); }
+.tile i { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-style: normal; font-size: 19px; border: 1px solid rgb(0 0 0 / .2); }
+.tile b { font-size: 14.5px; line-height: 1.15; display: block; }
+.tile small { color: var(--muted); font-size: 12px; line-height: 1.2; display: block; }
+.tilegrp { font: 700 13px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 6px 0 -2px; }
+#three { position: absolute; inset: 0; background: #cfd7d6; z-index: 5; }
+#three canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
+#three .close3d { position: absolute; right: 10px; top: 10px; }
+#three .t3hint { position: absolute; left: 10px; top: 12px; background: rgb(15 18 16 / .78); color: #eef; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+.sheetbtn, .selbar .sheetbtn { display: none; }
+@media (max-width: 820px) {
+  :root { --panelw: 0px; --rail: 0px; --head: calc(56px + env(safe-area-inset-top, 0px)); --ctl: 42px; }
+  body { font-size: 16px; }
+  input, select, textarea { font-size: 16px !important; }                      /* (iOS zooms the page into anything smaller) */
+  .app { grid-template-columns: 1fr; grid-template-rows: var(--head) 1fr auto; grid-template-areas: "head" "map" "rail"; }
+  nav.rail { flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-top: 1px solid var(--line); gap: 2px; padding: 6px max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); scrollbar-width: none; }
+  nav.rail::-webkit-scrollbar { display: none; }
+  .tool { width: 58px; min-height: 58px; }
+  .rail .sep { display: none; }
+  .rail .sep { width: 1px; height: auto; margin: 6px 3px; }
+  .toolbar { top: auto; bottom: 10px; left: 8px; right: 8px; }
+  .tb { padding: 6px 8px; gap: 6px; row-gap: 6px; }
+  .tb label { font-size: 11px; }
+  #toast { top: auto !important; bottom: 128px !important; }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .tb input[type=range] { width: 120px; }
+  .hud { top: 8px; bottom: auto; left: 8px; }
+  .coord { font-size: 11px; padding: 4px 7px; }
+  #scale { display: none; }
+  .zoombtns { top: 8px; bottom: auto; right: 8px; flex-direction: row; }
+  .zoombtns button { width: 46px; height: 46px; }
+  .selbar { top: 62px; right: 8px; }
+  .hint { bottom: 70px; max-width: calc(100% - 24px); font-size: 14.5px; }
+  aside.panel { position: fixed; left: 0; right: 0; bottom: 0; height: 74%; z-index: 20; border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px rgb(0 0 0 / .35); transform: translateY(102%); transition: transform .24s ease; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  aside.panel.open { transform: none; }
+  .grab { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px 4px; }
+  .grab i { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto; }
+  .grab button { height: 36px; min-width: 64px; border-radius: 10px; border: 1px solid var(--line); background: var(--raise); font-weight: 700; }
+  .sheetbtn, .selbar .sheetbtn { display: inline-flex; }
+  .hide-sm { display: none !important; }
+  .brand { display: none; }
+  .row { grid-template-columns: 1fr; gap: 5px; }
+  .row > span { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-family: var(--f-display); }
+  .row input[type=text], .row input[type=number], .row select { height: 46px; }
+  .btn { min-height: 46px; } .btn.sm { min-height: 40px; }
+  .tabs button { height: 50px; font-size: 15px; }
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .dlg { border-radius: 18px; }
+  .modal { place-items: end center; padding-bottom: 0; padding-left: 0; padding-right: 0; }
+  .modal .dlg { border-radius: 18px 18px 0 0; max-height: 92%; padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+@media (prefers-reduced-motion: reduce) { aside.panel { transition: none; } }
+</style>
+
+</head><body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">Site<b>/</b>Builder</div>
+    <div class="proj">
+      <input id="pname" type="text" aria-label="Project name" value="">
+      <small id="pmeta"></small>
+    </div>
+    <span id="status" class="status hide-sm"></span>
+    <button class="hbtn" id="btnProjects" title="Projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><span class="hide-sm">Projects</span></button>
+    <button class="hbtn hide-sm" id="btn3d" title="3D preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg>3D</button>
+    <button class="hbtn" id="btnSave" title="Save (Ctrl+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v15H5z M8 3v6h8V3 M8 21v-7h8v7"/></svg><span class="hide-sm">Save</span></button>
+    <button class="hbtn primary" id="btnSend" title="Save and send to Claude"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l16-8-6 16-3-7z"/></svg><span class="hide-sm">Send to Claude</span></button>
+    <button class="hbtn sheetbtn" id="btnSheet" aria-label="Open the panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+  </header>
+
+  <nav class="rail" id="rail" aria-label="Tools"></nav>
+
+  <main class="map" id="mapwrap">
+    <canvas id="cv"></canvas>
+    <div class="toolbar" id="toolbar"></div>
+    <div class="hud"><div class="coord" id="coord">N —<br>E —<br>Elev —</div><div class="coord" id="scale"></div></div>
+    <div class="zoombtns"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zfit" aria-label="Fit site" style="font-size:13px">FIT</button></div>
+    <div class="hint" id="hint" hidden></div>
+    <div class="selbar" id="selbar" hidden></div>
+    <div id="three" hidden><div class="t3hint">Drag to orbit · pinch or scroll to zoom</div><button class="btn close3d" id="close3d">Close 3D</button></div>
+  </main>
+
+  <aside class="panel" id="panel">
+    <div class="grab"><button id="sheetClose">Close</button><i></i><button id="sheet3d">3D</button></div>
+    <div class="tabs" role="tablist">
+      <button data-tab="site" class="on">Site</button>
+      <button data-tab="layers">Layers <span class="count" id="cLayers">0</span></button>
+      <button data-tab="missions">Missions <span class="count" id="cMissions">0</span></button>
+      <button data-tab="sel">Selected</button>
+    </div>
+    <div class="pane" id="pane"></div>
+  </aside>
+</div>
+<div class="modal" id="modal" hidden></div>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+<script>
+'use strict';
+// =====================================================================================
+//  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
+//  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
+// =====================================================================================
+const FORMAT = 'survey-sim-site', VERSION = 2;
+const GROUND = [
+  { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
+  { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
+  { id: 'sand', label: 'Sand', c: [214, 192, 140] }, { id: 'caliche', label: 'Caliche', c: [222, 212, 190] },
+  { id: 'gravel', label: 'Gravel', c: [160, 156, 146] }, { id: 'rock', label: 'Rock', c: [118, 112, 102] },
+  { id: 'mud', label: 'Mud / riverbank', c: [96, 82, 60] },
+];
+// line / area layers. cat = where it sits in the Add list; kw = extra search words
+const LAYERS = {
+  lod:      { label: 'LOD (limit of disturbance)', color: '#ffffff', geom: 'area', dash: [10, 6], cat: 'Survey', kw: 'boundary perimeter limits' },
+  silt:     { label: 'Silt fence', color: '#272b2e', geom: 'area', halo: '#f3d36b', cat: 'Survey', kw: 'erosion control sf' },
+  road:     { label: 'Road', color: '#c9c3b3', geom: 'line', width: true, cat: 'Roads & water', kw: 'gravel street access eor' },
+  river:    { label: 'River / creek', color: '#3b8ac4', geom: 'line', width: true, cat: 'Roads & water', kw: 'stream creek water bayou' },
+  water:    { label: 'Pond / lake', color: '#3b8ac4', geom: 'area', fill: .8, cat: 'Roads & water', kw: 'pond lake water retention' },
+  ac:       { label: 'AC cable', color: '#ff007f', geom: 'line', cat: 'Solar', kw: 'collection cable trench pink' },
+  dc:       { label: 'DC cable', color: '#ff6600', geom: 'line', cat: 'Solar', kw: 'cable trench orange' },
+  array:    { label: 'Solar array area', color: '#3b6fe0', geom: 'area', fill: .14, cat: 'Solar', kw: 'panels racking rows piles' },
+  power:    { label: 'Overhead power line', color: '#f5d90a', geom: 'line', dash: [1, 0], cat: 'Utilities', kw: 'electric poles wires transmission distribution' },
+  ugpower:  { label: 'Underground electric', color: '#ff2222', geom: 'line', dash: [8, 4], cat: 'Utilities', kw: 'buried electric red locate' },
+  gas:      { label: 'Underground gas line', color: '#ffd400', geom: 'line', dash: [8, 4], cat: 'Utilities', kw: 'pipeline natural gas yellow locate' },
+  waterline:{ label: 'Water line', color: '#1e90ff', geom: 'line', dash: [8, 4], cat: 'Utilities', kw: 'water main pipe blue locate' },
+  sewer:    { label: 'Sewer / drain line', color: '#22c55e', geom: 'line', dash: [8, 4], cat: 'Utilities', kw: 'storm drain sewer green culvert' },
+  telecom:  { label: 'Telecom / fiber', color: '#ff8c1a', geom: 'line', dash: [3, 3], cat: 'Utilities', kw: 'fiber phone cable orange locate' },
+  yard:     { label: 'Office yard (gravel)', color: '#b4ada0', geom: 'area', fill: .55, cat: 'Site & crew', kw: 'laydown pad gravel' },
+  fence:    { label: 'Perimeter fence', color: '#9aa7b4', geom: 'line', dash: [3, 4], cat: 'Site & crew', kw: 'chain link fence gate' },
+  habitat:  { label: 'Wildlife area', color: '#d97706', geom: 'area', fill: .1, dash: [2, 6], cat: 'Nature', kw: 'animals hogs bears spawn' },
+  note:     { label: 'Note / custom', color: '#f59e0b', geom: 'line', dash: [6, 4], cat: 'Survey', kw: 'markup sketch' },
+  piles:    { label: 'Pile layout (points)', color: '#1e40af', geom: 'points', cat: 'Survey', kw: 'nails tassel stakeout' },
+  topo:     { label: 'Topo shots (points)', color: '#ffe600', geom: 'points', cat: 'Survey', kw: 'elevation grid shots' },
+};
+const UTIL_LAYERS = ['power', 'ugpower', 'gas', 'waterline', 'sewer', 'telecom'];
+const OBJECTS = {
+  spawn:        { label: 'Player spawn', w: 4, d: 4, color: '#22c55e', shape: 'star', cat: 'Site & crew', icon: '★', kw: 'start' },
+  office:       { label: 'Site office (Justin)', w: 40, d: 8.5, color: '#9aa3a8', cat: 'Buildings', icon: '🏢', kw: 'conex container justin' },
+  upperoffice:  { label: "Greg's office (stacked)", w: 40, d: 8.5, color: '#7d878d', cat: 'Buildings', icon: '🏢', kw: 'conex second story upstairs greg' },
+  breakroom:    { label: 'Break room', w: 40, d: 8.5, color: '#a3a39a', cat: 'Buildings', icon: '☕', kw: 'conex container lunch' },
+  storage:      { label: 'Storage conex (Becky)', w: 20, d: 8, color: '#6f7b86', cat: 'Buildings', icon: '📦', kw: 'warehouse container racks delivery becky' },
+  balcony:      { label: 'Balcony / deck', w: 24, d: 8, color: '#8b5e34', cat: 'Buildings', icon: '🪜', kw: 'stairs deck' },
+  generator:    { label: 'Generator', w: 9, d: 5, color: '#e2b007', cat: 'Site & crew', icon: '⚡', kw: 'power' },
+  fueltank:     { label: 'Fuel tank', w: 10, d: 6, color: '#c2410c', cat: 'Site & crew', icon: '⛽', kw: 'gas diesel' },
+  portajohn:    { label: 'Porta-john', w: 4, d: 4, color: '#2563eb', cat: 'Site & crew', icon: '🚽', kw: 'toilet bathroom' },
+  jobbox:       { label: 'Job box', w: 4, d: 2.5, color: '#ea580c', cat: 'Site & crew', icon: '🧰', kw: 'pin flags nails spray paint tools' },
+  ppecloset:    { label: 'PPE closet', w: 3, d: 2, color: '#c8ff00', cat: 'Site & crew', icon: '🦺', kw: 'hard hat vest gloves glasses' },
+  basestation:  { label: 'RTK base station', w: 3, d: 3, color: '#facc15', shape: 'tri', cat: 'Survey', icon: '📡', kw: 'gps tripod' },
+  controlpoint: { label: 'Control point', w: 3, d: 3, color: '#f8fafc', shape: 'tri', cat: 'Survey', icon: '△', kw: 'cp monument benchmark' },
+  utv:          { label: 'UTV', w: 6.5, d: 11, color: '#6b7280', cat: 'Vehicles', icon: '🚙', kw: 'buggy polaris' },
+  truck:        { label: 'Crew cab pickup', w: 7, d: 21, color: '#e5e7eb', cat: 'Vehicles', icon: '🛻', kw: 'truck' },
+  forklift:     { label: 'Forklift', w: 4.5, d: 9, color: '#f59e0b', cat: 'Vehicles', icon: '🏗', kw: 'delivery boxes' },
+  wreck:        { label: 'Delivery semi (flipped trailer)', w: 60, d: 12, color: '#b91c1c', cat: 'Vehicles', icon: '🚛', kw: 'semi truck delivery panels boxes mission' },
+  justin:       { label: 'Justin (boss)', w: 3, d: 3, color: '#0ea5e9', shape: 'circle', cat: 'People', icon: '🧑‍💼', kw: 'npc missions' },
+  greg:         { label: 'Greg', w: 3, d: 3, color: '#64748b', shape: 'circle', cat: 'People', icon: '🧔', kw: 'npc guns' },
+  becky:        { label: 'Becky (warehouse)', w: 3, d: 3, color: '#db2777', shape: 'circle', cat: 'People', icon: '👩', kw: 'npc delivery storage' },
+  inspector:    { label: 'OSHA inspector route', w: 3, d: 3, color: '#facc15', shape: 'circle', cat: 'People', icon: '🦺', kw: 'osha ppe patrol' },
+  substation:   { label: 'Substation', w: 54, d: 42, color: '#64748b', sized: true, cat: 'Solar', icon: '🔌', kw: 'transformer switchyard' },
+  inverterpad:  { label: 'Inverter pad', w: 44, d: 60, color: '#94a3b8', sized: true, cat: 'Solar', icon: '🔲', kw: 'skid' },
+  lbd:          { label: 'LBD', w: 6, d: 2.5, color: '#1e40af', cat: 'Solar', icon: '▭', kw: 'load break disconnect combiner' },
+  powerpole:    { label: 'Power pole', w: 2, d: 2, color: '#8b5a2b', shape: 'circle', cat: 'Utilities', icon: '┃', kw: 'utility pole electric' },
+  transformer:  { label: 'Pad-mount transformer', w: 6, d: 6, color: '#3f6b4a', cat: 'Utilities', icon: '⚡', kw: 'electric green box' },
+  gasmeter:     { label: 'Gas meter / valve', w: 2, d: 2, color: '#ffd400', shape: 'circle', cat: 'Utilities', icon: '⛽', kw: 'gas riser valve' },
+  hydrant:      { label: 'Fire hydrant', w: 2, d: 2, color: '#ef4444', shape: 'circle', cat: 'Utilities', icon: '🚒', kw: 'water' },
+  watervalve:   { label: 'Water valve / meter', w: 2, d: 2, color: '#1e90ff', shape: 'circle', cat: 'Utilities', icon: '💧', kw: 'water box' },
+  manhole:      { label: 'Manhole', w: 3, d: 3, color: '#475569', shape: 'circle', cat: 'Utilities', icon: '⭘', kw: 'sewer storm' },
+  culvert:      { label: 'Culvert', w: 3, d: 24, color: '#94a3b8', sized: true, cat: 'Utilities', icon: '◫', kw: 'drain pipe ditch' },
+  marker:       { label: 'Pipeline marker post', w: 1.5, d: 1.5, color: '#fde047', shape: 'tri', cat: 'Utilities', icon: '⚠', kw: 'warning sign gas buried' },
+  tree:         { label: 'Single tree', w: 12, d: 12, color: '#2f5d2a', shape: 'circle', cat: 'Nature', icon: '🌳', kw: 'oak pine' },
+  boulder:      { label: 'Boulder', w: 6, d: 6, color: '#8a857a', shape: 'circle', cat: 'Nature', icon: '🪨', kw: 'rock' },
+  sign:         { label: 'Sign', w: 3, d: 1, color: '#16a34a', cat: 'Site & crew', icon: '🪧', kw: 'sign post' },
+  gate:         { label: 'Gate', w: 16, d: 1, color: '#cbd5e1', cat: 'Site & crew', icon: '🚧', kw: 'fence entrance' },
+};
+const RIBBONS = [ ['Pink', '#ff007f'], ['Orange', '#ff6600'], ['Blue', '#00bfff'], ['Yellow', '#ffee00'], ['Red', '#ff2222'], ['White', '#ffffff'], ['Green', '#22c55e'] ];
+const MARKERS = { lath: 'Wood lath & ribbon', pin: 'Pin flags', nail: 'Nails & tassel', paint: 'Spray paint', forklift: 'Forklift', rod: 'Rod on the UTV' };
+const MTYPES = {
+  boundary:  { label: 'Boundary loop', layers: ['lod', 'silt', 'fence', 'array', 'habitat', 'note'], line: true, hint: 'Stake every corner of a closed area, plus extra stakes at the spacing.' },
+  line:      { label: 'Line run', layers: ['ac', 'dc', 'silt', 'fence', 'note', ...UTIL_LAYERS], line: true, hint: 'Stake along open lines at the spacing (corners always get a stake).' },
+  roadEdges: { label: 'Edge of road', layers: ['road'], line: true, hint: 'Both edges of each road, around the curb returns at intersections, stopping at road ends and yards.' },
+  points:    { label: 'Point stakeout', layers: ['piles', 'topo', 'note'], line: false, hint: 'One marker on every point (piles, corners, monuments).' },
+  topo:      { label: 'Buggy topo', layers: ['topo'], line: false, hint: 'Drive the UTV over each point with the rod on the mount.' },
+  locate:    { label: 'Utility / cable locate', layers: ['ac', 'dc', ...UTIL_LAYERS], line: false, hint: 'Pin flags along buried lines, skipping where they run under roads. Use the utility colour (red electric, yellow gas, blue water, green sewer, orange telecom).' },
+  mark:      { label: 'Mark trees (spray X)', layers: ['array', 'habitat', 'lod', 'note'], line: false, hint: 'Spray a red X on the trees inside the area; the rod beeps you to them. The tree crew drops them when it\'s done.' },
+  delivery:  { label: 'Forklift delivery', layers: [], line: false, hint: 'Forklift the boxes from the delivery semi into the storage conex. Needs a "Delivery semi" and a "Storage conex" on the map.' },
+};
+const BUILDS = { clear: 'Clear trees inside', silt: 'Build silt fence', road: 'Lay gravel road', ac: 'Trench + bury AC', dc: 'Trench + bury DC', lbd: 'Set LBD units', invp: 'Drive inverter piles', inv: 'Set inverter skid', rack: 'Raise racking piles', trees: 'Cut the marked trees', panels: 'Panels go up on the racks', fence: 'Build perimeter fence' };
+const UTIL_RIBBON = { ugpower: 'Red', power: 'Red', gas: 'Yellow', waterline: 'Blue', sewer: 'Green', telecom: 'Orange', ac: 'Red', dc: 'Red' };
+const BIOMES = {
+  midsouth: { name: 'Mid-South bottomland', example: 'Memphis, TN', ground: 'grass', relief: 'gentle', sky: ['#86a9c9', '#dfe4e0'], haze: .55, grass: .7, wind: .25,
+    trees: ['loblolly', 'oak', 'sweetgum', 'cedar', 'cypress', 'giantPine', 'poplar', 'sycamore', 'elder'],
+    wildlife: [['boar', 4, 'hostile'], ['copperhead', 6, 'defensive'], ['coyote', 3, 'skittish'], ['deer', 5, 'passive'], ['blackbear', 1, 'hostile']] },
+  highplains: { name: 'High Plains', example: 'Amarillo, TX', ground: 'dry', relief: 'flat', sky: ['#78aee4', '#e9dfc9'], haze: .25, grass: .45, wind: .75,
+    trees: ['mesquite', 'hackberry', 'cottonwood', 'redberry juniper', 'yucca', 'cholla'],
+    wildlife: [['rattlesnake', 6, 'defensive'], ['coyote', 4, 'skittish'], ['pronghorn', 6, 'passive'], ['jackrabbit', 8, 'passive'], ['prairiedog', 20, 'passive'], ['boar', 2, 'hostile']] },
+  desert: { name: 'Sonoran desert', example: 'Buckeye, AZ', ground: 'sand', relief: 'gentle', sky: ['#6fa7e0', '#f0e2c8'], haze: .2, grass: .1, wind: .35,
+    trees: ['saguaro', 'palo verde', 'creosote', 'ocotillo', 'cholla', 'mesquite'],
+    wildlife: [['rattlesnake', 6, 'defensive'], ['javelina', 4, 'hostile'], ['coyote', 3, 'skittish'], ['scorpion', 10, 'defensive'], ['gilamonster', 1, 'defensive']] },
+  gulf: { name: 'Gulf Coast pine flats', example: 'Lake Charles, LA', ground: 'grass', relief: 'flat', sky: ['#8ab3d1', '#e3e7e1'], haze: .7, grass: .85, wind: .3,
+    trees: ['longleaf pine', 'live oak', 'cypress', 'palmetto', 'wax myrtle'],
+    wildlife: [['alligator', 2, 'hostile'], ['boar', 5, 'hostile'], ['cottonmouth', 6, 'defensive'], ['deer', 4, 'passive'], ['fireants', 8, 'defensive']] },
+  prairie: { name: 'Midwest farmland', example: 'Champaign, IL', ground: 'dirt', relief: 'gentle', sky: ['#8fb2d8', '#e6e9e4'], haze: .4, grass: .5, wind: .5,
+    trees: ['cottonwood', 'bur oak', 'osage orange', 'hackberry', 'silver maple'],
+    wildlife: [['deer', 6, 'passive'], ['coyote', 3, 'skittish'], ['raccoon', 4, 'skittish'], ['turkey', 6, 'passive']] },
+};
+const IN_GAME = new Set(['boar', 'copperhead', 'coyote', 'deer', 'blackbear', 'snake']);
+const MOODS = ['passive', 'skittish', 'defensive', 'hostile'];
+const SPECIES_NAMES = { boar: 'Wild boar', copperhead: 'Copperhead', coyote: 'Coyote', deer: 'Whitetail deer', blackbear: 'Black bear', rattlesnake: 'Rattlesnake (W. diamondback)', pronghorn: 'Pronghorn', jackrabbit: 'Jackrabbit', prairiedog: 'Prairie dog town', javelina: 'Javelina', scorpion: 'Scorpion', gilamonster: 'Gila monster', alligator: 'Alligator', cottonmouth: 'Cottonmouth', fireants: 'Fire ant mounds', raccoon: 'Raccoon', turkey: 'Wild turkey' };
+
+// ---------------------------------------------------------------- utils
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const uid = p => p + '-' + Math.random().toString(36).slice(2, 7);
+const today = () => new Date().toISOString().slice(0, 10);
+const slug = s => (s || 'site').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'site';
+const r1 = v => Math.round(v * 10) / 10;
+const isPhone = () => innerWidth <= 820;
+function b64FromBytes(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+function bytesFromB64(b) { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function noise2(seed) {
+  const r = mulberry(seed), P = new Uint8Array(512), p = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; }
+  for (let i = 0; i < 512; i++) P[i] = p[i & 255];
+  const g = (h, x, y) => ((h & 1) ? x : -x) + ((h & 2) ? y : -y);
+  const f = t => t * t * t * (t * (t * 6 - 15) + 10);
+  return (x, y) => { const X = Math.floor(x) & 255, Y = Math.floor(y) & 255; x -= Math.floor(x); y -= Math.floor(y); const u = f(x), v = f(y), a = P[X] + Y, b = P[X + 1] + Y;
+    return (1 + (g(P[a], x, y) * (1 - u) + g(P[b], x - 1, y) * u) * (1 - v) + (g(P[a + 1], x, y - 1) * (1 - u) + g(P[b + 1], x - 1, y - 1) * u) * v) / 2; };
+}
+function polyLen(pts, closed) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (closed && pts.length > 2) L += Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]); return L; }
+function polyArea(pts) { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); }
+function signedArea(pts) { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; }
+function segDist(px, pz, a, b) { const dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz, t = L ? clamp(((px - a[0]) * dx + (pz - a[1]) * dz) / L, 0, 1) : 0; return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t); }
+function lineDist(pts, x, z, closed) { let b = Infinity; for (let i = 0; i < pts.length - 1; i++) b = Math.min(b, segDist(x, z, pts[i], pts[i + 1])); if (closed && pts.length > 2) b = Math.min(b, segDist(x, z, pts.at(-1), pts[0])); return b; }
+function nearestOnLine(pts, x, z) {                           // closest point on a polyline: { p, d, i (segment), t }
+  let best = { d: Infinity };
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz, t = L ? clamp(((x - a[0]) * dx + (z - a[1]) * dz) / L, 0, 1) : 0, px = a[0] + dx * t, pz = a[1] + dz * t, d = Math.hypot(x - px, z - pz); if (d < best.d) best = { p: [px, pz], d, i, t }; }
+  return best;
+}
+function inPoly(pts, x, z) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+function along(pts, step, closed) {
+  const P = closed ? [...pts, pts[0]] : pts, out = [];
+  for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = step > 0 ? Math.max(1, Math.round(L / step)) : 1; for (let k = 0; k < n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); }
+  if (!closed) out.push([...P.at(-1)]);
+  return out;
+}
+function resample(run, step, closed) {
+  const R = closed ? [...run, run[0]] : run;
+  let L = 0; for (let i = 1; i < R.length; i++) L += Math.hypot(R[i][0] - R[i - 1][0], R[i][1] - R[i - 1][1]);
+  const n = Math.max(1, Math.round(L / step)), out = [R[0]]; let i = 1, acc = 0;
+  for (let k = 1; k < n; k++) { const want = L * k / n; while (i < R.length) { const seg = Math.hypot(R[i][0] - R[i - 1][0], R[i][1] - R[i - 1][1]); if (acc + seg >= want) { const u = (want - acc) / (seg || 1); out.push([R[i - 1][0] + (R[i][0] - R[i - 1][0]) * u, R[i - 1][1] + (R[i][1] - R[i - 1][1]) * u]); break; } acc += seg; i++; } }
+  if (!closed) out.push(R.at(-1)); return out;
+}
+// Ramer–Douglas–Peucker: a finger sketch → a few clean corners
+function simplify(pts, tol) {
+  if (pts.length < 3) return pts.slice();
+  const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+  const st = [[0, pts.length - 1]];
+  while (st.length) { const [a, b] = st.pop(); let md = 0, mi = -1; for (let i = a + 1; i < b; i++) { const d = segDist(pts[i][0], pts[i][1], pts[a], pts[b]); if (d > md) { md = d; mi = i; } } if (md > tol) { keep[mi] = 1; st.push([a, mi], [mi, b]); } }
+  return pts.filter((_, i) => keep[i]);
+}
+// smooth curve THROUGH the control points (centripetal Catmull-Rom), sampled every `step` ft
+function smoothPath(pts, closed, step = 2) {
+  if (pts.length < 3) return pts.length === 2 ? resample(pts, step) : pts.map(p => [...p]);
+  const P = closed ? [pts.at(-1), ...pts, pts[0], pts[1]] : [[2 * pts[0][0] - pts[1][0], 2 * pts[0][1] - pts[1][1]], ...pts, [2 * pts.at(-1)[0] - pts.at(-2)[0], 2 * pts.at(-1)[1] - pts.at(-2)[1]]];
+  const out = [];
+  for (let i = 1; i < P.length - 2; i++) {
+    const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+    const tj = (a, b) => Math.pow(Math.hypot(b[0] - a[0], b[1] - a[1]) || 1e-4, .5);
+    const t0 = 0, t1 = t0 + tj(p0, p1), t2 = t1 + tj(p1, p2), t3 = t2 + tj(p2, p3);
+    const L = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), n = Math.max(2, Math.ceil(L / step));
+    for (let k = 0; k < n; k++) {
+      const t = t1 + (t2 - t1) * k / n, m = (a, b, ta, tb) => [a[0] * (tb - t) / (tb - ta) + b[0] * (t - ta) / (tb - ta), a[1] * (tb - t) / (tb - ta) + b[1] * (t - ta) / (tb - ta)];
+      const A1 = m(p0, p1, t0, t1), A2 = m(p1, p2, t1, t2), A3 = m(p2, p3, t2, t3), B1 = m(A1, A2, t0, t2), B2 = m(A2, A3, t1, t3);
+      out.push(m(B1, B2, t1, t2));
+    }
+  }
+  if (!closed) out.push([...pts.at(-1)]);
+  return out;
+}
+const curvy = f => (f.layer === 'road' || f.layer === 'river') ? f.curve !== 'straight' : !!f.curve && f.curve === 'smooth';
+function centerline(f) { return curvy(f) ? smoothPath(f.pts, f.closed) : (f.closed ? [...f.pts, f.pts[0]] : f.pts); }
+// offset a closed loop or open line by d feet (+ = to the left of travel / outward for clockwise loops)
+function offsetPts(pts, d, closed) {
+  const n = pts.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[closed ? (i - 1 + n) % n : Math.max(0, i - 1)], p = pts[i], b = pts[closed ? (i + 1) % n : Math.min(n - 1, i + 1)];
+    let n1x = -(p[1] - a[1]), n1z = p[0] - a[0], n2x = -(b[1] - p[1]), n2z = b[0] - p[0];
+    const l1 = Math.hypot(n1x, n1z) || 1, l2 = Math.hypot(n2x, n2z) || 1; n1x /= l1; n1z /= l1; n2x /= l2; n2z /= l2;
+    if (p === a) { n1x = n2x; n1z = n2z; } if (p === b) { n2x = n1x; n2z = n1z; }
+    let mx = n1x + n2x, mz = n1z + n2z; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
+    const cosh = Math.max(.35, mx * n1x + mz * n1z);
+    out.push([r1(p[0] + mx * d / cosh), r1(p[1] + mz * d / cosh)]);
+  }
+  return out;
+}
+function fmtFt(v) { return v >= 1000 ? (v / 5280 >= 0.2 ? (v / 5280).toFixed(2) + ' mi' : Math.round(v).toLocaleString() + "'") : v.toFixed(v < 10 ? 1 : 0) + "'"; }
+
+// ---------------------------------------------------------------- project model
+let P = null;                 // the project being edited (features/objects/... plain JSON; terrain as typed arrays in T)
+let T = null;                 // { n, cell, origin, h: Int16Array (tenths of ft), paint: Uint8Array, trees: Uint8Array }
+const UI = { tool: 'select', tab: 'site', sel: null, layer: 'lod', road: 16, roadSurf: 'gravel', roadCurve: 'smooth', river: 30, obj: 'portajohn', ground: 'gravel', brush: 60, strength: 50, relief: 'gentle',
+  draft: null, hideLayers: new Set(), contours: true, showTrees: true, showEdges: true, mission: null, measure: null, flatH: null, dirty: false, drawMode: 'tap', snap: true, moveWhole: false };
+
+function emptyTerrain(size) { const n = Math.round(size / 20) + 1; return { n, cell: 20, origin: -size / 2, h: new Int16Array(n * n), paint: new Uint8Array(n * n), trees: new Uint8Array(n * n) }; }
+function terrainFromJSON(t) {
+  const n = t.n, h = new Int16Array(n * n), hb = bytesFromB64(t.h), dv = new DataView(hb.buffer);
+  for (let i = 0; i < n * n; i++) h[i] = dv.getInt16(i * 2, true);
+  return { n, cell: t.cell, origin: t.origin, h, paint: t.paint ? bytesFromB64(t.paint) : new Uint8Array(n * n), trees: t.trees ? bytesFromB64(t.trees) : new Uint8Array(n * n) };
+}
+function terrainToJSON(T) {
+  const b = new Uint8Array(T.h.length * 2), dv = new DataView(b.buffer);
+  T.h.forEach((v, i) => dv.setInt16(i * 2, v, true));
+  return { n: T.n, cell: T.cell, origin: T.origin, h: b64FromBytes(b), paint: b64FromBytes(T.paint), trees: b64FromBytes(T.trees), ground: GROUND.map(g => g.id), units: { h: 'tenths of a foot', trees: '0-255 = 0-4 trees per cell' } };
+}
+function projectJSON() { P.meta.updated = today(); return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) }; }
+function upgrade(j) {                                            // v1 → v2: road curves, island, mission tips, renamed types
+  j.world = { fillet: 18, island: { on: false, shore: 1185, sea: -5 }, ...j.world };
+  (j.features || []).forEach(f => { if (f.layer === 'road' && !f.curve) f.curve = 'smooth'; });
+  (j.missions || []).forEach(m => { if (m.tip === undefined) m.tip = null; });
+  return j;
+}
+function loadProject(j) {
+  if (!j || j.format !== FORMAT) throw new Error('That file is not a Survey Site Builder project (format "' + (j && j.format) + '").');
+  const { terrain, ...rest } = upgrade(j);
+  P = JSON.parse(JSON.stringify(rest));
+  P.features ||= []; P.objects ||= []; P.missions ||= []; P.wildlife ||= []; P.vegetation ||= { mix: {}, bushes: .5 };
+  T = terrain ? terrainFromJSON(terrain) : emptyTerrain(P.world?.size || 2600);
+  UI.sel = null; UI.mission = null; UI.draft = null; history.length = 0; future.length = 0;
+  terrainDirty = true; contourDirty = true; RoadNet.sig = '';
+  $('pname').value = P.meta.name || 'Untitled site';
+  fit(); renderPanel(); draw(); setStatus(P.meta.builtin ? 'Example — Save makes your own copy' : '');
+}
+function hAt(x, z) {                                           // bilinear height (ft)
+  const g = (x - T.origin) / T.cell, k = (z - T.origin) / T.cell, i = clamp(Math.floor(g), 0, T.n - 2), j = clamp(Math.floor(k), 0, T.n - 2), u = clamp(g - i, 0, 1), v = clamp(k - j, 0, 1), n = T.n, H = T.h;
+  return ((H[j * n + i] * (1 - u) + H[j * n + i + 1] * u) * (1 - v) + (H[(j + 1) * n + i] * (1 - u) + H[(j + 1) * n + i + 1] * u) * v) / 10;
+}
+function generateTerrain(relief, seed, biome) {
+  const n2 = noise2(seed), n3 = noise2(seed + 7), amp = { flat: 4, gentle: 12, rolling: 28, hilly: 60 }[relief] ?? 12, n = T.n;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const x = T.origin + i * T.cell, z = T.origin + j * T.cell;
+    let h = (n2(x / 520, z / 520) - .5) * amp + (n3(x / 160, z / 160) - .5) * amp * .35;
+    if (biome === 'highplains') [[-420, 380, 160], [520, -300, 120], [250, 520, 90]].forEach(([px, pz, r]) => { const d = Math.hypot(x - px, z - pz); if (d < r * 1.6) h -= 6 * Math.pow(Math.max(0, 1 - d / (r * 1.6)), 1.6); });
+    T.h[j * n + i] = Math.round(h * 10);
+  }
+  const gi = GROUND.findIndex(g => g.id === (BIOMES[biome]?.ground || 'grass'));
+  T.paint.fill(Math.max(0, gi));
+  const dens = { midsouth: .9, highplains: .12, desert: .25, gulf: .7, prairie: .15 }[biome] ?? .4, n4 = noise2(seed + 13);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const x = T.origin + i * T.cell, z = T.origin + j * T.cell, r = Math.hypot(x, z) / (T.n * T.cell / 2);
+    const d = (n4(x / 240, z / 240) - .35) * 2 * dens * (biome === 'midsouth' ? clamp((r - .2) * 2.2, 0, 1.3) : 1);
+    T.trees[j * n + i] = clamp(Math.round(d * 255), 0, 255);
+  }
+  terrainDirty = true; contourDirty = true;
+}
+function newProject(biome, name, blank) {
+  const B = BIOMES[biome];
+  P = { format: FORMAT, version: VERSION,
+    meta: { id: uid('site'), name: name || (B.example.split(',')[0] + ' Solar'), location: B.example, author: '', notes: '', created: today(), updated: today() },
+    world: { size: 2600, biome, seed: Math.floor(Math.random() * 9000) + 1000, haze: B.haze, grass: B.grass, wind: B.wind, season: 'fall', fillet: 18, island: { on: false, shore: 1185, sea: -5 } },
+    vegetation: { mix: Object.fromEntries(B.trees.map((t, i) => [t, B.trees.length - i])), bushes: .5 },
+    features: [], objects: [], missions: [],
+    wildlife: B.wildlife.map(([species, count, mood]) => ({ species, count, mood })) };
+  T = emptyTerrain(2600);
+  if (blank) {
+    P.meta.name = name || 'New site';
+    T.paint.fill(Math.max(0, GROUND.findIndex(g => g.id === B.ground)));
+    P.objects.push({ id: uid('spawn'), type: 'spawn', x: 0, z: 0, yaw: 0 });
+    loadProject(projectJSON()); return;
+  }
+  generateTerrain(B.relief, P.world.seed, biome);
+  // a starter yard with the crew's gear (same layout as Memphis), so the site is playable from the first minute
+  const yard = [[-55, -70], [55, -70], [55, -12], [-55, -12]];
+  P.features.push({ id: uid('yard'), layer: 'yard', name: 'Office yard', pts: yard, closed: true });
+  flattenArea(yard, 0);
+  [['spawn', -4, -4, -0.8], ['office', -22, -47, 0], ['upperoffice', -22, -47, 0], ['breakroom', 26, -47, 0], ['storage', 22, -64, 0], ['becky', 35, -64, 0], ['generator', -6, -63, 0], ['fueltank', -45, -25, 0],
+   ['portajohn', 40, -35, 0], ['portajohn', 44, -35, 0], ['jobbox', 34, -53.5, 0], ['basestation', -30, -20, 0], ['utv', -12, -28, Math.PI], ['utv', -31, -28, Math.PI], ['truck', 32, -25, Math.PI],
+   ['forklift', 44, -59.5, -1.57], ['forklift', 44, -67.5, -1.57]].forEach(([t, x, z, yaw]) => P.objects.push({ id: uid(t), type: t, x, z, yaw }));
+  [[50, 70], [-45, 70], [-100, -65], [60, -95]].forEach(([x, z], i) => P.objects.push({ id: uid('cp'), type: 'controlpoint', x, z, yaw: 0, name: 'CP-' + (i + 1) }));
+  if (biome === 'highplains') {
+    const road = []; for (let x = -1300; x <= 1300; x += 200) road.push([x, 8 + Math.round(Math.sin(x / 400) * 6)]);
+    P.features.push({ id: uid('road'), layer: 'road', name: 'County road (caliche, existing)', pts: road, closed: false, w: 22, surface: 'caliche', existing: true, curve: 'smooth' });
+    paintAlong(road, 13, GROUND.findIndex(g => g.id === 'caliche'));
+    P.features.push({ id: 'lod', layer: 'lod', name: 'Limit of disturbance', pts: [[-260, 40], [300, 40], [300, 520], [-260, 520]], closed: true });
+    P.features.push({ id: 'silt', layer: 'silt', name: 'Silt fence', pts: [[-250, 50], [290, 50], [290, 510], [-250, 510]], closed: true });
+    P.features.push({ id: 'spine', layer: 'road', name: 'Access road', pts: [[20, 8], [20, 500]], closed: false, w: 16, surface: 'caliche', curve: 'smooth' });
+    P.features.push({ id: 'array', layer: 'array', name: 'Solar array', pts: [[-230, 70], [270, 70], [270, 490], [-230, 490]], closed: true, pitch: 20, step: 20, edge: 10 });
+    P.missions.push({ id: 'M1', title: 'Stake the limit of disturbance', brief: "Morning. Wind's up to 30 out of the southwest so hold your lath tight. Run the LOD around the whole block — white ribbon, paint LOD. Watch for rattlers in the bunchgrass.", type: 'boundary', features: ['lod'], spacing: 0, ribbon: 'White', paint: 'LOD', marker: 'lath', line: true, prereq: [], build: ['clear'], tip: null });
+    P.missions.push({ id: 'M2', title: 'Silt fence inside the LOD', brief: "Dozers cleared the mesquite. Silt fence goes just inside the LOD so the caliche dust doesn't wash into the bar ditch. Use yellow, paint SF.", type: 'boundary', features: ['silt'], spacing: 0, ribbon: 'Yellow', paint: 'SF', marker: 'lath', line: true, prereq: ['M1'], build: ['silt'], tip: null });
+    P.missions.push({ id: 'M3', title: 'Edge of the access road', brief: "Road crew's waiting on caliche. Stake both edges of the access road off the county road. Green ribbon, EOR.", type: 'roadEdges', features: ['spine'], spacing: 32, ribbon: 'Green', paint: 'EOR', marker: 'lath', line: true, prereq: ['M2'], build: ['road'], tip: null });
+  }
+  loadProject(projectJSON());
+}
+function flattenArea(pts, h) { const n = T.n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (inPoly(pts, x, z) || lineDist(pts, x, z, true) < T.cell) { T.h[j * n + i] = Math.round(h * 10); T.trees[j * n + i] = 0; T.paint[j * n + i] = 6; } } }
+function paintAlong(pts, r, gi) { const n = T.n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (lineDist(pts, x, z) < r) { T.paint[j * n + i] = gi; T.trees[j * n + i] = 0; } } }
+// a river cuts its channel: lowered bed, sandy / muddy banks, no trees in the water
+function carveRiver(f) {
+  const S = centerline(f), w = (f.w || 30) / 2, depth = f.depth || 4, bank = w + 14, n = T.n;
+  const xs = S.map(p => p[0]), zs = S.map(p => p[1]), i0 = Math.max(0, Math.floor((Math.min(...xs) - bank - T.origin) / T.cell)), i1 = Math.min(n - 1, Math.ceil((Math.max(...xs) + bank - T.origin) / T.cell)), j0 = Math.max(0, Math.floor((Math.min(...zs) - bank - T.origin) / T.cell)), j1 = Math.min(n - 1, Math.ceil((Math.max(...zs) + bank - T.origin) / T.cell));
+  const sand = GROUND.findIndex(g => g.id === 'sand'), mud = GROUND.findIndex(g => g.id === 'mud');
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const x = T.origin + i * T.cell, z = T.origin + j * T.cell, near = nearestOnLine(S, x, z); if (near.d > bank) continue;
+    const q = j * n + i, base = T.h[q] / 10, u = near.d / w;
+    const lower = near.d < w ? depth * (1 - u * u) + 1 : 1 * (1 - (near.d - w) / (bank - w));
+    T.h[q] = Math.round((base - lower) * 10);
+    if (near.d < w + 4) { T.paint[q] = mud; T.trees[q] = 0; } else if (near.d < w + 10) { T.paint[q] = sand; T.trees[q] = Math.min(T.trees[q], 40); }
+  }
+  terrainDirty = contourDirty = true;
+}
+
+// ---------------------------------------------------------------- undo
+const history = [], future = [];
+function snapshot() { return { p: JSON.stringify({ ...P }), h: T.h.slice(), paint: T.paint.slice(), trees: T.trees.slice() }; }
+function pushUndo() { history.push(snapshot()); if (history.length > 40) history.shift(); future.length = 0; markDirty(); }
+function restore(s) { P = JSON.parse(s.p); T.h = s.h; T.paint = s.paint; T.trees = s.trees; terrainDirty = contourDirty = true; if (UI.sel && !findSel(UI.sel)) UI.sel = null; renderPanel(); draw(); markDirty(); }
+function undo() { if (!history.length) return; future.push(snapshot()); restore(history.pop()); }
+function redo() { if (!future.length) return; history.push(snapshot()); restore(future.pop()); }
+
+// ---------------------------------------------------------------- canvas view
+const cv = $('cv'), ctx = cv.getContext('2d');
+const view = { cx: 0, cz: -20, s: 1 };     // world point at the centre, pixels per foot
+let W = 0, H = 0, DPR = 1, terrainDirty = true, contourDirty = true, terrImg = null, contours = [];
+function resize() { const r = cv.getBoundingClientRect(); DPR = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); draw(); }
+const sx = x => (x - view.cx) * view.s + W / 2, sz = z => (z - view.cz) * view.s + H / 2;
+const wx = px => (px - W / 2) / view.s + view.cx, wz = py => (py - H / 2) / view.s + view.cz;
+let fitWhole = false;
+function fit(toggle) {
+  const half = T ? T.n * T.cell / 2 : 1300, pts = [];
+  if (P) { P.features.forEach(f => { if (!f.existing) pts.push(...f.pts); }); P.objects.forEach(o => { if (o.type !== 'wreck') pts.push([o.x, o.z]); }); }
+  fitWhole = toggle ? !fitWhole : false;
+  if (fitWhole || pts.length < 2) { view.cx = 0; view.cz = 0; view.s = Math.min(W, H) / (half * 2.05) || .3; }
+  else { const xs = pts.map(p => p[0]), zs = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+    view.cx = (x0 + x1) / 2; view.cz = (z0 + z1) / 2; view.s = clamp(Math.min(W / ((x1 - x0) * 1.2 + 40), H / ((z1 - z0) * 1.2 + 40)), .05, 8) || .3; }
+  draw();
+}
+function zoomAt(px, py, k) { const x = wx(px), z = wz(py); view.s = clamp(view.s * k, .05, 40); view.cx = x - (px - W / 2) / view.s; view.cz = z - (py - H / 2) / view.s; draw(); }
+
+function buildTerrainImage() {
+  const n = T.n, S = 3, img = new ImageData(n * S, n * S), d = img.data, H_ = T.h, r = mulberry(7);
+  const lx = -0.55, ly = 0.65, lz = -0.52;
+  const isl = P.world.island && P.world.island.on ? P.world.island : null, sea = isl ? isl.sea * 10 : -1e9;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i, hx = (H_[j * n + Math.min(n - 1, i + 1)] - H_[j * n + Math.max(0, i - 1)]) / 10 / (2 * T.cell) * 4, hz = (H_[Math.min(n - 1, j + 1) * n + i] - H_[Math.max(0, j - 1) * n + i]) / 10 / (2 * T.cell) * 4;
+    const nl = Math.hypot(hx, 1, hz), sh = clamp((-hx * lx + ly - hz * lz) / nl, 0, 1) * .55 + .55;
+    const g = GROUND[T.paint[k]] || GROUND[0], tr = T.trees[k] / 255;
+    const x = T.origin + i * T.cell, z = T.origin + j * T.cell, wet = isl && (Math.hypot(x, z) > isl.shore || H_[k] < sea);
+    for (let b = 0; b < S; b++) for (let a = 0; a < S; a++) {
+      const o = ((j * S + b) * n * S + (i * S + a)) * 4, jit = .94 + r() * .1;
+      let R = g.c[0] * sh * jit, G = g.c[1] * sh * jit, B = g.c[2] * sh * jit;
+      if (wet) { R = 47 * jit; G = 111 * jit; B = 138 * jit; }
+      else if (UI.showTrees && tr > 0 && r() < tr * .72) { const t = .55 + r() * .25; R = 38 * t * sh * 1.4; G = 66 * t * sh * 1.4; B = 34 * t * sh * 1.4; }
+      d[o] = R; d[o + 1] = G; d[o + 2] = B; d[o + 3] = 255;
+    }
+  }
+  const c = document.createElement('canvas'); c.width = c.height = n * S; c.getContext('2d').putImageData(img, 0, 0);
+  terrImg = c; terrainDirty = false;
+}
+function buildContours() {
+  contours = []; const n = T.n, Hf = i => T.h[i] / 10; let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < T.h.length; i++) { lo = Math.min(lo, Hf(i)); hi = Math.max(hi, Hf(i)); }
+  const step = hi - lo > 80 ? 5 : 2;
+  for (let lv = Math.ceil(lo / step) * step; lv <= hi; lv += step) {
+    const segs = [], major = lv % (step * 5) === 0;
+    for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+      const a = Hf(j * n + i), b = Hf(j * n + i + 1), c = Hf((j + 1) * n + i + 1), d = Hf((j + 1) * n + i);
+      const pts = [], e = (p, q, x0, z0, x1, z1) => { if ((p < lv) !== (q < lv)) { const t = (lv - p) / (q - p); pts.push([x0 + (x1 - x0) * t, z0 + (z1 - z0) * t]); } };
+      const X = T.origin + i * T.cell, Z = T.origin + j * T.cell, C = T.cell;
+      e(a, b, X, Z, X + C, Z); e(b, c, X + C, Z, X + C, Z + C); e(c, d, X + C, Z + C, X, Z + C); e(d, a, X, Z + C, X, Z);
+      if (pts.length >= 2) segs.push(pts[0], pts[1]); if (pts.length === 4) segs.push(pts[2], pts[3]);
+    }
+    contours.push({ lv, major, segs });
+  }
+  contourDirty = false;
+}
+
+// =====================================================================================================
+// ROAD NETWORK — every road is a smooth curve through its control points. The whole network is one distance field:
+// each road's own distance (square-cut at its ends), blended with a smooth minimum so wherever two roads meet you get
+// rounded curb returns (radius ≈ world.fillet). The field's zero line IS the edge of road: drawn as the gravel outline,
+// and walked for the Edge-of-road stakes (stopping at road ends, yards and roads that aren't in the mission).
+// =====================================================================================================
+function marchingLoops(F, nx, nz, x0, z0, g) {
+  const segs = [], at = (e) => {                                            // edge id → point on it
+    const v = e & 1, c = e >> 1, i = c % nx, j = (c / nx) | 0;
+    const a = F[j * nx + i], b = v ? F[(j + 1) * nx + i] : F[j * nx + i + 1], t = a / (a - b);
+    return v ? [x0 + i * g, z0 + (j + t) * g] : [x0 + (i + t) * g, z0 + j * g];
+  };
+  const H_ = (i, j) => (j * nx + i) * 2, V_ = (i, j) => (j * nx + i) * 2 + 1;
+  for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = F[j * nx + i], b = F[j * nx + i + 1], c = F[(j + 1) * nx + i + 1], d = F[(j + 1) * nx + i];
+    const idx = (a < 0 ? 1 : 0) | (b < 0 ? 2 : 0) | (c < 0 ? 4 : 0) | (d < 0 ? 8 : 0);
+    if (!idx || idx === 15) continue;
+    const e0 = H_(i, j), e1 = V_(i + 1, j), e2 = H_(i, j + 1), e3 = V_(i, j), mid = (a + b + c + d) / 4 < 0;
+    switch (idx) {
+      case 1: segs.push([e3, e0]); break; case 2: segs.push([e0, e1]); break; case 3: segs.push([e3, e1]); break; case 4: segs.push([e1, e2]); break;
+      case 5: if (mid) segs.push([e3, e2], [e0, e1]); else segs.push([e3, e0], [e1, e2]); break;
+      case 6: segs.push([e0, e2]); break; case 7: segs.push([e3, e2]); break; case 8: segs.push([e2, e3]); break; case 9: segs.push([e0, e2]); break;
+      case 10: if (mid) segs.push([e0, e3], [e1, e2]); else segs.push([e0, e1], [e2, e3]); break;
+      case 11: segs.push([e1, e2]); break; case 12: segs.push([e1, e3]); break; case 13: segs.push([e0, e1]); break; case 14: segs.push([e0, e3]); break;
+    }
+  }
+  const by = new Map(); segs.forEach((s, k) => s.forEach(e => { const l = by.get(e); if (l) l.push(k); else by.set(e, [k]); }));
+  const used = new Uint8Array(segs.length), loops = [];
+  for (let k0 = 0; k0 < segs.length; k0++) {
+    if (used[k0]) continue;
+    used[k0] = 1; const chain = [segs[k0][0], segs[k0][1]];
+    for (const dir of [1, 0]) {                                               // grow from the tail, then from the head
+      for (;;) {
+        const end = dir ? chain[chain.length - 1] : chain[0], nb = (by.get(end) || []).find(q => !used[q]); if (nb === undefined) break;
+        used[nb] = 1; const s = segs[nb], nx_ = s[0] === end ? s[1] : s[0];
+        if (dir) chain.push(nx_); else chain.unshift(nx_);
+      }
+    }
+    const closed = chain[0] === chain[chain.length - 1]; if (closed) chain.pop();
+    loops.push({ pts: chain.map(at), closed });
+  }
+  return loops;
+}
+function smin(a, b, k) { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * .25; }
+const RoadNet = {
+  sig: '', net: null, live: true,
+  get() {
+    const roads = P.features.filter(f => f.layer === 'road' && f.pts.length >= 2);
+    const sig = JSON.stringify([roads.map(f => [f.id, f.pts, f.w, f.curve, f.existing]), P.world.fillet ?? 18]);
+    if (sig !== this.sig) { this.sig = sig; this.net = roads.length ? this.build(roads, P.world.fillet ?? 18) : null; }
+    return this.net;
+  },
+  build(roads, R) {
+    const RS = roads.map(f => { const S = centerline(f), n = S.length, t0 = [S[1][0] - S[0][0], S[1][1] - S[0][1]], t1 = [S[n - 1][0] - S[n - 2][0], S[n - 1][1] - S[n - 2][1]];
+      const l0 = Math.hypot(...t0) || 1, l1 = Math.hypot(...t1) || 1; return { f, S, half: (f.w || 12) / 2, t0: [t0[0] / l0, t0[1] / l0], t1: [t1[0] / l1, t1[1] / l1] }; });
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, mh = 0;
+    RS.forEach(r => { mh = Math.max(mh, r.half); r.S.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }); });
+    const pad = mh + R + 6, lim = T.n * T.cell / 2; x0 = Math.max(-lim, x0 - pad); x1 = Math.min(lim, x1 + pad); z0 = Math.max(-lim, z0 - pad); z1 = Math.min(lim, z1 + pad);
+    let g = 2; while (((x1 - x0) / g) * ((z1 - z0) / g) > 1.3e6) g += 1;
+    const nx = Math.ceil((x1 - x0) / g) + 1, nz = Math.ceil((z1 - z0) / g) + 1, N = nx * nz;
+    const G = new Float32Array(N).fill(1e6), own = new Int16Array(N).fill(-1), raws = [], caps = [];
+    RS.forEach((r, ri) => {
+      const rv = new Float32Array(N).fill(1e6), cap = new Uint8Array(N), reach = r.half + R + 4, S = r.S, s0 = S[0], s1 = S[S.length - 1];
+      for (let k = 0; k < S.length; k++) {
+        const p = S[k], i0 = Math.max(0, Math.floor((p[0] - reach - x0) / g)), i1 = Math.min(nx - 1, Math.ceil((p[0] + reach - x0) / g)), j0 = Math.max(0, Math.floor((p[1] - reach - z0) / g)), j1 = Math.min(nz - 1, Math.ceil((p[1] + reach - z0) / g));
+        for (let j = j0; j <= j1; j++) { const z = z0 + j * g; for (let i = i0; i <= i1; i++) {
+          const x = x0 + i * g, q = j * nx + i;
+          const oa = -((x - s0[0]) * r.t0[0] + (z - s0[1]) * r.t0[1]), ob = (x - s1[0]) * r.t1[0] + (z - s1[1]) * r.t1[1];
+          let v;
+          if (oa > 0 || ob > 0) {                                               // past an end: square-cut road end
+            v = 1e6;
+            if (oa > 0) v = Math.min(v, Math.max(Math.abs((x - s0[0]) * r.t0[1] - (z - s0[1]) * r.t0[0]) - r.half, oa));
+            if (ob > 0) v = Math.min(v, Math.max(Math.abs((x - s1[0]) * r.t1[1] - (z - s1[1]) * r.t1[0]) - r.half, ob));
+            cap[q] = 1;
+          } else v = Math.hypot(x - p[0], z - p[1]) - r.half;
+          if (v < rv[q]) rv[q] = v;
+        } }
+      }
+      for (let q = 0; q < N; q++) { const v = rv[q]; if (v > 1e5) continue; const was = G[q]; G[q] = was > 1e5 ? v : smin(was, v, R); if (own[q] < 0 || v < raws[own[q]][q]) own[q] = ri; }
+      raws.push(rv); caps.push(cap);
+    });
+    const loops = marchingLoops(G, nx, nz, x0, z0, g);
+    return { RS, G, own, raws, caps, nx, nz, x0, z0, g, loops, R, fill: new Path2D() };
+  },
+  cell(net, x, z) { const i = clamp(Math.round((x - net.x0) / net.g), 0, net.nx - 1), j = clamp(Math.round((z - net.z0) / net.g), 0, net.nz - 1); return j * net.nx + i; },
+  // edge-of-road stake runs for the roads in `ids` (curb returns included, road ends / yards / other roads left out)
+  edgeRuns(ids, spacing) {
+    const net = this.get(); if (!net) return [];
+    const want = net.RS.map((r, ri) => ids.includes(r.f.id) ? ri : -1).filter(v => v >= 0); if (!want.length) return [];
+    const yards = P.features.filter(f => f.layer === 'yard');
+    const ok = p => { const q = this.cell(net, p[0], p[1]); if (yards.some(y => inPoly(y.pts, p[0], p[1]))) return false;
+      return want.some(ri => net.raws[ri][q] < net.R * .8 && !net.caps[ri][q]); };
+    const runs = [];
+    net.loops.forEach(L => {
+      const flags = L.pts.map(ok), n = L.pts.length;
+      if (flags.every(Boolean) && L.closed) { runs.push(resample(L.pts, spacing, true)); return; }
+      let start = 0; if (L.closed) { start = flags.indexOf(false); if (start < 0) start = 0; }
+      let cur = [];
+      for (let s = 0; s <= n; s++) { const k = L.closed ? (start + s) % n : s; if (k >= n) break; if (flags[k]) cur.push(L.pts[k]); else { if (cur.length > 2) runs.push(cur); cur = []; } }
+      if (cur.length > 2) runs.push(cur);
+    });
+    return runs.filter(r => polyLen(r) > spacing * .5).map(r => resample(r, spacing));
+  },
+};
+
+// --- stake previews (what each mission would put in the ground; mirrors the game's generators)
+function missionStakes(m) {
+  const fs = (m.features || []).map(id => P.features.find(f => f.id === id)).filter(Boolean), runs = [];
+  if (m.type === 'boundary') fs.forEach(f => runs.push(m.spacing > 0 ? along(f.pts, m.spacing, f.closed) : f.pts.map(p => [...p])));
+  else if (m.type === 'line') fs.forEach(f => runs.push(along(curvy(f) ? simplify(centerline(f), 1) : f.pts, m.spacing || 0, f.closed)));
+  else if (m.type === 'points' || m.type === 'topo') fs.forEach(f => runs.push(f.pts.map(p => [...p])));
+  else if (m.type === 'roadEdges') return RoadNet.edgeRuns(fs.map(f => f.id), m.spacing || 32);
+  else if (m.type === 'locate') {
+    const roads = P.features.filter(f => f.layer === 'road'), out = [];
+    fs.forEach(f => along(centerline(f), m.spacing || 36, false).forEach(p => { if (roads.some(r => lineDist(centerline(r), p[0], p[1]) < (r.w || 12) / 2 + 3)) return; if (out.some(o => Math.hypot(o[0] - p[0], o[1] - p[1]) < 12)) return; out.push(p); }));
+    runs.push(out);
+  } else if (m.type === 'mark') {                                             // trees inside the areas (densest cover first), ten at most
+    const cand = [], n = T.n;
+    fs.forEach(f => { if (!f.closed) return; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const q = j * n + i; if (T.trees[q] < 70) continue; const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (inPoly(f.pts, x, z)) cand.push([x, z, T.trees[q]]); } });
+    cand.sort((a, b) => b[2] - a[2]);
+    const out = []; cand.forEach(c => { if (out.length < (m.count || 10) && !out.some(o => Math.hypot(o[0] - c[0], o[1] - c[1]) < 30)) out.push([c[0], c[1]]); });
+    runs.push(out);
+  } else if (m.type === 'delivery') {
+    const st = P.objects.find(o => o.type === 'storage'); if (st) { const c = Math.cos(st.yaw || 0), s = Math.sin(st.yaw || 0); runs.push([3.2, 7.4, 11.6, 15.8].map(d => { const lx = (st.w || 20) / 2 - d; return [st.x + lx * c, st.z - lx * s]; })); }
+  }
+  return runs;
+}
+function missionIssues(m) {
+  const out = [], fs = (m.features || []).map(id => P.features.find(f => f.id === id));
+  if (m.type === 'delivery') {
+    if (!P.objects.some(o => o.type === 'wreck')) out.push('Place a "Delivery semi" on the map (Add → Vehicles).');
+    if (!P.objects.some(o => o.type === 'storage')) out.push('Place a "Storage conex" for the boxes (Add → Buildings).');
+    if (!P.objects.some(o => o.type === 'forklift')) out.push('Place at least one forklift.');
+    return out;
+  }
+  if (!fs.length) out.push('Pick at least one feature to stake.');
+  if (fs.some(f => !f)) out.push('A linked feature was deleted.');
+  const T_ = MTYPES[m.type]; if (T_ && fs.some(f => f && !T_.layers.includes(f.layer))) out.push('Some features are on layers this mission type does not use.');
+  if (m.type === 'boundary' && fs.some(f => f && !f.closed)) out.push('Boundary loops need closed areas.');
+  if (m.type === 'mark' && !missionStakes(m)[0]?.length) out.push('No trees inside the area. Paint some tree cover there or pick another area.');
+  if (!m.paint && m.marker === 'lath') out.push('No paint text on the lath.');
+  const n = missionStakes(m).reduce((s, r) => s + r.length, 0); if (n > 160) out.push(n + ' stakes is a lot for one mission. Raise the spacing or split it.');
+  (m.prereq || []).forEach(p => { if (!P.missions.some(o => o.id === p)) out.push('Needs mission ' + p + ', which does not exist.'); });
+  return out;
+}
+// the "What to use" card new players see under the mission card when they reach the work (same as the game's)
+function tipRows(m) {
+  const rib = m.ribbon || 'White', dot = `<i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${(RIBBONS.find(r => r[0] === rib) || RIBBONS[5])[1]};border:1px solid rgb(0 0 0/.35);margin-right:5px;vertical-align:-1px"></i>`;
+  if (m.type === 'mark') return [['Use', 'Spray paint — job box behind the break room'], ['Colour', `${dot}${rib} · paint an <b>X</b> on each tree`], ['Find', 'Hold the RTK rod — it beeps faster near a marked tree']];
+  if (m.type === 'delivery') return [['Use', 'Forklift — parked at the storage conex'], ['Job', 'Lift each panel box (F) and drop it inside the storage conex']];
+  if (m.type === 'topo') return [['Use', 'RTK rod on the UTV mount (G) · base station ON'], ['Job', 'Drive the buggy over every topo point']];
+  const rows = [];
+  if (m.marker === 'nail') rows.push(['Use', 'Nails &amp; tassel — job box behind the break room'], ['Colour', `${dot}${rib} tassel`], ['Type', 'Points only — no linework']);
+  else if (m.marker === 'pin') rows.push(['Use', 'Pin flags — job box behind the break room'], ['Colour', `${dot}${rib} flags`], ['Type', 'Points only — no line, skip road crossings']);
+  else if (m.marker === 'paint') rows.push(['Use', 'Spray paint — job box'], ['Colour', `${dot}${rib}`]);
+  else rows.push(['Use', 'Wood lath — UTV bed (not nails or pin flags)'], ['Ribbon', `${dot}${rib} ribbon`], ['Paint', `<b>${esc(m.paint || '—')}</b> on every lath`], ['Type', m.type === 'boundary' ? 'Closed loop' : 'Line — stake it point to point']);
+  rows.push(['Rod', 'RTK rod + base station ON, shoot each point']);
+  return rows;
+}
+function tipHTML(m) {
+  const rows = m.tip ? m.tip.split('\n').filter(Boolean).map(l => { const k = l.indexOf(':'); return k > 0 ? [esc(l.slice(0, k)), esc(l.slice(k + 1).trim())] : ['', esc(l)]; }) : tipRows(m);
+  return `<div class="tip"><b class="h">🛠 WHAT TO USE</b>${rows.map(([k, v]) => `<div><em>${k}</em><span>${v}</span></div>`).join('')}</div>`;
+}
+const tipText = m => tipRows(m).map(([k, v]) => k + ': ' + v.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&')).join('\n');
+
+// ---------------------------------------------------------------- drawing
+const SURF = { dirt: '#9c7d57', caliche: '#e3d9c0', gravel: '#b5b0a5', paved: '#4b4f53' };
+let drawQ = 0;
+function draw() { if (!drawQ) drawQ = requestAnimationFrame(() => { drawQ = 0; drawNow(); }); }
+function drawNow() {
+  if (!P || !W) return;
+  if (terrainDirty) buildTerrainImage();
+  if (UI.contours && contourDirty && !painting) buildContours();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--map-bg') || '#222'; ctx.fillRect(0, 0, W, H);
+  const half = T.n * T.cell / 2, ext = (T.n - 1) * T.cell;
+  ctx.imageSmoothingEnabled = view.s < 2.5;
+  ctx.drawImage(terrImg, sx(T.origin - T.cell / 2), sz(T.origin - T.cell / 2), (ext + T.cell) * view.s, (ext + T.cell) * view.s);
+  if (UI.contours && !painting) {
+    ctx.lineWidth = 1; contours.forEach(c => { ctx.strokeStyle = c.major ? 'rgba(60,40,20,.42)' : 'rgba(60,40,20,.2)'; ctx.beginPath(); for (let i = 0; i < c.segs.length; i += 2) { ctx.moveTo(sx(c.segs[i][0]), sz(c.segs[i][1])); ctx.lineTo(sx(c.segs[i + 1][0]), sz(c.segs[i + 1][1])); } ctx.stroke(); });
+  }
+  const gstep = view.s > 1.2 ? 50 : view.s > .35 ? 100 : 500;
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let g = Math.ceil(-half / gstep) * gstep; g <= half; g += gstep) { ctx.moveTo(sx(g), sz(-half)); ctx.lineTo(sx(g), sz(half)); ctx.moveTo(sx(-half), sz(g)); ctx.lineTo(sx(half), sz(g)); }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.strokeRect(sx(-half), sz(-half), half * 2 * view.s, half * 2 * view.s);
+  const isl = P.world.island; if (isl && isl.on) { ctx.strokeStyle = 'rgba(160,220,255,.6)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx(0), sz(0), isl.shore * view.s, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+  const order = { water: 0, river: 1, yard: 2, array: 3, habitat: 4 };
+  const fs = P.features.filter(f => !UI.hideLayers.has(f.layer) && f.layer !== 'road').sort((a, b) => (order[a.layer] ?? 9) - (order[b.layer] ?? 9));
+  fs.filter(f => (order[f.layer] ?? 9) < 9).forEach(f => drawFeature(f, isSel(f)));
+  if (!UI.hideLayers.has('road')) drawRoads();
+  fs.filter(f => (order[f.layer] ?? 9) === 9).forEach(f => drawFeature(f, isSel(f)));
+  if (!UI.hideLayers.has('objects')) { P.objects.forEach(o => drawObject(o, UI.sel && UI.sel.kind === 'o' && UI.sel.id === o.id)); P.objects.forEach(o => objLabel(o, UI.sel && UI.sel.kind === 'o' && UI.sel.id === o.id)); }
+  // mission stake preview
+  const m = UI.tab === 'missions' && UI.mission && P.missions.find(q => q.id === UI.mission);
+  if (m) { const col = (RIBBONS.find(r => r[0] === m.ribbon) || RIBBONS[5])[1]; let k = 0;
+    missionStakes(m).forEach(run => { if (m.line && MTYPES[m.type]?.line && run.length > 1) { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); run.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.stroke(); ctx.setLineDash([]); }
+      run.forEach(p => { k++; const X = sx(p[0]), Y = sz(p[1]);
+        if (m.type === 'mark') { ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(X - 6, Y - 6); ctx.lineTo(X + 6, Y + 6); ctx.moveTo(X + 6, Y - 6); ctx.lineTo(X - 6, Y + 6); ctx.stroke(); return; }
+        if (m.type === 'delivery') { ctx.fillStyle = '#c7a36b'; ctx.fillRect(X - 5, Y - 5, 10, 10); ctx.strokeStyle = '#000'; ctx.strokeRect(X - 5, Y - 5, 10, 10); return; }
+        ctx.fillStyle = '#d8b482'; ctx.fillRect(X - 1.5, Y - 9, 3, 10); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X + 1.5, Y - 9); ctx.lineTo(X + 8, Y - 7); ctx.lineTo(X + 1.5, Y - 5); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = .8; ctx.stroke();
+        if (view.s > .9) { ctx.fillStyle = '#fff'; ctx.font = '600 10px JetBrains Mono, monospace'; ctx.fillText(k, X + 3, Y + 9); } }); });
+  }
+  // the line being drawn
+  if (UI.draft) {
+    const d = UI.draft, L = LAYERS[d.layer] || LAYERS.note, pts = d.sketch && d.sketch.length ? d.sketch : d.pts;
+    const show = (d.layer === 'road' || d.layer === 'river') && UI.roadCurve !== 'straight' && !d.sketch ? smoothPath(d.hover ? [...pts, d.hover] : pts, false, 3) : (d.hover && !d.sketch ? [...pts, d.hover] : pts);
+    if (d.layer === 'road' || d.layer === 'river') { ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = d.layer === 'river' ? 'rgba(59,138,196,.55)' : 'rgba(200,195,180,.55)'; ctx.lineWidth = Math.max(3, (d.layer === 'river' ? UI.river : UI.road) * view.s); ctx.beginPath(); show.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.stroke(); }
+    ctx.strokeStyle = L.color; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]); ctx.beginPath();
+    show.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (d.rect && pts.length === 1 && d.hover) { const a = pts[0], b = d.hover; ctx.rect(sx(a[0]), sz(a[1]), sx(b[0]) - sx(a[0]), sz(b[1]) - sz(a[1])); } ctx.stroke(); ctx.setLineDash([]);
+    if (!d.sketch) d.pts.forEach(p => vertexDot(sx(p[0]), sz(p[1]), L.color));
+  }
+  if (snapMark) { ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(sx(snapMark[0]), sz(snapMark[1]), 11, 0, Math.PI * 2); ctx.stroke(); }
+  if (UI.measure && UI.measure.a) { const a = UI.measure.a, b = UI.measure.b || UI.measure.hover; if (b) { ctx.strokeStyle = '#ffb37a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx(a[0]), sz(a[1])); ctx.lineTo(sx(b[0]), sz(b[1])); ctx.stroke();
+    const dist = Math.hypot(b[0] - a[0], b[1] - a[1]), brg = (Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI + 360) % 360, dh = hAt(b[0], b[1]) - hAt(a[0], a[1]);
+    const txt = `${dist.toFixed(1)}'  ${bearing(brg)}  Δz ${dh >= 0 ? '+' : ''}${dh.toFixed(1)}'`; ctx.font = '600 13px JetBrains Mono, monospace'; const tw = ctx.measureText(txt).width;
+    const mx = (sx(a[0]) + sx(b[0])) / 2, my = (sz(a[1]) + sz(b[1])) / 2; ctx.fillStyle = 'rgba(15,18,16,.88)'; ctx.fillRect(mx - tw / 2 - 7, my - 24, tw + 14, 22); ctx.fillStyle = '#ffd7b5'; ctx.fillText(txt, mx - tw / 2, my - 8); } }
+  if (brushRing && ['terrain', 'paint', 'trees'].includes(UI.tool)) { ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx(brushRing[0]), sz(brushRing[1]), UI.brush * view.s, 0, Math.PI * 2); ctx.stroke(); ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(sx(brushRing[0]), sz(brushRing[1]), UI.brush * view.s + 1.5, 0, Math.PI * 2); ctx.stroke(); }
+  if (!isPhone()) { ctx.save(); ctx.translate(W - 34, 76); ctx.fillStyle = 'rgba(15,18,16,.7)'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(6, 6); ctx.lineTo(0, 2); ctx.lineTo(-6, 6); ctx.fill(); ctx.font = '700 10px Barlow Condensed, sans-serif'; ctx.fillText('N', -3, 17); ctx.restore(); }
+  const target = 120 / view.s, nice = [10, 25, 50, 100, 200, 250, 500, 1000, 2000].find(v => v >= target * .6) || 2000;
+  $('scale').innerHTML = `<span style="display:inline-block;width:${Math.round(nice * view.s)}px;height:6px;border:2px solid #e8eee6;border-top:0;vertical-align:middle"></span> ${nice}'`;
+}
+const isSel = f => !!(UI.sel && UI.sel.kind === 'f' && UI.sel.id === f.id);
+let snapMark = null;
+// all the roads as one network: gravel fill with rounded curb returns, existing roads in their own surface, edge lines
+function drawRoads() {
+  const roads = P.features.filter(f => f.layer === 'road');
+  if (!roads.length) return;
+  const net = RoadNet.live ? RoadNet.get() : null;
+  ctx.lineJoin = ctx.lineCap = 'round';
+  if (net) {
+    ctx.beginPath(); net.loops.forEach(L => { L.pts.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (L.closed) ctx.closePath(); });
+    ctx.strokeStyle = 'rgba(40,35,28,.6)'; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = SURF.gravel; ctx.fill('evenodd');
+    roads.filter(f => f.existing && f.surface !== 'gravel').forEach(f => { const S = centerline(f); ctx.lineCap = 'butt'; ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = SURF[f.surface] || SURF.dirt; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s - 1); ctx.stroke(); });
+    if (roads.some(f => f.existing && f.surface !== 'gravel')) roads.filter(f => !f.existing).forEach(f => { const S = centerline(f); ctx.lineCap = 'butt'; ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = SURF[f.surface] || SURF.gravel; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s - 1); ctx.stroke(); });
+    if (UI.showEdges && view.s > .45) { ctx.beginPath(); net.loops.forEach(L => { L.pts.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (L.closed) ctx.closePath(); }); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); }
+  } else roads.forEach(f => { const S = centerline(f); ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = 'rgba(40,35,28,.55)'; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s) + 3; ctx.stroke(); ctx.strokeStyle = SURF[f.surface] || SURF.gravel; ctx.lineWidth = Math.max(2, (f.w || 12) * view.s); ctx.stroke(); });
+  ctx.lineCap = 'round';
+  roads.forEach(f => { if (!f.existing && view.s > .3) { const S = centerline(f); ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]); }
+    if (isSel(f)) drawHandles(f); else if (view.s > .75 && f.name) label(f.name, centerline(f)[Math.floor(centerline(f).length / 2)]); });
+}
+function label(t, p) { if (!p) return; ctx.font = '600 12px Barlow Condensed, sans-serif'; ctx.fillStyle = 'rgba(0,0,0,.6)'; const s = t.toUpperCase(), tw = ctx.measureText(s).width; ctx.fillRect(sx(p[0]) + 6, sz(p[1]) - 9, tw + 8, 16); ctx.fillStyle = '#fff'; ctx.fillText(s, sx(p[0]) + 10, sz(p[1]) + 3); }
+function vertexDot(X, Y, col, big) { const r = (isPhone() ? 6 : 4) + (big ? 2 : 0); ctx.fillStyle = '#fff'; ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+function bearing(deg) { const q = deg < 90 ? ['N', 'E', deg] : deg < 180 ? ['S', 'E', 180 - deg] : deg < 270 ? ['S', 'W', deg - 180] : ['N', 'W', 360 - deg]; const d = Math.floor(q[2]), m = Math.floor((q[2] - d) * 60); return `${q[0]}${d}°${String(m).padStart(2, '0')}'${q[1]}`; }
+function drawHandles(f) {
+  if (UI.moveWhole) { const c = featCenter(f); ctx.fillStyle = '#ff7a2f'; ctx.beginPath(); ctx.arc(sx(c[0]), sz(c[1]), 13, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#fff'; ctx.font = '700 15px system-ui'; ctx.fillText('✥', sx(c[0]) - 7, sz(c[1]) + 5); }
+  if (f.layer === 'road' || f.layer === 'river' || curvy(f)) { ctx.strokeStyle = 'rgba(255,122,47,.6)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); f.pts.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); ctx.stroke(); ctx.setLineDash([]); }
+  f.pts.forEach((p, i) => vertexDot(sx(p[0]), sz(p[1]), i === UI.vtx ? '#e11d48' : '#ff7a2f', i === 0 || i === UI.vtx));
+  if (LAYERS[f.layer]?.geom !== 'points') { const P2 = f.closed ? [...f.pts, f.pts[0]] : f.pts;
+    for (let i = 0; i < P2.length - 1; i++) { const X = (sx(P2[i][0]) + sx(P2[i + 1][0])) / 2, Y = (sz(P2[i][1]) + sz(P2[i + 1][1])) / 2; ctx.fillStyle = 'rgba(255,122,47,.85)'; ctx.beginPath(); ctx.arc(X, Y, isPhone() ? 5 : 3.5, 0, Math.PI * 2); ctx.fill(); } }
+}
+function featCenter(f) { let x = 0, z = 0; f.pts.forEach(p => { x += p[0]; z += p[1]; }); return [x / f.pts.length, z / f.pts.length]; }
+function strokePath(S, close) { ctx.beginPath(); S.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sz(p[1])) : ctx.moveTo(sx(p[0]), sz(p[1]))); if (close) ctx.closePath(); }
+function drawFeature(f, sel) {
+  const L = LAYERS[f.layer] || LAYERS.note;
+  if (L.geom === 'points') {
+    f.pts.forEach(p => { const X = sx(p[0]), Y = sz(p[1]); ctx.fillStyle = L.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.beginPath(); if (f.layer === 'topo') { ctx.moveTo(X, Y - 5); ctx.lineTo(X + 5, Y + 4); ctx.lineTo(X - 5, Y + 4); ctx.closePath(); } else ctx.arc(X, Y, Math.max(2.5, Math.min(5, view.s * 1.6)), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    if (sel) f.pts.forEach((p, i) => vertexDot(sx(p[0]), sz(p[1]), i === UI.vtx ? '#e11d48' : '#ff7a2f', i === UI.vtx));
+    return;
+  }
+  const S = centerline(f);
+  ctx.lineJoin = ctx.lineCap = 'round';
+  if (f.layer === 'river') {
+    const w = Math.max(3, (f.w || 30) * view.s);
+    strokePath(S); ctx.strokeStyle = '#c9b88a'; ctx.lineWidth = w + Math.max(3, 12 * view.s); ctx.stroke(); ctx.strokeStyle = '#5e5236'; ctx.lineWidth = w + Math.max(2, 4 * view.s); ctx.stroke(); ctx.strokeStyle = '#3b7fb4'; ctx.lineWidth = w; ctx.stroke();
+    ctx.strokeStyle = 'rgba(160,210,240,.55)'; ctx.lineWidth = Math.max(1, w * .18); ctx.setLineDash([10, 14]); ctx.stroke(); ctx.setLineDash([]);
+  } else {
+    strokePath(S, f.closed && !curvy(f));
+    if (L.fill && f.closed) { ctx.fillStyle = L.color; ctx.globalAlpha = L.fill; ctx.fill(); ctx.globalAlpha = 1; }
+    if (L.halo) { ctx.strokeStyle = L.halo; ctx.lineWidth = 5; ctx.stroke(); } else { ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 4.5; ctx.stroke(); }
+    ctx.strokeStyle = L.color; ctx.lineWidth = f.layer === 'silt' ? 2.5 : f.layer === 'power' ? 1.6 : 2.2; ctx.setLineDash(L.dash || []); ctx.stroke(); ctx.setLineDash([]);
+    if (f.layer === 'power') along(S, f.poleStep || 180, false).forEach(p => { const X = sx(p[0]), Y = sz(p[1]); ctx.fillStyle = '#8b5a2b'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X, Y, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    if (UTIL_LAYERS.includes(f.layer) && f.layer !== 'power' && view.s > .5) { const p = S[Math.floor(S.length / 2)]; ctx.fillStyle = L.color; ctx.font = '700 10px JetBrains Mono, monospace'; ctx.fillText({ ugpower: 'E', gas: 'G', waterline: 'W', sewer: 'S', telecom: 'T' }[f.layer], sx(p[0]) + 5, sz(p[1]) - 5); }
+  }
+  if (sel) drawHandles(f);
+  else if (view.s > .75 && f.name && f.layer !== 'note') label(f.name, S[Math.floor(S.length / 2)]);
+}
+function drawObject(o, sel) {
+  const D = OBJECTS[o.type] || OBJECTS.sign, w = (o.w || D.w) * view.s, d = (o.d || D.d) * view.s, X = sx(o.x), Y = sz(o.z);
+  ctx.save(); ctx.translate(X, Y); ctx.rotate(-(o.yaw || 0));
+  const mn = isPhone() ? 9 : 7;
+  ctx.fillStyle = D.color; ctx.strokeStyle = sel ? '#ff7a2f' : 'rgba(0,0,0,.7)'; ctx.lineWidth = sel ? 3 : 1.4;
+  if (D.shape === 'circle') { ctx.beginPath(); ctx.arc(0, 0, Math.max(mn / 2, w / 2), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  else if (D.shape === 'tri') { const r = Math.max(6, w); ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r * .87, r * .5); ctx.lineTo(-r * .87, r * .5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  else if (D.shape === 'star') { const r = 10; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, q = i % 2 ? r * .45 : r; ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q); } ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  else { const ww = Math.max(mn, w), dd = Math.max(mn * .6, d); ctx.fillRect(-ww / 2, -dd / 2, ww, dd); ctx.strokeRect(-ww / 2, -dd / 2, ww, dd);
+    if (['truck', 'utv', 'forklift'].includes(o.type)) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(-ww / 2 + 1, -dd / 2 + 1, ww - 2, Math.max(2, dd * .12)); }
+    if (o.type === 'storage') { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ww / 2 - 2, -dd / 2 + 1, 2, dd - 2); } }
+  ctx.restore();
+}
+function objLabel(o, sel) {
+  const D = OBJECTS[o.type] || OBJECTS.sign, X = sx(o.x), Y = sz(o.z);
+  if ((view.s > 2.2 && !['controlpoint', 'portajohn', 'lbd'].includes(o.type)) || (view.s > 1 && ['storage', 'wreck', 'substation', 'inverterpad'].includes(o.type)) || (view.s > .8 && o.type === 'controlpoint') || sel) { ctx.font = '600 12px Barlow Condensed, sans-serif'; const t = (o.name || D.label).toUpperCase(), tw = ctx.measureText(t).width; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(X + 9, Y - 20, tw + 8, 16); ctx.fillStyle = '#fff'; ctx.fillText(t, X + 13, Y - 8); }
+}
+
+// ---------------------------------------------------------------- tools
+const ICON = {
+  select: '<path d="M5 3l14 8-6 2-3 6z"/>', add: '<path d="M12 5v14M5 12h14"/>',
+  draw: '<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>', points: '<circle cx="6" cy="7" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="11" cy="15" r="2"/><circle cx="19" cy="17" r="2"/>',
+  road: '<path d="M8 21l3-18M16 21l-3-18"/><path d="M12 6v2M12 11v2M12 16v2"/>', river: '<path d="M3 8c3-3 5 3 9 0s6 3 9 0M3 15c3-3 5 3 9 0s6 3 9 0"/>',
+  object: '<path d="M4 9l8-5 8 5v10H4z"/><path d="M10 19v-6h4v6"/>', terrain: '<path d="M2 19l6-9 4 5 3-4 7 8z"/>', paint: '<path d="M4 20c0-3 2-5 5-5l9-9 2 2-9 9c0 3-2 5-5 5z"/>',
+  trees: '<path d="M12 2l6 9h-3l4 6H5l4-6H6z"/><path d="M12 17v5"/>', measure: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/>',
+};
+const TOOLS = [['select', 'Select', 'V'], ['add', 'Add', 'A'], ['road', 'Road', 'D'], ['draw', 'Draw', 'L'], ['river', 'River', 'W'], ['points', 'Points', 'P'], '|',
+  ['terrain', 'Sculpt', 'T'], ['paint', 'Ground', 'G'], ['trees', 'Trees', 'R'], ['measure', 'Measure', 'M'], '|', ['undo', 'Undo', ''], ['redo', 'Redo', '']];
+function renderRail() {
+  $('rail').innerHTML = TOOLS.map(t => t === '|' ? '<div class="sep"></div>' : `<button class="tool${UI.tool === t[0] || (t[0] === 'add' && UI.tool === 'object') ? ' on' : ''}${t[0] === 'add' ? ' add' : ''}" data-tool="${t[0]}" title="${t[1]}${t[2] ? ' (' + t[2] + ')' : ''}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${t[0] === 'add' ? 2.6 : 1.8}" stroke-linejoin="round" stroke-linecap="round">${ICON[t[0]]}</svg><span>${t[1]}</span></button>`).join('');
+}
+$('rail').addEventListener('click', e => { const b = e.target.closest('[data-tool]'); if (!b) return; const t = b.dataset.tool; if (t === 'undo') return undo(); if (t === 'redo') return redo(); if (t === 'add') return openCatalog(); setTool(t); });
+function setTool(t) { if (UI.draft && !['draw', 'road', 'river'].includes(t)) finishDraft(); UI.tool = t; UI.measure = t === 'measure' ? {} : null; snapMark = null; renderRail(); renderToolbar(); renderSelbar(); draw(); }
+const seg = (id, opts, cur) => `<span class="seg" id="${id}">${opts.map(([v, l]) => `<button data-v="${v}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</span>`;
+function renderToolbar() {
+  const tb = $('toolbar'), opts = (o, v) => Object.entries(o).map(([k, d]) => `<option value="${k}"${k === v ? ' selected' : ''}>${esc(d.label || d)}</option>`).join('');
+  let h = '', hint = '';
+  const brush = `<label>Size</label><input type="range" id="tbBrush" min="10" max="300" value="${UI.brush}"><span class="val">${UI.brush}'</span><label>Strength</label><input type="range" id="tbStr" min="5" max="100" value="${UI.strength}">`;
+  const finish = UI.draft ? `<button class="go" id="tbFinish">Done</button><button id="tbCancel">Cancel</button>` : '';
+  const snap = `<button id="tbSnap" class="${UI.snap ? 'on' : ''}" title="Snap to other lines and corners">Snap</button>`;
+  if (UI.tool === 'draw') {
+    const lay = Object.fromEntries(Object.entries(LAYERS).filter(([k, v]) => v.geom !== 'points' && k !== 'road' && k !== 'river')), area = LAYERS[UI.layer].geom === 'area';
+    h = `<div class="tb"><select id="tbLayer" aria-label="What to draw">${opts(lay, UI.layer)}</select>${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand'], ...(area ? [['box', 'Box']] : [])], UI.drawMode)}${snap}${finish}</div>`;
+    hint = UI.draft ? (UI.drawMode === 'tap' ? `Tap to add corners · ${area ? 'tap the first corner or Done to close' : 'double-tap or Done to end'}` : 'Keep drawing…') : UI.drawMode === 'free' ? 'Draw with your finger — it smooths into clean corners' : UI.drawMode === 'box' ? 'Drag a box' : 'Tap the map to start a ' + LAYERS[UI.layer].label.toLowerCase();
+  } else if (UI.tool === 'road') {
+    h = `<div class="tb"><label>Width</label><input type="number" id="tbRoadW" value="${UI.road}" min="6" max="60" step="1">${seg('tbSurf', [['gravel', 'Gravel'], ['caliche', 'Caliche'], ['dirt', 'Dirt'], ['paved', 'Paved']], UI.roadSurf)}${seg('tbCurve', [['smooth', 'Curvy'], ['straight', 'Straight']], UI.roadCurve)}${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand']], UI.drawMode === 'box' ? 'tap' : UI.drawMode)}${snap}${finish}</div>`;
+    hint = UI.draft ? 'Tap points along the road · start or end on another road to join it · Done to finish' : UI.drawMode === 'free' ? 'Draw the road with your finger — curves and junctions smooth out on their own' : 'Tap where the road starts (on another road to branch off it)';
+  } else if (UI.tool === 'river') {
+    h = `<div class="tb"><label>Width</label><input type="number" id="tbRivW" value="${UI.river}" min="6" max="200" step="2"><label>Depth</label><input type="number" id="tbRivD" value="${UI.rdepth || 4}" min="1" max="20" step="1">${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand']], UI.drawMode === 'box' ? 'tap' : UI.drawMode)}${finish}</div>`;
+    hint = UI.draft ? 'Tap along the river · Done to finish (it carves the channel)' : 'Draw the river — it bends smoothly and cuts its bed into the ground';
+  } else if (UI.tool === 'points') {
+    const sel = selFeature(), into = sel && LAYERS[sel.layer].geom === 'points';
+    h = `<div class="tb">${seg('tbPLayer', [['piles', 'Piles'], ['topo', 'Topo']], UI.player || 'piles')}${into ? `<span class="val">adding to “${esc(sel.name)}”</span><button id="tbNewSet">New set</button>` : ''}</div>`;
+    hint = into ? 'Tap to add points to the selected set' : 'Tap to start a new point set';
+  } else if (UI.tool === 'object') {
+    const D = OBJECTS[UI.obj];
+    h = `<div class="tb"><span class="val" style="font:600 14px var(--f-body)">${D.icon || ''} ${esc(D.label)}</span><button id="tbPick">Change…</button><button id="tbStop">Stop</button></div>`; hint = 'Tap the map to place it · drag it afterwards to move';
+  } else if (UI.tool === 'terrain') {
+    h = `<div class="tb">${seg('tbTMode', [['raise', 'Raise'], ['lower', 'Lower'], ['flatten', 'Flatten'], ['smooth', 'Smooth'], ['noise', 'Rough']], UI.tmode || 'raise')}${brush}</div>`;
+    hint = UI.tmode === 'flatten' ? 'Drag to flatten to the height where you start' : 'Drag on the map to sculpt · two fingers to move the map';
+  } else if (UI.tool === 'paint') {
+    h = `<div class="tb"><select id="tbGround">${GROUND.map(g => `<option value="${g.id}"${g.id === UI.ground ? ' selected' : ''}>${g.label}</option>`).join('')}</select>${brush}</div>`; hint = 'Drag to paint the ground';
+  } else if (UI.tool === 'trees') {
+    h = `<div class="tb">${seg('tbTrees', [['add', 'Add'], ['thin', 'Thin'], ['clear', 'Clear']], UI.trmode || 'add')}${brush}</div>`; hint = 'Drag to paint tree cover (species mix is in the Site tab)';
+  } else if (UI.tool === 'select') {
+    h = `<div class="tb"><button id="tbCont" class="${UI.contours ? 'on' : ''}">Contours</button><button id="tbTr" class="${UI.showTrees ? 'on' : ''}">Trees</button><button id="tbEdge" class="${UI.showEdges ? 'on' : ''}">Road edges</button></div>`;
+    hint = UI.sel ? (UI.sel.kind === 'o' ? 'Drag it to move · set facing in the panel' : 'Drag a dot to move a corner · drag the line itself to move it all · tap a small dot to add a corner') : 'Tap a line, area or object to edit it';
+  } else if (UI.tool === 'measure') hint = UI.measure && UI.measure.a ? 'Tap the second point' : 'Tap two points to measure distance, bearing and grade';
+  tb.innerHTML = h; const hn = $('hint'); hn.textContent = hint; hn.hidden = !hint || (isPhone() && !!UI.sel && UI.tool === 'select'); hn.style.bottom = isPhone() ? (tb.offsetHeight ? tb.offsetHeight + 20 : 14) + 'px' : '';
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  const segOn = (id, fn) => { const el = $(id); if (el) el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { fn(b.dataset.v); renderToolbar(); draw(); })); };
+  on('tbLayer', 'change', e => { UI.layer = e.target.value; if (UI.draft) UI.draft.layer = UI.layer; if (LAYERS[UI.layer].geom !== 'area' && UI.drawMode === 'box') UI.drawMode = 'tap'; renderToolbar(); draw(); });
+  segOn('tbMode', v => { UI.drawMode = v; UI.draft = null; });
+  on('tbSnap', 'click', () => { UI.snap = !UI.snap; renderToolbar(); });
+  on('tbRoadW', 'change', e => { UI.road = clamp(+e.target.value || 16, 4, 80); draw(); });
+  segOn('tbSurf', v => { UI.roadSurf = v; }); segOn('tbCurve', v => { UI.roadCurve = v; });
+  on('tbRivW', 'change', e => { UI.river = clamp(+e.target.value || 30, 4, 300); draw(); }); on('tbRivD', 'change', e => { UI.rdepth = clamp(+e.target.value || 4, 1, 30); });
+  on('tbFinish', 'click', () => finishDraft()); on('tbCancel', 'click', () => { UI.draft = null; snapMark = null; renderToolbar(); draw(); });
+  segOn('tbPLayer', v => { UI.player = v; }); on('tbNewSet', 'click', () => { UI.sel = null; renderToolbar(); renderPanel(); draw(); });
+  on('tbPick', 'click', () => openCatalog()); on('tbStop', 'click', () => setTool('select'));
+  segOn('tbTMode', v => { UI.tmode = v; }); on('tbGround', 'change', e => { UI.ground = e.target.value; }); segOn('tbTrees', v => { UI.trmode = v; });
+  on('tbBrush', 'input', e => { UI.brush = +e.target.value; e.target.nextElementSibling.textContent = UI.brush + "'"; draw(); }); on('tbStr', 'input', e => { UI.strength = +e.target.value; });
+  on('tbCont', 'click', () => { UI.contours = !UI.contours; renderToolbar(); draw(); }); on('tbTr', 'click', () => { UI.showTrees = !UI.showTrees; terrainDirty = true; renderToolbar(); draw(); }); on('tbEdge', 'click', () => { UI.showEdges = !UI.showEdges; renderToolbar(); draw(); });
+}
+function draftLayer() { return UI.tool === 'road' ? 'road' : UI.tool === 'river' ? 'river' : UI.layer; }
+function finishDraft() {
+  const d = UI.draft; UI.draft = null; snapMark = null;
+  if (d && d.sketch && d.sketch.length > 1) { d.pts = simplify(d.sketch, Math.max(2, 7 / view.s)); if (UI.snap && (d.layer === 'road')) { d.pts[0] = snapPoint(...d.pts[0], d.layer, true) || d.pts[0]; d.pts[d.pts.length - 1] = snapPoint(...d.pts.at(-1), d.layer, true) || d.pts.at(-1); } }
+  if (d && d.pts.length >= 2) {
+    pushUndo();
+    const L = LAYERS[d.layer], closed = L.geom === 'area' && d.pts.length >= 3, f = { id: uid(d.layer), layer: d.layer, name: defaultName(d.layer), pts: d.pts.map(p => p.map(r1)), closed };
+    if (d.layer === 'road') Object.assign(f, { w: UI.road, surface: UI.roadSurf, curve: UI.roadCurve });
+    if (d.layer === 'river') { Object.assign(f, { w: UI.river, depth: UI.rdepth || 4, curve: 'smooth' }); }
+    if (d.layer === 'array') Object.assign(f, { pitch: 20, step: 20, edge: 10 });
+    if (d.layer === 'water') f.depth = 3;
+    if (d.layer === 'power') f.poleStep = 180;
+    if (d.sketch && d.layer !== 'road' && d.layer !== 'river' && L.geom !== 'area') f.curve = 'smooth';
+    P.features.push(f); UI.sel = { kind: 'f', id: f.id };
+    if (d.layer === 'yard') flattenArea(f.pts, hAt(...f.pts[0]));
+    if (d.layer === 'river') carveRiver(f);
+    if (d.layer === 'road') paintRoadGround(f);
+    UI.tab = 'sel'; renderPanel();
+  }
+  renderToolbar(); draw();
+}
+function paintRoadGround(f) { if (f.existing) return; const S = centerline(f), n = T.n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = T.origin + i * T.cell, z = T.origin + j * T.cell; if (lineDist(S, x, z) < (f.w || 12) / 2) T.trees[j * n + i] = 0; } terrainDirty = true; }
+function defaultName(layer) { const n = P.features.filter(f => f.layer === layer).length + 1; return ({ lod: 'Limit of disturbance', silt: 'Silt fence', road: 'Road', river: 'Creek', ac: 'AC run', dc: 'DC run', array: 'Solar array', piles: 'Pile layout', topo: 'Topo shots', water: 'Pond', yard: 'Office yard', fence: 'Fence', habitat: 'Wildlife area', note: 'Note', power: 'Power line', ugpower: 'Buried electric', gas: 'Gas line', waterline: 'Water line', sewer: 'Sewer line', telecom: 'Fiber line' }[layer] || layer) + (n > 1 ? ' ' + n : ''); }
+function selFeature() { return UI.sel && UI.sel.kind === 'f' ? P.features.find(f => f.id === UI.sel.id) : null; }
+function selObject() { return UI.sel && UI.sel.kind === 'o' ? P.objects.find(o => o.id === UI.sel.id) : null; }
+function findSel(s) { return s.kind === 'f' ? P.features.find(f => f.id === s.id) : P.objects.find(o => o.id === s.id); }
+// snapping: corners first, then onto lines (roads snap onto other roads' centre lines = a junction)
+function snapPoint(x, z, layer, force) {
+  if (!UI.snap && !force) return null;
+  const tolPx = isPhone() ? 22 : 14, tol = tolPx / view.s, skip = UI.sel && UI.sel.kind === 'f' ? UI.sel.id : null;
+  let best = null, bd = tol;
+  P.features.forEach(f => { if (f.id === skip || UI.hideLayers.has(f.layer)) return; f.pts.forEach(p => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; best = [p[0], p[1]]; } }); });
+  if (best) return best;
+  P.features.forEach(f => { if (f.id === skip || UI.hideLayers.has(f.layer) || LAYERS[f.layer]?.geom === 'points') return; if (layer === 'road' && f.layer !== 'road') return;
+    const reach = layer === 'road' && f.layer === 'road' ? Math.max(tol, (f.w || 12) / 2 + 2) : tol, nr = nearestOnLine(centerline(f), x, z); if (nr.d < reach && nr.d < bd + (layer === 'road' ? 99 : 0)) { bd = nr.d; best = nr.p; } });
+  return best;
+}
+
+// hit testing (screen pixels)
+function hitTest(px, py) {
+  const tol = isPhone() ? 16 : 10;
+  if (!UI.hideLayers.has('objects')) for (let i = P.objects.length - 1; i >= 0; i--) { const o = P.objects[i], D = OBJECTS[o.type] || OBJECTS.sign, r = Math.max(isPhone() ? 14 : 8, Math.max(o.w || D.w, o.d || D.d) * view.s / 2); if (Math.hypot(px - sx(o.x), py - sz(o.z)) < r) return { kind: 'o', id: o.id }; }
+  let best = null, bd = tol;
+  P.features.forEach(f => { if (UI.hideLayers.has(f.layer)) return; const L = LAYERS[f.layer] || LAYERS.note;
+    if (L.geom === 'points') f.pts.forEach(p => { const d = Math.hypot(px - sx(p[0]), py - sz(p[1])); if (d < bd) { bd = d; best = { kind: 'f', id: f.id }; } });
+    else { const sp = centerline(f).map(p => [sx(p[0]), sz(p[1])]); const d = lineDist(sp, px, py, f.closed && !curvy(f)) - ((f.layer === 'road' || f.layer === 'river') ? (f.w || 12) * view.s / 2 : 0); if (d < bd) { bd = d; best = { kind: 'f', id: f.id }; }
+      if (!best && L.fill && f.closed && inPoly(f.pts, wx(px), wz(py)) && f.layer !== 'array') best = { kind: 'f', id: f.id }; } });
+  return best;
+}
+
+// ---------------------------------------------------------------- pointer input (mouse, pen, touch with pinch)
+const ptrs = new Map(); let gesture = null, drag = null, painting = false, brushRing = null, lastTap = 0, lastTapXY = [0, 0];
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+  if (ptrs.size === 2) { if (painting) endPaint(); if (UI.draft && UI.draft.sketch) UI.draft = null; drag = null; const [a, b] = [...ptrs.values()]; gesture = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, s: view.s, cx: view.cx, cz: view.cz }; return; }
+  if (ptrs.size > 2) return;
+  const px = e.offsetX, py = e.offsetY; let x = wx(px), z = wz(py);
+  if (e.button === 1 || e.button === 2 || spaceDown) { drag = { pan: true, px, py, cx: view.cx, cz: view.cz }; return; }
+  const now = performance.now(), dbl = now - lastTap < 350 && Math.hypot(px - lastTapXY[0], py - lastTapXY[1]) < 18; lastTap = now; lastTapXY = [px, py];
+  if (['draw', 'road', 'river'].includes(UI.tool)) {
+    const layer = draftLayer(), mode = UI.tool === 'draw' ? UI.drawMode : (UI.drawMode === 'box' ? 'tap' : UI.drawMode);
+    const sp = snapPoint(x, z, layer); if (sp) { x = sp[0]; z = sp[1]; }
+    if (mode === 'free') { UI.draft = { layer, pts: [], sketch: [[x, z]] }; drag = { sketch: true }; draw(); return; }
+    if (mode === 'box') { UI.draft = { layer, pts: [[x, z]], rect: true }; drag = { box: true, px, py }; draw(); return; }
+    if (!UI.draft) { UI.draft = { layer, pts: [[x, z]] }; renderToolbar(); }
+    else {
+      const d = UI.draft, f0 = d.pts[0], last = d.pts.at(-1);
+      if (LAYERS[d.layer].geom === 'area' && d.pts.length >= 3 && Math.hypot(sx(f0[0]) - px, sz(f0[1]) - py) < (isPhone() ? 22 : 14)) return finishDraft();
+      if ((dbl || Math.hypot(sx(last[0]) - px, sz(last[1]) - py) < (isPhone() ? 18 : 10)) && d.pts.length >= 2) return finishDraft();
+      d.pts.push([x, z]);
+      if (layer === 'road' && d.pts.length >= 2 && sp && P.features.some(f => f.layer === 'road' && lineDist(centerline(f), x, z) < 1)) return finishDraft();     // ended on another road: junction done
+    }
+    draw(); return;
+  }
+  if (UI.tool === 'points') {
+    let f = selFeature();
+    if (!f || LAYERS[f.layer].geom !== 'points') { pushUndo(); const layer = UI.player || 'piles'; f = { id: uid(layer), layer, name: defaultName(layer), pts: [], closed: false }; P.features.push(f); UI.sel = { kind: 'f', id: f.id }; renderToolbar(); }
+    else pushUndo();
+    f.pts.push([r1(x), r1(z)]); renderPanel(); draw(); return;
+  }
+  if (UI.tool === 'object') { pushUndo(); const o = { id: uid(UI.obj), type: UI.obj, x: r1(x), z: r1(z), yaw: 0 }; if (UI.obj === 'controlpoint') o.name = 'CP-' + (P.objects.filter(q => q.type === 'controlpoint').length + 1); P.objects.push(o); UI.sel = { kind: 'o', id: o.id }; renderPanel(); draw(); return; }
+  if (UI.tool === 'measure') { const m = UI.measure; if (!m.a || m.b) { UI.measure = { a: [x, z] }; } else m.b = [x, z]; renderToolbar(); draw(); return; }
+  if (['terrain', 'paint', 'trees'].includes(UI.tool)) { pushUndo(); painting = true; UI.flatH = hAt(x, z); drag = { paint: true, last: performance.now() }; applyBrush(x, z, 1 / 30); draw(); return; }
+  // select
+  const f = selFeature(), hr = isPhone() ? 20 : 12;
+  if (f) {
+    if (UI.moveWhole) { const c = featCenter(f); if (Math.hypot(sx(c[0]) - px, sz(c[1]) - py) < 22) { drag = { whole: f, x, z, moved: false }; return; } }
+    const vi = f.pts.findIndex(p => Math.hypot(sx(p[0]) - px, sz(p[1]) - py) < hr);
+    if (vi >= 0) { pushUndo(); drag = { vertex: vi, f }; UI.vtx = vi; RoadNet.live = f.layer !== 'road'; renderSelbar(); draw(); return; }
+    if (LAYERS[f.layer].geom !== 'points') { const P2 = f.closed ? [...f.pts, f.pts[0]] : f.pts;
+      for (let i = 0; i < P2.length - 1; i++) { const X = (sx(P2[i][0]) + sx(P2[i + 1][0])) / 2, Y = (sz(P2[i][1]) + sz(P2[i + 1][1])) / 2; if (Math.hypot(X - px, Y - py) < hr) { pushUndo(); f.pts.splice(i + 1, 0, [x, z]); drag = { vertex: i + 1, f }; UI.vtx = i + 1; RoadNet.live = f.layer !== 'road'; draw(); return; } } }
+    if (LAYERS[f.layer].geom !== 'points') { const sp = centerline(f).map(p => [sx(p[0]), sz(p[1])]), wide = (f.layer === 'road' || f.layer === 'river') ? (f.w || 12) * view.s / 2 : 0;   // grab the selected line / area itself: move it all
+      if (lineDist(sp, px, py, f.closed && !curvy(f)) - wide < (isPhone() ? 18 : 11)) { drag = { whole: f, x, z, moved: false }; return; } }
+  }
+  const hit = hitTest(px, py);
+  UI.sel = hit; UI.vtx = null; if (hit) { UI.tab = 'sel'; }
+  if (hit && hit.kind === 'o') { const o = selObject(); drag = { obj: o, ox: o.x - x, oz: o.z - z, moved: false }; }
+  else if (!hit) drag = { pan: true, px, py, cx: view.cx, cz: view.cz };
+  renderPanel(); renderToolbar(); draw();
+});
+cv.addEventListener('pointermove', e => {
+  const px = e.offsetX, py = e.offsetY; let x = wx(px), z = wz(py);
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: px, y: py });
+  if (gesture && ptrs.size >= 2) { const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    view.s = clamp(gesture.s * d / gesture.d, .05, 40); const gx = (gesture.mx - W / 2) / gesture.s + gesture.cx, gz = (gesture.my - H / 2) / gesture.s + gesture.cz; view.cx = gx - (mx - W / 2) / view.s; view.cz = gz - (my - H / 2) / view.s; draw(); return; }
+  $('coord').innerHTML = `N <b>${(5000 - z).toFixed(1)}</b><br>E <b>${(5000 + x).toFixed(1)}</b><br>Elev <b>${(100 + hAt(x, z)).toFixed(1)}</b>`;
+  brushRing = [x, z];
+  if (['draw', 'road', 'river'].includes(UI.tool) && !drag) { const sp = snapPoint(x, z, draftLayer()); snapMark = sp; if (sp) { x = sp[0]; z = sp[1]; } }
+  if (UI.draft && !UI.draft.sketch) UI.draft.hover = [x, z];
+  if (UI.measure && UI.measure.a && !UI.measure.b) UI.measure.hover = [x, z];
+  if (drag) {
+    if (drag.pan) { view.cx = drag.cx - (px - drag.px) / view.s; view.cz = drag.cz - (py - drag.py) / view.s; }
+    else if (drag.sketch && UI.draft) { const s = UI.draft.sketch, l = s.at(-1); if (Math.hypot(sx(l[0]) - px, sz(l[1]) - py) > 3) s.push([x, z]); }
+    else if (drag.box && UI.draft) UI.draft.hover = [x, z];
+    else if (drag.vertex !== undefined) { const sp = drag.f.layer === 'road' || UI.snap ? snapPoint(x, z, drag.f.layer) : null; snapMark = sp; drag.f.pts[drag.vertex] = (sp || [x, z]).map(r1); }
+    else if (drag.whole) { if (!drag.moved) { if (Math.hypot(x - drag.x, z - drag.z) * view.s < 6) { draw(); return; } pushUndo(); drag.moved = true; RoadNet.live = drag.whole.layer !== 'road'; } const dx = x - drag.x, dz = z - drag.z; drag.x = x; drag.z = z; drag.whole.pts = drag.whole.pts.map(p => [r1(p[0] + dx), r1(p[1] + dz)]); }
+    else if (drag.obj) { if (!drag.moved) { pushUndo(); drag.moved = true; } drag.obj.x = r1(x + drag.ox); drag.obj.z = r1(z + drag.oz); }
+    else if (drag.paint) { const now = performance.now(), dt = Math.min(.1, (now - drag.last) / 1000); drag.last = now; applyBrush(x, z, dt); }
+  }
+  draw();
+});
+const endPtr = e => {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) gesture = null;
+  if (ptrs.size === 0) {
+    if (drag && drag.sketch) { drag = null; finishDraft(); return; }
+    if (drag && drag.box && UI.draft) { const a = UI.draft.pts[0], b = UI.draft.hover; drag = null; if (b && Math.hypot(sx(a[0]) - sx(b[0]), sz(a[1]) - sz(b[1])) > 12) { UI.draft.pts = [a, [b[0], a[1]], b, [a[0], b[1]]]; finishDraft(); } else { UI.draft = null; draw(); } return; }
+    const wasRoad = !RoadNet.live; RoadNet.live = true; snapMark = null;
+    if (drag && drag.whole && drag.moved && drag.whole.layer === 'river') { carveRiver(drag.whole); }
+    if (drag && (drag.vertex !== undefined || drag.obj || (drag.whole && drag.moved))) renderPanel();
+    if (painting) endPaint(); drag = null; if (wasRoad) draw();
+  }
+};
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('pointerleave', () => { brushRing = null; draw(); });
+cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * .0015)); }, { passive: false });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+function endPaint() { painting = false; contourDirty = true; terrainDirty = true; draw(); }
+function applyBrush(x, z, dt) {
+  const n = T.n, R = UI.brush, k = UI.strength / 100, i0 = Math.max(0, Math.floor((x - R - T.origin) / T.cell)), i1 = Math.min(n - 1, Math.ceil((x + R - T.origin) / T.cell)), j0 = Math.max(0, Math.floor((z - R - T.origin) / T.cell)), j1 = Math.min(n - 1, Math.ceil((z + R - T.origin) / T.cell));
+  const gi = GROUND.findIndex(g => g.id === UI.ground), mode = UI.tool === 'terrain' ? (UI.tmode || 'raise') : UI.tool === 'trees' ? (UI.trmode || 'add') : 'paint', rn = Math.random;
+  const src = mode === 'smooth' ? T.h.slice() : null;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const X = T.origin + i * T.cell, Z = T.origin + j * T.cell, d = Math.hypot(X - x, Z - z); if (d > R) continue;
+    const w = Math.pow(1 - d / R, 1.6), q = j * n + i;
+    if (mode === 'raise') T.h[q] = clamp(T.h[q] + Math.round(w * k * 60 * dt * 10), -9000, 9000);
+    else if (mode === 'lower') T.h[q] = clamp(T.h[q] - Math.round(w * k * 60 * dt * 10), -9000, 9000);
+    else if (mode === 'flatten') T.h[q] = Math.round(T.h[q] + (UI.flatH * 10 - T.h[q]) * Math.min(1, w * k * 8 * dt));
+    else if (mode === 'smooth') { let s = 0, c = 0; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; s += src[jj * n + ii]; c++; } T.h[q] = Math.round(T.h[q] + (s / c - T.h[q]) * Math.min(1, w * k * 10 * dt)); }
+    else if (mode === 'noise') T.h[q] = clamp(T.h[q] + Math.round((rn() - .5) * w * k * 40 * dt * 10), -9000, 9000);
+    else if (mode === 'paint') { if (d < R * .92) T.paint[q] = gi; }
+    else if (mode === 'add') T.trees[q] = clamp(T.trees[q] + Math.round(w * k * 600 * dt), 0, 255);
+    else if (mode === 'thin') T.trees[q] = clamp(T.trees[q] - Math.round(w * k * 600 * dt), 0, 255);
+    else if (mode === 'clear') { if (d < R * .92) T.trees[q] = 0; }
+  }
+  terrainDirty = true;
+}
+let spaceDown = false;
+addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); return redo(); }
+  if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); return saveProject(false); }
+  if (k === ' ') { spaceDown = true; return; }
+  if (k === 'enter' && UI.draft) return finishDraft();
+  if (k === 'escape') { if (!$('modal').hidden) return closeModal(); if (UI.draft) { UI.draft = null; renderToolbar(); draw(); } else if (UI.sel) { UI.sel = null; renderPanel(); draw(); } return; }
+  if ((k === 'delete' || k === 'backspace') && UI.sel) { if (UI.vtx != null && selFeature()) deleteCorner(); else deleteSel(); return; }
+  if (k === 'a') return openCatalog();
+  const t = TOOLS.find(t => t !== '|' && t[2] && t[2].toLowerCase() === k); if (t) setTool(t[0]);
+});
+addEventListener('keyup', e => { if (e.key === ' ') spaceDown = false; });
+$('zin').onclick = () => zoomAt(W / 2, H / 2, 1.4); $('zout').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4); $('zfit').onclick = () => fit(true);
+function deleteSel() { if (!UI.sel) return; UI.vtx = null; pushUndo(); if (UI.sel.kind === 'f') { P.features = P.features.filter(f => f.id !== UI.sel.id); } else P.objects = P.objects.filter(o => o.id !== UI.sel.id); UI.sel = null; renderPanel(); draw(); }
+
+// ---------------------------------------------------------------- selection bar (big buttons on the map)
+document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; UI.tab = b.dataset.tab; renderPanel(); draw(); });
+const SVG = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const I_TRASH = SVG('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'), I_MOVE = SVG('<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>'), I_EDIT = SVG('<path d="M4 20l4-1L19 8l-3-3L5 16z"/>');
+function renderSelbar() {
+  const bar = $('selbar'), f = selFeature(), o = selObject();
+  if ((!f && !o) || UI.tool !== 'select') { bar.hidden = true; bar.innerHTML = ''; return; }
+  const kind = f ? (LAYERS[f.layer]?.geom === 'points' ? 'points' : f.closed ? 'area' : 'line') : 'object';
+  const corner = f && UI.vtx != null && f.pts[UI.vtx] ? `<button id="sbCorner">${I_TRASH}Delete ${kind === 'points' ? 'point' : 'corner'}</button>` : '';
+  bar.innerHTML = `<button id="sbEdit" class="sheetbtn">${I_EDIT}Edit</button>${f && kind !== 'points' ? `<button id="sbMove" class="${UI.moveWhole ? 'on' : ''}">${I_MOVE}Move</button>` : ''}${corner}<button class="danger" id="sbDel">${I_TRASH}Delete ${kind}</button><button id="sbDone">Done</button>`;
+  bar.hidden = false;
+  $('sbDel').onclick = () => deleteSel();
+  $('sbDone').onclick = () => { UI.sel = null; UI.vtx = null; UI.moveWhole = false; renderPanel(); renderToolbar(); draw(); };
+  $('sbEdit').onclick = () => { UI.tab = 'sel'; renderPanel(); $('panel').classList.add('open'); };
+  const mv = $('sbMove'); if (mv) mv.onclick = () => { UI.moveWhole = !UI.moveWhole; renderSelbar(); draw(); };
+  const c = $('sbCorner'); if (c) c.onclick = () => deleteCorner();
+}
+function deleteCorner() {
+  const f = selFeature(); if (!f || UI.vtx == null) return;
+  pushUndo(); f.pts.splice(UI.vtx, 1); UI.vtx = null;
+  const pts = LAYERS[f.layer]?.geom === 'points';
+  if (f.pts.length < (pts ? 1 : 2)) { P.features = P.features.filter(q => q !== f); UI.sel = null; }
+  else if (f.closed && f.pts.length < 3) f.closed = false;
+  renderPanel(); draw();
+}
+
+// ---------------------------------------------------------------- panel
+function renderPanel() {
+  renderSelbar();
+  document.querySelectorAll('.tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === UI.tab));
+  $('cLayers').textContent = P.features.length + P.objects.length; $('cMissions').textContent = P.missions.length;
+  $('pmeta').textContent = `${P.meta.location || 'No location'} · ${BIOMES[P.world.biome]?.name || P.world.biome}`;
+  const pane = $('pane'), keep = pane.scrollTop, same = pane.dataset.tab === UI.tab;
+  pane.innerHTML = ({ site: paneSite, layers: paneLayers, missions: paneMissions, sel: paneSel })[UI.tab]();
+  pane.dataset.tab = UI.tab; if (same) pane.scrollTop = keep;
+  wirePane(pane);
+}
+const opt = (v, l, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`;
+function paneSite() {
+  const B = BIOMES[P.world.biome] || BIOMES.midsouth, mix = P.vegetation.mix || {}, isl = P.world.island || { on: false, shore: 1185, sea: -5 };
+  return `<div class="sect"><h3>Project</h3>
+    <div class="row"><span>Location</span><input type="text" id="sLoc" value="${esc(P.meta.location)}" placeholder="City, State"></div>
+    <div class="row"><span>Author</span><input type="text" id="sAuthor" value="${esc(P.meta.author)}" placeholder="Your name"></div>
+    <div class="row" style="align-items:start"><span>Notes for Claude</span><textarea id="sNotes" placeholder="What the map should feel like: landmarks, what the crew does here, special rules…">${esc(P.meta.notes)}</textarea></div></div>
+  <div class="sect"><h3>Roads</h3>
+    <div class="row"><span>Corner rounding</span><input type="range" id="sFillet" min="4" max="60" step="1" value="${P.world.fillet ?? 18}"></div>
+    <p class="note">How round the curb returns are where roads meet (${P.world.fillet ?? 18} ft). Bigger = wider, smoother turns.</p></div>
+  <div class="sect"><h3>Island &amp; sea</h3>
+    <label class="checks"><label><input type="checkbox" id="sIsland" ${isl.on ? 'checked' : ''}> The site is on an island (sea all around; fall in and you respawn)</label></label>
+    ${isl.on ? `<div class="row"><span>Shoreline (ft)</span><input type="number" id="sShore" value="${isl.shore}" min="300" max="${P.world.size / 2}" step="5"></div>` : ''}</div>
+  <div class="sect"><h3>Biome</h3>
+    <div class="row"><span>Biome</span><select id="sBiome">${Object.entries(BIOMES).map(([k, b]) => opt(k, `${b.name} (${b.example})`, P.world.biome)).join('')}</select></div>
+    <div class="row"><span>Season</span><select id="sSeason">${['spring', 'summer', 'fall', 'winter'].map(s => opt(s, s[0].toUpperCase() + s.slice(1), P.world.season)).join('')}</select></div>
+    <div class="row"><span>Haze</span><input type="range" id="sHaze" min="0" max="1" step=".05" value="${P.world.haze}"></div>
+    <div class="row"><span>Wind</span><input type="range" id="sWind" min="0" max="1" step=".05" value="${P.world.wind}"></div>
+    <div class="row"><span>Grass</span><input type="range" id="sGrass" min="0" max="1" step=".05" value="${P.world.grass}"></div></div>
+  <div class="sect"><h3>Terrain <span class="mono">${P.world.size}' × ${P.world.size}'</span></h3>
+    <div class="row"><span>Relief</span><select id="sRelief">${['flat', 'gentle', 'rolling', 'hilly'].map(r => opt(r, r[0].toUpperCase() + r.slice(1), UI.relief)).join('')}</select></div>
+    <div class="row"><span>Seed</span><input type="number" id="sSeed" value="${P.world.seed}" inputmode="numeric"></div>
+    <div class="btns"><button class="btn" id="sGen">Regenerate terrain</button><button class="btn" id="sFlatYard">Flatten yards</button></div>
+    <p class="note">Regenerating replaces heights, ground paint and tree cover. Lines, objects and missions stay. Undo brings it back.</p></div>
+  <div class="sect"><h3>Tree mix</h3>
+    ${Object.keys({ ...Object.fromEntries(B.trees.map(t => [t, 0])), ...mix }).map(t => `<div class="row"><span>${esc(t)}</span><input type="range" data-mix="${esc(t)}" min="0" max="10" step="1" value="${mix[t] ?? 0}"></div>`).join('')}
+    <div class="row"><span>Bushes</span><input type="range" id="sBush" min="0" max="1" step=".05" value="${P.vegetation.bushes ?? .5}"></div></div>
+  <div class="sect"><h3>Wildlife <button class="btn sm" id="wAdd">Add</button></h3>
+    <p class="note"><span class="tag game">game</span> already in the game. <span class="tag new">new</span> Claude builds it when the map is imported.</p>
+    ${P.wildlife.map((w, i) => `<div class="wl"><span style="display:flex;gap:5px;align-items:center;min-width:0"><input type="text" data-wsp="${i}" value="${esc(w.species)}" list="spList" aria-label="Species"><span class="tag ${IN_GAME.has(w.species) ? 'game' : 'new'}">${IN_GAME.has(w.species) ? 'game' : 'new'}</span></span><input type="number" data-wct="${i}" value="${w.count}" min="0" max="60" aria-label="How many" inputmode="numeric"><select data-wmd="${i}" aria-label="Behaviour">${MOODS.map(m => opt(m, m, w.mood)).join('')}</select><button class="x" data-wdel="${i}" aria-label="Remove">×</button></div>`).join('')}
+    <datalist id="spList">${Object.keys(SPECIES_NAMES).map(s => `<option value="${s}">${SPECIES_NAMES[s]}</option>`).join('')}</datalist></div>
+  <div class="sect"><h3>File</h3><p class="note">Saves as <span class="mono">survey-sim-site v${VERSION}</span>. Game feet: N = 5000 − z, E = 5000 + x, Elev = 100 + h.</p>
+    <div class="btns"><button class="btn" id="sExport">Download .json</button><button class="btn" id="sCopy">Copy JSON</button><button class="btn" id="sImport">Import…</button></div></div>
+  <div class="sect"><h3>Site summary</h3>${summaryHTML()}</div>`;
+}
+function measureOf(f) { const L = LAYERS[f.layer] || LAYERS.note; return L.geom === 'points' ? f.pts.length + ' pts' : f.closed ? (polyArea(f.pts) / 43560).toFixed(1) + ' ac' : fmtFt(polyLen(centerline(f))); }
+function paneLayers() {
+  const q = (UI.lfilter || '').toLowerCase(), hit = s => !q || s.toLowerCase().includes(q);
+  const groups = {}; P.features.forEach(f => { if (hit(f.name + ' ' + LAYERS[f.layer]?.label)) (groups[f.layer] ||= []).push(f); });
+  let h = `<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="lFilter" placeholder="Find on the map…" value="${esc(UI.lfilter || '')}" autocomplete="off"></div>
+    <div class="btns"><button class="btn go" id="lAdd">＋ Add something</button></div>
+    <div class="sect"><h3>Lines &amp; areas</h3><div class="list">`;
+  Object.keys(LAYERS).forEach(l => { const fs = groups[l]; if (!fs) return; const L = LAYERS[l];
+    h += `<label class="grp"><input type="checkbox" data-vis="${l}" ${UI.hideLayers.has(l) ? '' : 'checked'} aria-label="Show ${esc(L.label)}">${esc(L.label)}</label>`;
+    fs.forEach(f => { h += `<button class="li${UI.sel?.id === f.id ? ' sel' : ''}" data-pick="f:${f.id}"><span class="sw" style="background:${L.color}"></span><span class="nm">${esc(f.name)}${f.existing ? ' · existing' : ''}</span><span class="meta">${measureOf(f)}</span></button>`; }); });
+  h += '</div>' + (P.features.length ? '' : '<p class="note">Nothing drawn yet. Tap Road or Draw below the map.</p>') + '</div>';
+  const objs = P.objects.filter(o => hit((o.name || '') + ' ' + (OBJECTS[o.type]?.label || o.type) + ' ' + (OBJECTS[o.type]?.cat || '')));
+  h += `<div class="sect"><h3>Objects <label class="grp" style="margin:0"><input type="checkbox" data-vis="objects" ${UI.hideLayers.has('objects') ? '' : 'checked'}> show</label></h3><div class="list">`;
+  objs.forEach(o => { const D = OBJECTS[o.type] || OBJECTS.sign; h += `<button class="li${UI.sel?.id === o.id ? ' sel' : ''}" data-pick="o:${o.id}"><span class="sw" style="background:${D.color}"></span><span class="nm">${D.icon || ''} ${esc(o.name || D.label)}</span><span class="meta">N${(5000 - o.z).toFixed(0)} E${(5000 + o.x).toFixed(0)}</span></button>`; });
+  return h + '</div></div>';
+}
+function paneMissions() {
+  let h = `<div class="sect"><h3>Mission chain <button class="btn sm go" id="mAdd">＋ Mission</button></h3><p class="note">Justin hands these out top to bottom. Tap one to edit it — the map shows where its stakes go.</p></div>`;
+  P.missions.forEach((m, i) => {
+    const sel = UI.mission === m.id, rib = RIBBONS.find(r => r[0] === m.ribbon) || RIBBONS[5], n = missionStakes(m).reduce((s, r) => s + r.length, 0), iss = missionIssues(m);
+    const what = m.type === 'mark' ? n + ' trees' : m.type === 'delivery' ? 'boxes' : n + ' stakes';
+    h += `<div class="mcard${sel ? ' sel' : ''}"><div class="mhead"><span class="mid">${esc(m.id)}</span><button class="mtitle" data-mpick="${m.id}">${esc(m.title || 'Untitled mission')}</button><span class="btns"><button class="btn sm" data-mup="${i}" aria-label="Move up" ${i ? '' : 'disabled'}>↑</button><button class="btn sm" data-mdn="${i}" aria-label="Move down" ${i < P.missions.length - 1 ? '' : 'disabled'}>↓</button></span></div>
+      <div class="chips"><span class="chip">${MTYPES[m.type]?.label || m.type}</span>${m.type !== 'delivery' ? `<span class="chip"><span class="dot" style="background:${rib[1]}"></span>${esc(m.ribbon)}${m.marker === 'lath' ? ' · ' + esc(m.paint || '—') : ''}</span><span class="chip">${MARKERS[m.marker] || m.marker}</span>` : ''}<span class="chip">${what}</span>${(m.build || []).map(b => `<span class="chip">→ ${BUILDS[b] || b}</span>`).join('')}${iss.length ? `<span class="chip warn">${iss.length} to fix</span>` : ''}</div>`;
+    if (sel) h += missionForm(m, iss);
+    h += '</div>';
+  });
+  if (!P.missions.length) h += '<p class="note">No missions yet. Draw a line or area first, then add a mission that stakes it.</p>';
+  return h;
+}
+function missionForm(m, iss) {
+  const T_ = MTYPES[m.type] || MTYPES.boundary, cand = P.features.filter(f => T_.layers.includes(f.layer));
+  const spacing = ['boundary', 'line', 'roadEdges', 'locate'].includes(m.type), stakes = !['delivery'].includes(m.type);
+  const markers = m.type === 'mark' ? ['paint'] : m.type === 'delivery' ? ['forklift'] : m.type === 'topo' ? ['rod'] : m.type === 'locate' ? ['pin', 'paint'] : m.type === 'points' ? ['nail', 'pin', 'lath'] : ['lath', 'pin', 'nail'];
+  return `<div class="row"><span>Title</span><input type="text" data-mf="title" value="${esc(m.title)}"></div>
+    <div class="row"><span>Type</span><select data-mf="type">${Object.entries(MTYPES).map(([k, t]) => opt(k, t.label, m.type)).join('')}</select></div>
+    <p class="note">${T_.hint}</p>
+    ${T_.layers.length ? `<div class="sect"><span class="note"><b>${m.type === 'mark' ? 'Mark trees inside' : 'Stakes these'}</b></span><div class="checks">${cand.map(f => `<label><input type="checkbox" data-mfeat="${f.id}" ${(m.features || []).includes(f.id) ? 'checked' : ''}><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${LAYERS[f.layer].color};border:1px solid rgb(0 0 0/.3)"></span>${esc(f.name)}</label>`).join('') || '<span class="note">Nothing on the right layers yet (' + T_.layers.map(l => LAYERS[l].label).join(', ') + ').</span>'}</div></div>` : ''}
+    ${spacing ? `<div class="row"><span>Spacing (ft)</span><input type="number" data-mf="spacing" value="${m.spacing || 0}" min="0" max="400" step="1" inputmode="numeric"></div>` : ''}
+    ${m.type === 'mark' ? `<div class="row"><span>Trees to mark</span><input type="number" data-mf="count" value="${m.count || 10}" min="1" max="40" inputmode="numeric"></div>` : ''}
+    ${stakes ? `<div class="row"><span>${m.type === 'mark' ? 'Paint colour' : m.marker === 'pin' ? 'Flag colour' : m.marker === 'nail' ? 'Tassel colour' : 'Ribbon'}</span><div class="swatches">${RIBBONS.map(([n, c]) => `<button class="swatch${m.ribbon === n ? ' on' : ''}" style="background:${c}" data-mrib="${n}" title="${n}" aria-label="${n}"></button>`).join('')}</div></div>
+    <div class="row"><span>Marker</span><select data-mf="marker">${markers.map(k => opt(k, MARKERS[k], m.marker)).join('')}</select></div>
+    ${m.marker === 'lath' ? `<div class="row"><span>Paint on lath</span><input type="text" data-mf="paint" value="${esc(m.paint)}" maxlength="12" autocapitalize="characters"></div>` : ''}
+    ${T_.line ? `<label class="checks"><label><input type="checkbox" data-mf="line" ${m.line ? 'checked' : ''}> Connect the stakes with a line</label></label>` : ''}` : ''}
+    <div class="row" style="align-items:start"><span>Justin says</span><textarea data-mf="brief" placeholder="What Justin tells the crew when he hands this out">${esc(m.brief)}</textarea></div>
+    <div class="sect"><span class="note"><b>“What to use” card</b> — pops up under the mission card when the player reaches the work, then folds away (tap to reopen).</span>
+      ${tipHTML(m)}
+      <label class="checks"><label><input type="checkbox" id="mTipOwn" ${m.tip ? 'checked' : ''}> Write my own</label></label>
+      ${m.tip ? `<textarea data-mf="tip" style="min-height:120px;font:13px/1.45 var(--f-mono)" placeholder="One line each — Label: text">${esc(m.tip)}</textarea><p class="note">One line per row, like <span class="mono">Use: Wood lath from the UTV bed</span>.</p>` : '<p class="note">Made automatically from the marker and colours above.</p>'}</div>
+    <div class="sect"><span class="note"><b>Unlocks after</b></span><div class="checks">${P.missions.filter(o => o.id !== m.id).map(o => `<label><input type="checkbox" data-mpre="${o.id}" ${(m.prereq || []).includes(o.id) ? 'checked' : ''}>${esc(o.id)}</label>`).join('') || '<span class="note">First mission</span>'}</div></div>
+    <div class="sect"><span class="note"><b>When it's done, build</b></span><div class="checks">${Object.entries(BUILDS).map(([k, l]) => `<label><input type="checkbox" data-mbuild="${k}" ${(m.build || []).includes(k) ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
+    ${iss.length ? `<div class="sect">${iss.map(t => `<span class="chip warn">${esc(t)}</span>`).join('')}</div>` : ''}
+    <div class="btns"><button class="btn" data-mzoom="${m.id}">Show on map</button><button class="btn danger" data-mdel="${m.id}">Delete mission</button></div>`;
+}
+function paneSel() {
+  const f = selFeature(), o = selObject();
+  if (f) { const L = LAYERS[f.layer] || LAYERS.note, used = P.missions.filter(m => (m.features || []).includes(f.id)).map(m => m.id), pts = L.geom === 'points', lineish = !pts, area = f.closed;
+    const isRoad = f.layer === 'road', isRiver = f.layer === 'river', curveable = isRoad || isRiver || (!area && lineish);
+    return `<div class="sect"><h3><span><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${L.color};border:1px solid rgb(0 0 0/.3);margin-right:6px"></span>${esc(L.label)}</span><span class="mono">${measureOf(f)}</span></h3>
+      <div class="row"><span>Name</span><input type="text" id="fName" value="${esc(f.name)}"></div>
+      <div class="row"><span>Layer</span><select id="fLayer">${Object.entries(LAYERS).filter(([, v]) => (v.geom === 'points') === pts).map(([k, v]) => opt(k, v.label, f.layer)).join('')}</select></div>
+      ${isRoad ? `<div class="row"><span>Width (ft)</span><input type="number" id="fW" value="${f.w || 12}" min="4" max="80" inputmode="numeric"></div>
+        <div class="row"><span>Surface</span><span class="seg" id="fSurf">${['gravel', 'caliche', 'dirt', 'paved'].map(s => `<button data-v="${s}" class="${(f.surface || 'gravel') === s ? 'on' : ''}">${s[0].toUpperCase() + s.slice(1)}</button>`).join('')}</span></div>
+        <label class="checks"><label><input type="checkbox" id="fExist" ${f.existing ? 'checked' : ''}> Already there at the start (county road)</label></label>` : ''}
+      ${isRiver ? `<div class="row"><span>Width (ft)</span><input type="number" id="fW" value="${f.w || 30}" min="4" max="300" inputmode="numeric"></div><div class="row"><span>Depth (ft)</span><input type="number" id="fDepthR" value="${f.depth || 4}" min="1" max="30" inputmode="numeric"></div><div class="btns"><button class="btn" id="fCarve">Cut the channel again</button></div>` : ''}
+      ${curveable ? `<div class="row"><span>Shape</span><span class="seg" id="fCurve"><button data-v="smooth" class="${curvy(f) ? 'on' : ''}">Curvy</button><button data-v="straight" class="${curvy(f) ? '' : 'on'}">Straight</button></span></div>` : ''}
+      ${lineish && !isRoad && !isRiver ? `<label class="checks"><label><input type="checkbox" id="fClosed" ${area ? 'checked' : ''}> Closed area (loop back to the start)</label></label>` : ''}
+      ${f.layer === 'power' ? `<div class="row"><span>Pole every (ft)</span><input type="number" id="fPole" value="${f.poleStep || 180}" min="60" max="400" step="10" inputmode="numeric"></div>` : ''}
+      ${UTIL_LAYERS.includes(f.layer) && f.layer !== 'power' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fBury" value="${f.depth ?? 3}" min="1" max="20" step=".5" inputmode="decimal"></div>` : ''}
+      ${f.layer === 'array' ? `<div class="row"><span>Row pitch (ft)</span><input type="number" id="fPitch" value="${f.pitch || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Pile step (ft)</span><input type="number" id="fStep" value="${f.step || 20}" min="8" max="60" inputmode="numeric"></div>` : ''}
+      ${f.layer === 'water' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fDepth" value="${f.depth || 3}" min="1" max="30" step=".5" inputmode="decimal"></div>` : ''}
+      <div class="row"><span>Used by</span><span class="mono">${used.length ? used.join(', ') : 'no missions yet'}</span></div>
+      <div class="btns"><button class="btn go" id="fMission">Make a mission</button><button class="btn" id="fDup">Duplicate</button><button class="btn danger" id="fDel">Delete</button></div></div>
+    ${lineish ? `<div class="sect"><h3>Move &amp; shape</h3>
+      <p class="note">Drag the ${area ? 'outline' : 'line'} itself to move all of it. Drag a dot to move a corner; tap a small dot to add one.</p>
+      <div class="btns"><button class="btn" data-rot="-15">↺ 15°</button><button class="btn" data-rot="15">↻ 15°</button><button class="btn" data-rot="-90">↺ 90°</button><button class="btn" id="fReverse">Reverse</button></div>
+      <div class="btns">${!isRoad && !isRiver && f.pts.length >= 3 ? '<button class="btn" id="fRound">Round the corners</button>' : ''}<button class="btn" id="fSimp">Fewer corners</button>${area ? '<button class="btn" id="fSquare">Square it up</button>' : ''}</div></div>
+    <div class="sect"><h3>Copy alongside</h3>
+      <p class="note">${area ? 'Make a matching area inside or outside this one — e.g. silt fence 10 ft inside the LOD.' : 'Make a parallel line — e.g. a fence or cable offset from this one.'}</p>
+      <div class="row"><span>Distance (ft)</span><input type="number" id="oDist" value="${UI.offD || 10}" min="1" max="500" inputmode="numeric"></div>
+      <div class="row"><span>Side</span><span class="seg" id="oSide">${(area ? [['in', 'Inside'], ['out', 'Outside']] : [['l', 'Left'], ['r', 'Right'], ['both', 'Both']]).map(([v, l]) => `<button data-v="${v}" class="${(UI.offS || (area ? 'in' : 'l')) === v ? 'on' : ''}">${l}</button>`).join('')}</span></div>
+      <div class="row"><span>As</span><select id="oLayer">${Object.entries(LAYERS).filter(([k, v]) => v.geom !== 'points' && k !== 'river' && (area ? true : v.geom === 'line')).map(([k, v]) => opt(k, v.label, UI.offL && LAYERS[UI.offL].geom !== 'points' ? UI.offL : (f.layer === 'lod' ? 'silt' : f.layer))).join('')}</select></div>
+      <div class="btns"><button class="btn go" id="oMake">Make the copy</button></div></div>` : ''}
+    ${(f.closed && ['array', 'topo', 'habitat', 'lod', 'yard'].includes(f.layer)) ? `<div class="sect"><h3>Fill with points</h3><div class="row"><span>Grid (ft)</span><input type="number" id="fGrid" value="70" min="10" max="400" inputmode="numeric"></div><div class="btns"><button class="btn" id="fGridGo">Make topo grid</button></div></div>` : ''}
+    ${pts ? `<div class="sect"><p class="note">${f.pts.length} points. Use the Points tool to add more; drag a point to move it.</p></div>` : ''}`; }
+  if (o) { const D = OBJECTS[o.type] || OBJECTS.sign, deg = Math.round((o.yaw || 0) * 180 / Math.PI);
+    return `<div class="sect"><h3>${D.icon || ''} ${esc(D.label)}</h3>
+      <div class="row"><span>Name</span><input type="text" id="oName" value="${esc(o.name || '')}" placeholder="${esc(D.label)}"></div>
+      <div class="row"><span>Type</span><select id="oType">${Object.entries(OBJECTS).map(([k, v]) => opt(k, v.label, o.type)).join('')}</select></div>
+      <div class="row"><span>Facing ${deg}°</span><input type="range" id="oYaw" min="-180" max="180" step="5" value="${deg}"></div>
+      <div class="btns"><button class="btn" data-orot="-90">↺ 90°</button><button class="btn" data-orot="90">↻ 90°</button><button class="btn" data-orot="180">Turn around</button></div>
+      <div class="row"><span>Northing</span><input type="number" id="oN" value="${(5000 - o.z).toFixed(1)}" step=".1" inputmode="decimal"></div>
+      <div class="row"><span>Easting</span><input type="number" id="oE" value="${(5000 + o.x).toFixed(1)}" step=".1" inputmode="decimal"></div>
+      ${D.sized ? `<div class="row"><span>Width (ft)</span><input type="number" id="oW" value="${o.w || D.w}" inputmode="numeric"></div><div class="row"><span>Depth (ft)</span><input type="number" id="oD" value="${o.d || D.d}" inputmode="numeric"></div>` : ''}
+      <div class="btns"><button class="btn" id="oDup">Duplicate</button><button class="btn danger" id="oDel">Delete</button></div></div>`; }
+  return `<div class="sect"><h3>Nothing selected</h3><p class="note">With the Select tool, tap a line, area, point set or object on the map to edit it here.</p><div class="btns"><button class="btn go" id="lAdd">＋ Add something</button></div></div>
+    <div class="sect"><h3>Site summary</h3>${summaryHTML()}</div>`;
+}
+function summaryHTML() {
+  const by = {}; P.features.forEach(f => by[f.layer] = (by[f.layer] || 0) + 1);
+  const ob = {}; P.objects.forEach(o => ob[o.type] = (ob[o.type] || 0) + 1);
+  let trees = 0; T.trees.forEach(v => trees += v); trees = Math.round(trees / 255 * 4);
+  return `<div class="chips">${Object.entries(by).map(([k, v]) => `<span class="chip">${v} × ${LAYERS[k]?.label || k}</span>`).join('')}${Object.entries(ob).map(([k, v]) => `<span class="chip">${v} × ${OBJECTS[k]?.label || k}</span>`).join('')}<span class="chip">~${trees.toLocaleString()} trees</span><span class="chip">${P.missions.length} missions</span></div>`;
+}
+function rotatePts(pts, deg, c) { const a = deg * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a); return pts.map(p => { const dx = p[0] - c[0], dz = p[1] - c[1]; return [r1(c[0] + dx * cs - dz * sn), r1(c[1] + dx * sn + dz * cs)]; }); }
+function squareUp(pts) {                         // snap every corner angle to 90° around the longest side's direction
+  let best = 0, ang = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L > best) { best = L; ang = Math.atan2(b[1] - a[1], b[0] - a[0]); } }
+  const c = featCenter({ pts }), r = rotatePts(pts, -ang * 180 / Math.PI, c), xs = [], zs = [];
+  const snapped = r.map((p, i) => { const q = r[(i + pts.length - 1) % pts.length]; return Math.abs(p[0] - q[0]) < Math.abs(p[1] - q[1]) ? [q[0], p[1]] : [p[0], q[1]]; });
+  snapped.forEach(p => { xs.push(p[0]); zs.push(p[1]); });
+  if (pts.length === 4) { const x0 = Math.min(...r.map(p => p[0])), x1 = Math.max(...r.map(p => p[0])), z0 = Math.min(...r.map(p => p[1])), z1 = Math.max(...r.map(p => p[1])); const box = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]; return rotatePts(signedArea(r) < 0 ? box.reverse() : box, ang * 180 / Math.PI, c); }
+  return rotatePts(snapped, ang * 180 / Math.PI, c);
+}
+function wirePane(pane) {
+  const v = id => pane.querySelector('#' + id), on = (id, ev, fn) => { const el = v(id); if (el) el.addEventListener(ev, fn); };
+  const all = (sel, ev, fn) => pane.querySelectorAll(sel).forEach(el => el.addEventListener(ev, () => fn(el)));
+  const edit = fn => e => { pushUndo(); fn(e); renderPanel(); draw(); };
+  const segOn = (id, fn) => { const el = v(id); if (el) el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => fn(b.dataset.v))); };
+  on('lAdd', 'click', () => openCatalog());
+  // site
+  on('sLoc', 'change', e => { P.meta.location = e.target.value; markDirty(); renderPanel(); }); on('sAuthor', 'change', e => { P.meta.author = e.target.value; markDirty(); }); on('sNotes', 'change', e => { P.meta.notes = e.target.value; markDirty(); });
+  on('sFillet', 'input', e => { P.world.fillet = +e.target.value; RoadNet.live = false; draw(); }); on('sFillet', 'change', e => { pushUndo(); P.world.fillet = +e.target.value; RoadNet.live = true; renderPanel(); draw(); });
+  on('sIsland', 'change', edit(e => { P.world.island = { shore: 1185, sea: -5, ...P.world.island, on: e.target.checked }; terrainDirty = true; }));
+  on('sShore', 'change', edit(e => { P.world.island.shore = clamp(+e.target.value || 1185, 300, P.world.size / 2); terrainDirty = true; }));
+  on('sBiome', 'change', edit(e => { const b = e.target.value, B = BIOMES[b]; P.world.biome = b; Object.assign(P.world, { haze: B.haze, wind: B.wind, grass: B.grass }); P.vegetation.mix = Object.fromEntries(B.trees.map((t, i) => [t, B.trees.length - i])); P.wildlife = B.wildlife.map(([species, count, mood]) => ({ species, count, mood })); UI.relief = B.relief; }));
+  on('sSeason', 'change', e => { P.world.season = e.target.value; markDirty(); });
+  ['Haze', 'Wind', 'Grass'].forEach(k => on('s' + k, 'change', e => { P.world[k.toLowerCase()] = +e.target.value; markDirty(); }));
+  on('sRelief', 'change', e => { UI.relief = e.target.value; }); on('sSeed', 'change', e => { P.world.seed = +e.target.value || 1; markDirty(); });
+  on('sGen', 'click', edit(() => { generateTerrain(UI.relief, P.world.seed, P.world.biome); P.features.filter(f => f.layer === 'yard').forEach(f => flattenArea(f.pts, hAt(...f.pts[0]))); P.features.filter(f => f.layer === 'river').forEach(carveRiver); P.features.filter(f => f.layer === 'road' && f.existing).forEach(f => paintAlong(centerline(f), (f.w || 12) / 2 + 2, GROUND.findIndex(g => g.id === (f.surface === 'caliche' ? 'caliche' : f.surface === 'dirt' ? 'dirt' : 'gravel')))); }));
+  on('sFlatYard', 'click', edit(() => { P.features.filter(f => f.layer === 'yard').forEach(f => { let s = 0; f.pts.forEach(p => s += hAt(...p)); flattenArea(f.pts, s / f.pts.length); }); terrainDirty = contourDirty = true; }));
+  all('[data-mix]', 'change', el => { P.vegetation.mix[el.dataset.mix] = +el.value; markDirty(); });
+  on('sBush', 'change', e => { P.vegetation.bushes = +e.target.value; markDirty(); });
+  on('wAdd', 'click', edit(() => P.wildlife.push({ species: 'deer', count: 3, mood: 'passive' })));
+  pane.querySelectorAll('[data-wsp]').forEach(el => el.addEventListener('change', edit(() => { P.wildlife[+el.dataset.wsp].species = el.value.trim().toLowerCase().replace(/\s+/g, ''); })));
+  all('[data-wct]', 'change', el => { pushUndo(); P.wildlife[+el.dataset.wct].count = clamp(+el.value || 0, 0, 60); });
+  all('[data-wmd]', 'change', el => { pushUndo(); P.wildlife[+el.dataset.wmd].mood = el.value; });
+  pane.querySelectorAll('[data-wdel]').forEach(el => el.addEventListener('click', edit(() => P.wildlife.splice(+el.dataset.wdel, 1))));
+  on('sExport', 'click', exportJSON); on('sCopy', 'click', copyJSON); on('sImport', 'click', openImport);
+  // layers
+  on('lFilter', 'input', e => { UI.lfilter = e.target.value; const pos = e.target.selectionStart; renderPanel(); const n = $('lFilter'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (er) { /* search inputs */ } });
+  all('[data-vis]', 'change', el => { el.checked ? UI.hideLayers.delete(el.dataset.vis) : UI.hideLayers.add(el.dataset.vis); draw(); });
+  all('[data-pick]', 'click', el => { const [k, id] = el.dataset.pick.split(':'); UI.sel = { kind: k, id }; UI.vtx = null; const t = findSel(UI.sel); if (t) { const p = k === 'f' ? featCenter(t) : [t.x, t.z]; view.cx = p[0]; view.cz = p[1]; } if (UI.tool !== 'select') setTool('select'); UI.tab = 'sel'; renderPanel(); draw(); closeSheetOnPhone(); });
+  // missions
+  on('mAdd', 'click', edit(() => addMission()));
+  all('[data-mpick]', 'click', el => { UI.mission = UI.mission === el.dataset.mpick ? null : el.dataset.mpick; renderPanel(); draw(); });
+  pane.querySelectorAll('[data-mup]').forEach(el => el.addEventListener('click', edit(() => { const i = +el.dataset.mup; [P.missions[i - 1], P.missions[i]] = [P.missions[i], P.missions[i - 1]]; })));
+  pane.querySelectorAll('[data-mdn]').forEach(el => el.addEventListener('click', edit(() => { const i = +el.dataset.mdn; [P.missions[i + 1], P.missions[i]] = [P.missions[i], P.missions[i + 1]]; })));
+  const M = UI.mission && P.missions.find(m => m.id === UI.mission);
+  if (M) {
+    all('[data-mf]', 'change', el => { pushUndo(); const k = el.dataset.mf; M[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? +el.value : el.value;
+      if (k === 'paint') M.paint = M.paint.toUpperCase();
+      if (k === 'tip') M.tip = M.tip.trim() || null;
+      if (k === 'type') { M.features = (M.features || []).filter(id => { const f = P.features.find(q => q.id === id); return f && MTYPES[M.type].layers.includes(f.layer); }); M.marker = { locate: 'pin', points: 'nail', mark: 'paint', delivery: 'forklift', topo: 'rod' }[M.type] || 'lath'; if (M.type === 'mark') { M.ribbon = 'Red'; M.build = ['trees']; } if (M.type === 'delivery') M.build = ['panels']; M.line = !!MTYPES[M.type].line; }
+      if (k === 'brief' || k === 'title' || k === 'tip') { const t = pane.querySelector(`[data-mpick="${M.id}"]`); if (t) t.textContent = M.title || 'Untitled mission'; if (k === 'tip') renderPanel(); } else renderPanel(); draw(); });
+    on('mTipOwn', 'change', edit(e => { M.tip = e.target.checked ? tipText(M) : null; }));
+    pane.querySelectorAll('[data-mfeat]').forEach(el => el.addEventListener('change', edit(() => { const id = el.dataset.mfeat; M.features = el.checked ? [...new Set([...(M.features || []), id])] : (M.features || []).filter(x => x !== id);
+      const f = P.features.find(q => q.id === id); if (el.checked && M.type === 'locate' && f && UTIL_RIBBON[f.layer] && M.features.length === 1) M.ribbon = UTIL_RIBBON[f.layer]; })));
+    pane.querySelectorAll('[data-mrib]').forEach(el => el.addEventListener('click', edit(() => { M.ribbon = el.dataset.mrib; })));
+    pane.querySelectorAll('[data-mpre]').forEach(el => el.addEventListener('change', edit(() => { const id = el.dataset.mpre; M.prereq = el.checked ? [...new Set([...(M.prereq || []), id])] : (M.prereq || []).filter(x => x !== id); })));
+    pane.querySelectorAll('[data-mbuild]').forEach(el => el.addEventListener('change', edit(() => { const k = el.dataset.mbuild; M.build = el.checked ? [...new Set([...(M.build || []), k])] : (M.build || []).filter(x => x !== k); })));
+    all('[data-mzoom]', 'click', () => { const pts = missionStakes(M).flat(); if (M.type === 'delivery') P.objects.filter(o => ['wreck', 'storage'].includes(o.type)).forEach(o => pts.push([o.x, o.z])); if (pts.length) { const xs = pts.map(p => p[0]), zs = pts.map(p => p[1]); view.cx = (Math.min(...xs) + Math.max(...xs)) / 2; view.cz = (Math.min(...zs) + Math.max(...zs)) / 2; view.s = clamp(Math.min(W / (Math.max(...xs) - Math.min(...xs) + 80), H / (Math.max(...zs) - Math.min(...zs) + 80)), .05, 6); } closeSheetOnPhone(); draw(); });
+    pane.querySelectorAll('[data-mdel]').forEach(el => el.addEventListener('click', edit(() => { P.missions = P.missions.filter(m => m.id !== M.id); P.missions.forEach(m => m.prereq = (m.prereq || []).filter(p => p !== M.id)); UI.mission = null; })));
+  }
+  // selection: feature
+  const f = selFeature();
+  if (f) {
+    on('fName', 'change', e => { pushUndo(); f.name = e.target.value; draw(); });
+    on('fLayer', 'change', edit(e => { f.layer = e.target.value; if (f.layer === 'road' && !f.w) { f.w = 16; f.surface = 'gravel'; f.curve = 'smooth'; f.closed = false; } if (f.layer === 'river') { f.w ||= 30; f.depth ||= 4; f.closed = false; } }));
+    on('fClosed', 'change', edit(e => { f.closed = e.target.checked && f.pts.length >= 3; }));
+    on('fW', 'change', edit(e => { f.w = clamp(+e.target.value || 12, 4, 300); }));
+    segOn('fSurf', s => { pushUndo(); f.surface = s; renderPanel(); draw(); }); on('fExist', 'change', edit(e => { f.existing = e.target.checked; }));
+    segOn('fCurve', s => { pushUndo(); f.curve = s; renderPanel(); draw(); });
+    on('fDepthR', 'change', edit(e => { f.depth = clamp(+e.target.value || 4, 1, 30); })); on('fCarve', 'click', edit(() => carveRiver(f)));
+    on('fPole', 'change', edit(e => { f.poleStep = clamp(+e.target.value || 180, 60, 400); })); on('fBury', 'change', edit(e => { f.depth = +e.target.value; }));
+    on('fPitch', 'change', edit(e => { f.pitch = +e.target.value; })); on('fStep', 'change', edit(e => { f.step = +e.target.value; })); on('fDepth', 'change', edit(e => { f.depth = +e.target.value; }));
+    on('fReverse', 'click', edit(() => f.pts.reverse()));
+    pane.querySelectorAll('[data-rot]').forEach(el => el.addEventListener('click', edit(() => { f.pts = rotatePts(f.pts, +el.dataset.rot, featCenter(f)); })));
+    on('fRound', 'click', edit(() => { f.pts = simplify(smoothPath(f.pts, f.closed, 3), .6).map(p => p.map(r1)); if (f.closed && f.pts.length > 3 && Math.hypot(f.pts[0][0] - f.pts.at(-1)[0], f.pts[0][1] - f.pts.at(-1)[1]) < 1) f.pts.pop(); f.curve = undefined; }));
+    on('fSimp', 'click', edit(() => { const k = f.pts.length; let tol = 1.5; do { f.pts = simplify(f.closed ? [...f.pts, f.pts[0]] : f.pts, tol); if (f.closed) f.pts.pop(); tol *= 2; } while (f.pts.length > Math.max(f.closed ? 3 : 2, k * .75) && tol < 50); setStatus(`${k} → ${f.pts.length} corners`); }));
+    on('fSquare', 'click', edit(() => { f.pts = squareUp(f.pts); }));
+    segOn('oSide', s => { UI.offS = s; renderPanel(); });
+    on('oDist', 'change', e => { UI.offD = clamp(+e.target.value || 10, 1, 500); }); on('oLayer', 'change', e => { UI.offL = e.target.value; });
+    on('oMake', 'click', edit(() => {
+      const d = UI.offD || 10, side = UI.offS || (f.closed ? 'in' : 'l'), layer = v('oLayer').value, base = f.pts, sgn = signedArea(f.pts) > 0 ? 1 : -1;
+      const sides = f.closed ? [side === 'in' ? d * sgn : -d * sgn] : side === 'both' ? [d, -d] : [side === 'l' ? d : -d];
+      let last = null; sides.forEach((dd, i) => { const c = { id: uid(layer), layer, name: defaultName(layer), pts: offsetPts(base, dd, f.closed), closed: f.closed && layer !== 'road' };
+        if (curvy(f)) c.curve = 'smooth'; if (layer === 'road') Object.assign(c, { w: UI.road, surface: UI.roadSurf, curve: f.curve || 'smooth', closed: false }); if (layer === 'power') c.poleStep = 180; if (sides.length > 1) c.name += i ? ' (right)' : ' (left)'; P.features.push(c); last = c; });
+      UI.sel = { kind: 'f', id: last.id }; setStatus('Copy made ' + d + ' ft ' + ({ in: 'inside', out: 'outside', l: 'left', r: 'right', both: 'each side' })[side], 'ok'); }));
+    on('fDup', 'click', edit(() => { const c = JSON.parse(JSON.stringify(f)); c.id = uid(f.layer); c.name += ' copy'; c.pts = c.pts.map(p => [p[0] + 30, p[1] + 30]); P.features.push(c); UI.sel = { kind: 'f', id: c.id }; }));
+    on('fDel', 'click', () => deleteSel());
+    on('fGridGo', 'click', edit(() => { const sp = clamp(+v('fGrid').value || 70, 10, 400), pts = []; const xs = f.pts.map(p => p[0]), zs = f.pts.map(p => p[1]);
+      for (let z = Math.min(...zs) + sp / 2, r = 0; z < Math.max(...zs); z += sp, r++) for (let x = Math.min(...xs) + (r % 2 ? sp / 2 : 0); x < Math.max(...xs); x += sp) if (inPoly(f.pts, x, z) && lineDist(f.pts, x, z, true) > 10) pts.push([Math.round(x), Math.round(z)]);
+      const t = { id: uid('topo'), layer: 'topo', name: 'Topo shots', pts, closed: false }; P.features.push(t); UI.sel = { kind: 'f', id: t.id }; }));
+    on('fMission', 'click', edit(() => { const type = f.layer === 'road' ? 'roadEdges' : UTIL_LAYERS.includes(f.layer) ? 'locate' : Object.entries(MTYPES).find(([, t]) => t.layers.includes(f.layer))?.[0] || 'line'; addMission(type, [f.id]); UI.tab = 'missions'; }));
+  }
+  const o = selObject();
+  if (o) {
+    on('oName', 'change', e => { pushUndo(); o.name = e.target.value; draw(); });
+    on('oType', 'change', edit(e => { o.type = e.target.value; }));
+    on('oN', 'change', edit(e => { o.z = r1(5000 - +e.target.value); })); on('oE', 'change', edit(e => { o.x = r1(+e.target.value - 5000); }));
+    on('oYaw', 'pointerdown', () => pushUndo()); on('oYaw', 'input', e => { o.yaw = +e.target.value * Math.PI / 180; e.target.previousElementSibling.textContent = 'Facing ' + e.target.value + '°'; draw(); }); on('oYaw', 'change', () => markDirty());
+    pane.querySelectorAll('[data-orot]').forEach(el => el.addEventListener('click', edit(() => { let y = (o.yaw || 0) - +el.dataset.orot * Math.PI / 180; while (y > Math.PI) y -= 2 * Math.PI; while (y < -Math.PI) y += 2 * Math.PI; o.yaw = Math.round(y * 1000) / 1000; })));
+    on('oW', 'change', edit(e => { o.w = +e.target.value; })); on('oD', 'change', edit(e => { o.d = +e.target.value; }));
+    on('oDup', 'click', edit(() => { const c = { ...o, id: uid(o.type), x: o.x + 10, z: o.z + 10 }; P.objects.push(c); UI.sel = { kind: 'o', id: c.id }; }));
+    on('oDel', 'click', () => deleteSel());
+  }
+}
+function addMission(type, features) {
+  let k = 1; while (P.missions.some(m => m.id === 'M' + k)) k++;
+  const prev = P.missions.at(-1), t = type || 'boundary', f0 = features && P.features.find(f => f.id === features[0]);
+  const presets = { lod: ['White', 'LOD', ['clear']], silt: ['Blue', 'SILT', ['silt']], road: ['Green', 'EOR', ['road']], ac: ['Pink', 'AC', ['ac']], dc: ['Orange', 'DC', ['dc']], piles: ['Blue', 'PILE', []], topo: ['Yellow', 'TOPO', []], fence: ['Orange', 'FENCE', ['fence']] }[f0?.layer] || [UTIL_RIBBON[f0?.layer] || 'Orange', 'STAKE', []];
+  const marker = { locate: 'pin', points: 'nail', mark: 'paint', delivery: 'forklift', topo: 'rod' }[t] || 'lath';
+  const m = { id: 'M' + k, title: f0 ? (t === 'locate' ? 'Locate the ' : t === 'mark' ? 'Mark trees in the ' : 'Stake the ') + f0.name.toLowerCase() : t === 'delivery' ? 'Unload the panel delivery' : 'New mission', brief: '', type: t, features: features || [], spacing: t === 'roadEdges' ? 32 : t === 'line' ? 30 : t === 'locate' ? 36 : 0,
+    ribbon: t === 'mark' ? 'Red' : t === 'locate' ? (UTIL_RIBBON[f0?.layer] || 'Red') : presets[0], paint: presets[1], marker, line: !!MTYPES[t]?.line, prereq: prev ? [prev.id] : [], build: t === 'mark' ? ['trees'] : t === 'delivery' ? ['panels'] : t === 'locate' ? [] : presets[2], tip: null };
+  if (t === 'mark') m.count = 10;
+  P.missions.push(m); UI.mission = m.id;
+}
+
+// ---------------------------------------------------------------- Add catalog: one searchable list of everything you can put on the map
+const CATS = ['Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
+function catalogItems() {
+  const items = [];
+  Object.entries(LAYERS).forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
+    sub: k === 'road' ? 'Draw it — curves & junctions round off' : k === 'river' ? 'Draw it — cuts its own channel' : L.geom === 'points' ? 'Tap to drop points' : L.geom === 'area' ? 'Draw an area' : 'Draw a line' }));
+  Object.entries(OBJECTS).forEach(([k, D]) => items.push({ kind: 'obj', key: k, label: D.label, cat: D.cat, kw: D.kw || '', color: D.color, icon: D.icon, sub: 'Tap to place' }));
+  return items;
+}
+function tileIcon(it) {
+  if (it.kind === 'obj') return `<i style="background:color-mix(in srgb, ${it.color} 35%, var(--raise))">${it.icon || '■'}</i>`;
+  const c = it.color, dash = (LAYERS[it.key].dash || []).join(' ');
+  const g = it.key === 'road' ? `<path d="M4 28 C12 18 20 16 30 6" stroke="#8d8676" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M4 28 C12 18 20 16 30 6" stroke="#fff" stroke-width="1" stroke-dasharray="3 3" fill="none"/>`
+    : it.key === 'river' ? `<path d="M2 24 C10 10 18 30 32 10" stroke="${c}" stroke-width="7" fill="none" stroke-linecap="round"/>`
+    : it.geom === 'points' ? `<circle cx="10" cy="10" r="3" fill="${c}"/><circle cx="22" cy="12" r="3" fill="${c}"/><circle cx="14" cy="24" r="3" fill="${c}"/><circle cx="25" cy="25" r="3" fill="${c}"/>`
+    : it.geom === 'area' ? `<path d="M6 8 L28 6 L30 26 L8 28 Z" fill="${c}" fill-opacity=".25" stroke="${c === '#ffffff' ? '#999' : c}" stroke-width="2.5" stroke-dasharray="${dash}"/>`
+    : `<path d="M4 26 L14 12 L22 18 L30 6" stroke="${c}" stroke-width="3" fill="none" stroke-dasharray="${dash}" stroke-linecap="round"/>`;
+  return `<i style="background:var(--paper)"><svg viewBox="0 0 34 34" width="30" height="30">${g}</svg></i>`;
+}
+function openCatalog() {
+  const items = catalogItems(); let cat = UI.cat || 'All', q = '';
+  let recent = []; try { recent = JSON.parse(localStorage.getItem('ssb.recent') || '[]'); } catch (e) { /* blocked */ }
+  openModal('Add to the map', `<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="catQ" placeholder="Search: road, gas line, forklift, pole…" autocomplete="off" enterkeyhint="go"></div>
+    <div class="cats" id="catChips">${['All', ...CATS].map(c => `<button data-cat="${esc(c)}" class="${c === cat ? 'on' : ''}">${esc(c)}</button>`).join('')}</div><div id="catList"></div>`, '');
+  const list = $('catList'), tile = it => `<button class="tile" data-it="${it.kind}:${it.key}">${tileIcon(it)}<span><b>${esc(it.label)}</b><small>${esc(it.sub)}</small></span></button>`;
+  const paint = () => {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const match = it => words.every(w => (it.label + ' ' + it.kw + ' ' + it.cat + ' ' + it.key).toLowerCase().includes(w));
+    let h = '';
+    if (words.length) { const hits = items.filter(match); h = hits.length ? `<div class="tiles">${hits.map(tile).join('')}</div>` : '<p class="note">Nothing matches. Try “pole”, “gas”, “conex” or “forklift”.</p>'; }
+    else {
+      const rec = recent.map(r => items.find(it => it.kind + ':' + it.key === r)).filter(Boolean).slice(0, 4);
+      if (cat === 'All' && rec.length) h += `<div class="tilegrp">Recent</div><div class="tiles">${rec.map(tile).join('')}</div>`;
+      (cat === 'All' ? CATS : [cat]).forEach(c => { const its = items.filter(it => it.cat === c); if (its.length) h += `<div class="tilegrp">${esc(c)}</div><div class="tiles">${its.map(tile).join('')}</div>`; });
+    }
+    list.innerHTML = h;
+  };
+  paint();
+  const qi = $('catQ'); qi.addEventListener('input', () => { q = qi.value; paint(); });
+  qi.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('[data-it]'); if (b) b.click(); } });
+  if (!isPhone()) setTimeout(() => qi.focus(), 30);
+  $('catChips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; cat = UI.cat = b.dataset.cat; $('catChips').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); q = qi.value = ''; paint(); });
+  list.addEventListener('click', e => { const b = e.target.closest('[data-it]'); if (!b) return; const [kind, key] = b.dataset.it.split(':');
+    recent = [b.dataset.it, ...recent.filter(r => r !== b.dataset.it)].slice(0, 8); try { localStorage.setItem('ssb.recent', JSON.stringify(recent)); } catch (er) { /* blocked */ }
+    closeModal(); closeSheetOnPhone(); pickItem(kind, key); });
+}
+function pickItem(kind, key) {
+  UI.sel = null; UI.vtx = null;
+  if (kind === 'obj') { UI.obj = key; setTool('object'); }
+  else if (key === 'road') setTool('road');
+  else if (key === 'river') setTool('river');
+  else if (LAYERS[key].geom === 'points') { UI.player = key; setTool('points'); }
+  else { UI.layer = key; if (LAYERS[key].geom !== 'area' && UI.drawMode === 'box') UI.drawMode = 'tap'; setTool('draw'); }
+  renderPanel();
+}
+
+// ---------------------------------------------------------------- saving: browser draft + the tool's database (Claude reads it there), or a local list when there's no database
+let db = null, user = null, downloads = null, dirtyTimer = 0;
+function setStatus(t, cls) { const s = $('status'); s.textContent = t; s.className = 'status hide-sm' + (cls ? ' ' + cls : ''); if (cls === 'ok' || cls === 'err') toast(t, cls); }
+let toastT = 0;
+function toast(t, cls) { let el = $('toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'hint'; el.style.cssText = 'top:12px;bottom:auto;z-index:30'; $('mapwrap').appendChild(el); } el.textContent = t; el.style.background = cls === 'err' ? 'var(--bad)' : 'rgb(20 60 30 / .92)'; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 2600); }
+function markDirty() { UI.dirty = true; clearTimeout(dirtyTimer); dirtyTimer = setTimeout(saveDraft, 1200); setStatus('Unsaved changes'); }
+function saveDraft() { try { localStorage.setItem('ssb.draft', JSON.stringify(projectJSON())); setStatus('Draft kept on this device'); } catch (e) { /* storage blocked: fine */ } }
+const LOCAL = 'ssb.projects';
+function localList() { try { return JSON.parse(localStorage.getItem(LOCAL) || '{}'); } catch (e) { return {}; } }
+function localPut(j) { const all = localList(); all[j.meta.id] = j; try { localStorage.setItem(LOCAL, JSON.stringify(all)); return true; } catch (e) { return false; } }
+function localDel(id) { const all = localList(); delete all[id]; try { localStorage.setItem(LOCAL, JSON.stringify(all)); } catch (e) { /* blocked */ } }
+async function saveProject(send) {
+  if (P.meta.builtin) { P.meta.builtin = false; P.meta.id = uid('site'); P.meta.name = P.meta.name.replace(/( \(my copy\))?$/, ' (my copy)'); $('pname').value = P.meta.name; }
+  const j = projectJSON(); saveDraft();
+  const body = { ...j, status: send ? 'sent' : (P.status === 'sent' ? 'sent' : 'draft'), sentAt: send ? new Date().toISOString() : (P.sentAt || null), savedAt: new Date().toISOString() };
+  if (!db) {
+    const ok = localPut(body); UI.dirty = false;
+    if (send) return sendWithoutDb();
+    setStatus(ok ? 'Saved on this device' : 'This device is out of room: use Download', ok ? 'ok' : 'err'); return;
+  }
+  try {
+    setStatus('Saving…');
+    if (user) { try { body.by = await user.id(); } catch (e) { /* anonymous */ } }
+    const size = JSON.stringify(body).length;
+    if (size > 250000) { setStatus('Too big for the database (' + Math.round(size / 1024) + ' KB): use Download', 'err'); return; }
+    await db.collection('projects').doc(slug(P.meta.id)).set(body);
+    P.status = body.status; P.sentAt = body.sentAt; UI.dirty = false;
+    setStatus(send ? 'Sent to Claude' : 'Saved', 'ok');
+    if (send) showSent();
+  } catch (e) { setStatus('Save failed: ' + (e.code || e.message), 'err'); }
+}
+function showSent() {
+  openModal('Sent to Claude', `<p>“${esc(P.meta.name)}” is saved here with status <b>sent</b>. Go back to the chat and say:</p>
+    <p class="mono" style="background:var(--chip);padding:12px;border-radius:8px;font-size:14px">Import my site “${esc(P.meta.name)}” from Site Builder</p>
+    <p class="note">Claude reads it straight from here and builds it into the game as a new site — roads, rivers, utilities, buildings and the full mission chain with each “What to use” card. Keep editing any time and send again.</p>`, '<button class="btn go" data-close>Done</button>');
+}
+function sendWithoutDb() {
+  openModal('Send to Claude', `<p>This copy of Site Builder can't reach Claude directly, so send the file instead:</p>
+    <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px"><li>Tap <b>Download</b> (or <b>Copy</b>).</li><li>In your chat with Claude, attach the file (or paste) and say <span class="mono">“Import this site into the game”</span>.</li></ol>
+    <p class="note">It's also saved on this device under Projects.</p>`, '<button class="btn" id="sendCopy">Copy</button><button class="btn go" id="sendDl">Download</button>');
+  $('sendCopy').onclick = () => copyJSON(); $('sendDl').onclick = () => exportJSON();
+}
+async function exportJSON() {
+  const text = JSON.stringify(projectJSON(), null, 1), name = slug(P.meta.name) + '.site.json';
+  if (downloads) { try { await downloads.save({ filename: name, data: text }); setStatus('Downloaded', 'ok'); return; } catch (e) { if (e && e.code === 'cancelled') return; } }
+  try { const file = new File([text], name, { type: 'application/json' }); if (isPhone() && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: P.meta.name }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); setStatus('Downloaded', 'ok'); return; } catch (e) { /* fall through */ }
+  openModal('Project JSON', `<p class="note">Copy this and attach it in the chat with Claude.</p><textarea id="jsonOut" style="min-height:240px;font:11px var(--f-mono)" readonly>${esc(text)}</textarea>`, '<button class="btn" id="copyOut">Copy</button><button class="btn go" data-close>Close</button>');
+  $('copyOut').onclick = () => { const t = $('jsonOut'); navigator.clipboard?.writeText(t.value).then(() => setStatus('Copied', 'ok'), () => { t.select(); }); };
+}
+function copyJSON() { const text = JSON.stringify(projectJSON()); if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => setStatus('JSON copied', 'ok'), () => exportJSON()); else exportJSON(); }
+function openImport() {
+  openModal('Import a project', `<p class="note">Choose a <span class="mono">.site.json</span> file or paste the JSON.</p><div class="btns"><button class="btn go" id="pickFile">Choose file…</button></div><textarea id="jsonIn" style="min-height:160px;font:12px var(--f-mono)" placeholder='{"format":"survey-sim-site", ...}'></textarea><p class="note" id="impErr" style="color:var(--bad)"></p>`, '<button class="btn" data-close>Cancel</button><button class="btn go" id="doImport">Import</button>');
+  $('pickFile').onclick = () => $('fileIn').click();
+  $('doImport').onclick = () => { try { const j = JSON.parse($('jsonIn').value); j.meta = { ...j.meta, builtin: false }; loadProject(j); closeModal(); markDirty(); } catch (e) { $('impErr').textContent = e.message; } };
+}
+$('fileIn').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; const t = await f.text(); e.target.value = ''; try { const j = JSON.parse(t); j.meta = { ...j.meta, builtin: false }; loadProject(j); closeModal(); markDirty(); } catch (err) { const el = $('impErr'); if (el) el.textContent = err.message; else setStatus(err.message, 'err'); } });
+let example = null;
+async function openProjects() {
+  let saved = [];
+  if (db) { try { const q = await db.collection('projects').limit(60).get(); saved = q.docs.map(d => d.data()).filter(Boolean); } catch (e) { /* offline */ } }
+  else saved = Object.values(localList());
+  saved.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+  let draft = null; try { draft = JSON.parse(localStorage.getItem('ssb.draft') || 'null'); } catch (e) { /* none */ }
+  if (draft && saved.some(s => s.meta?.id === draft.meta?.id)) draft = null;
+  const card = (j, act, tag) => `<div class="pcard"><b>${esc(j.meta?.name || 'Untitled')}</b><small>${esc(j.meta?.location || '')} · ${esc(BIOMES[j.world?.biome]?.name || '')}</small><small>${(j.missions || []).length} missions · ${(j.features || []).length} features${j.savedAt ? ' · ' + esc(String(j.savedAt).slice(0, 10)) : ''}</small>${tag ? `<span class="tag ${tag[1]}">${tag[0]}</span>` : ''}<span class="btns" style="margin-top:6px"><button class="btn sm go" data-open="${act}">Open</button>${act.startsWith('loc:') ? `<button class="btn sm danger" data-ldel="${esc(j.meta.id)}">Delete</button>` : ''}</span></div>`;
+  openModal('Projects', `<div class="sect"><h3>Your saved sites</h3><div class="projgrid">${draft ? card(draft, 'draft', ['unsaved draft', 'new']) : ''}${saved.map((j, i) => card(j, (db ? 'db:' : 'loc:') + i, j.status === 'sent' ? ['sent to Claude', 'game'] : ['saved', 'new'])).join('')}</div>${!saved.length && !draft ? '<p class="note">Nothing saved yet.</p>' : ''}${db ? '' : '<p class="note">Saved on this device.</p>'}</div>
+    <div class="sect"><h3>Example</h3><div class="projgrid">${example ? card(example, 'example', ['the game\'s Memphis site', 'game']) : '<p class="note">Example not loaded.</p>'}</div></div>
+    <div class="sect"><h3>Start new</h3><p class="note"><b>Starter</b> adds terrain, trees, the office yard, conexes and the crew's gear. <b>Blank</b> is flat ground with a spawn point.</p><div class="projgrid">${Object.entries(BIOMES).map(([k, b]) => `<div class="pcard"><b>${b.name}</b><small>like ${b.example}</small><span class="btns" style="margin-top:6px"><button class="btn sm go" data-new="${k}">Starter</button><button class="btn sm" data-blank="${k}">Blank</button></span></div>`).join('')}</div></div>
+    <div class="btns"><button class="btn" id="pImport">Import JSON…</button></div>`, '<button class="btn" data-close>Close</button>');
+  const m = $('modal');
+  m.querySelectorAll('[data-new]').forEach(b => b.onclick = () => { newProject(b.dataset.new); closeModal(); markDirty(); });
+  m.querySelectorAll('[data-blank]').forEach(b => b.onclick = () => { newProject(b.dataset.blank, null, true); closeModal(); markDirty(); });
+  m.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const a = b.dataset.open; const j = a === 'example' ? example : a === 'draft' ? draft : saved[+a.split(':')[1]]; if (j) { loadProject(j); P.status = j.status; closeModal(); } });
+  m.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => { if (b.dataset.sure) { localDel(b.dataset.ldel); openProjects(); } else { b.dataset.sure = 1; b.textContent = 'Sure?'; } });
+  $('pImport').onclick = openImport;
+}
+function openModal(title, body, foot) { const m = $('modal'); m.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header><h2>${esc(title)}</h2><button class="btn sm" data-close aria-label="Close">✕</button></header><div class="body">${body}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`; m.hidden = false; m.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal); m.onclick = e => { if (e.target === m) closeModal(); }; }
+function closeModal() { $('modal').hidden = true; $('modal').innerHTML = ''; }
+$('btnProjects').onclick = openProjects;
+$('btnSend').onclick = () => saveProject(true);
+$('btnSave').onclick = () => saveProject(false);
+$('pname').addEventListener('change', e => { P.meta.name = e.target.value.trim() || 'Untitled site'; markDirty(); });
+$('btnSheet').onclick = () => $('panel').classList.toggle('open');
+$('sheetClose').onclick = () => $('panel').classList.remove('open');
+$('sheet3d').onclick = () => { $('panel').classList.remove('open'); open3D(); };
+function closeSheetOnPhone() { if (isPhone()) $('panel').classList.remove('open'); }
+// drag the sheet's grab bar down to close it
+(() => { const g = document.querySelector('.grab'); let y0 = null; g.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointermove', e => { if (y0 == null) return; const d = Math.max(0, e.clientY - y0); $('panel').style.transform = `translateY(${d}px)`; });
+  const end = e => { if (y0 == null) return; const d = e.clientY - y0; y0 = null; $('panel').style.transform = ''; if (d > 80) $('panel').classList.remove('open'); }; g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end); })();
+
+// ---------------------------------------------------------------- 3D preview (three.js loaded on first use)
+let three = null;
+function load3() { return new Promise((res, rej) => { if (window.THREE) return res(); const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'; s.onload = res; s.onerror = () => rej(new Error('3D library did not load')); document.head.appendChild(s); }); }
+const H3 = { office: 9, upperoffice: 18, breakroom: 9, storage: 8.5, balcony: 9, substation: 14, truck: 7, utv: 6, forklift: 7, wreck: 12, generator: 5, fueltank: 5, portajohn: 7.5, tree: 30, inverterpad: 1.5, powerpole: 35, transformer: 5, hydrant: 3, gasmeter: 3.5, marker: 4, manhole: .3, culvert: 2, justin: 6, greg: 6, becky: 6, inspector: 6, gate: 5, jobbox: 3, ppecloset: 6 };
+function ribbon(TH, S, w, lift, color, opts) {
+  const v = [], idx = []; S.forEach((p, i) => { const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)], L2 = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L2, nz = (b[0] - a[0]) / L2;
+    [-1, 1].forEach(sd => { const x = p[0] + nx * w * sd, z = p[1] + nz * w * sd; v.push(x, (opts && opts.flat != null ? opts.flat : hAt(x, z)) + lift, z); }); if (i) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
+  const g = new TH.BufferGeometry(); g.setAttribute('position', new TH.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new TH.Mesh(g, new TH.MeshLambertMaterial({ color, side: TH.DoubleSide, transparent: !!(opts && opts.alpha), opacity: opts && opts.alpha || 1 }));
+}
+async function open3D() {
+  const box = $('three'); box.hidden = false;
+  try { await load3(); } catch (e) { box.hidden = true; setStatus(e.message, 'err'); return; }
+  const TH = window.THREE;
+  if (three) three.dispose();
+  const r = new TH.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(2, devicePixelRatio)); box.appendChild(r.domElement);
+  const B = BIOMES[P.world.biome] || BIOMES.midsouth, sc = new TH.Scene(); sc.background = new TH.Color(B.sky[1]); sc.fog = new TH.Fog(B.sky[1], 900, 3200);
+  sc.add(new TH.HemisphereLight(0xdfe8f0, 0x6b5a3a, 1.1)); const sun = new TH.DirectionalLight(0xfff0d4, 1.6); sun.position.set(-400, 600, -300); sc.add(sun);
+  const n = T.n, g = new TH.PlaneGeometry((n - 1) * T.cell, (n - 1) * T.cell, n - 1, n - 1); g.rotateX(-Math.PI / 2);
+  const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i); pos.setY(i, hAt(x, z)); const gi = Math.round((z - T.origin) / T.cell) * n + Math.round((x - T.origin) / T.cell), gc = (GROUND[T.paint[gi]] || GROUND[0]).c; col.set([gc[0] / 255, gc[1] / 255, gc[2] / 255], i * 3); }
+  g.setAttribute('color', new TH.BufferAttribute(col, 3)); g.computeVertexNormals();
+  sc.add(new TH.Mesh(g, new TH.MeshLambertMaterial({ vertexColors: true })));
+  const isl = P.world.island; if (isl && isl.on) { const sea = new TH.Mesh(new TH.PlaneGeometry(9000, 9000), new TH.MeshLambertMaterial({ color: 0x2f6f8a, transparent: true, opacity: .92 })); sea.rotation.x = -Math.PI / 2; sea.position.y = isl.sea; sc.add(sea); }
+  const rnd = mulberry(3), spots = [];
+  for (let q = 0; q < n * n && spots.length < 6000; q++) { const dn = T.trees[q] / 255 * 4; let c = Math.floor(dn) + (rnd() < dn % 1 ? 1 : 0); while (c-- > 0) spots.push([T.origin + (q % n) * T.cell + (rnd() - .5) * T.cell, T.origin + Math.floor(q / n) * T.cell + (rnd() - .5) * T.cell]); }
+  const desert = ['desert', 'highplains'].includes(P.world.biome), tg = desert ? new TH.SphereGeometry(5, 7, 5) : new TH.ConeGeometry(9, 34, 7); tg.translate(0, desert ? 3 : 17, 0);
+  const tm = new TH.InstancedMesh(tg, new TH.MeshLambertMaterial({ color: desert ? 0x6b7a3a : 0x2f5428 }), Math.max(1, spots.length)), o3 = new TH.Object3D();
+  spots.forEach(([x, z], i) => { o3.position.set(x, hAt(x, z), z); const s = .7 + rnd() * .6; o3.scale.set(s, s, s); o3.updateMatrix(); tm.setMatrixAt(i, o3.matrix); }); tm.count = spots.length; sc.add(tm);
+  // the road network as one surface (the 2D edge loops, triangulated), plus each road's own ribbon for surfaces
+  const net = RoadNet.get();
+  if (net) net.loops.filter(L => L.closed && L.pts.length > 3).forEach(L => { try { const shp = new TH.Shape(L.pts.map(p => new TH.Vector2(p[0], -p[1]))), sg = new TH.ShapeGeometry(shp); sg.rotateX(-Math.PI / 2); const pa = sg.attributes.position; for (let i = 0; i < pa.count; i++) pa.setY(i, hAt(pa.getX(i), pa.getZ(i)) + .35); sc.add(new TH.Mesh(sg, new TH.MeshLambertMaterial({ color: 0xb5b0a5, side: TH.DoubleSide }))); } catch (e) { /* odd loop */ } });
+  P.features.forEach(f => { const L = LAYERS[f.layer] || LAYERS.note;
+    if (L.geom === 'points') { const pg = new TH.CylinderGeometry(.6, .6, 4, 6), mat = new TH.MeshLambertMaterial({ color: L.color }); f.pts.forEach(p => { const m = new TH.Mesh(pg, mat); m.position.set(p[0], hAt(p[0], p[1]) + 2, p[1]); sc.add(m); }); return; }
+    if (f.layer === 'road') { sc.add(ribbon(TH, centerline(f), (f.w || 12) / 2, .45, { dirt: 0x9c7d57, caliche: 0xe3d9c0, paved: 0x4b4f53 }[f.surface] || 0xb5b0a5)); return; }
+    if (f.layer === 'river') { sc.add(ribbon(TH, centerline(f), (f.w || 30) / 2, -.6, 0x3b7fb4, { alpha: .9 })); return; }
+    if (f.layer === 'water' || f.layer === 'yard') {
+      const shp = new TH.Shape(f.pts.map(p => new TH.Vector2(p[0], -p[1]))), sg = new TH.ShapeGeometry(shp); sg.rotateX(-Math.PI / 2);
+      const pa = sg.attributes.position; let lo = Infinity; for (let i = 0; i < pa.count; i++) lo = Math.min(lo, hAt(pa.getX(i), pa.getZ(i)));
+      for (let i = 0; i < pa.count; i++) pa.setY(i, f.layer === 'water' ? lo + .3 : hAt(pa.getX(i), pa.getZ(i)) + .3);
+      sc.add(new TH.Mesh(sg, new TH.MeshLambertMaterial({ color: f.layer === 'water' ? 0x3b6f8f : 0xa8a398, transparent: f.layer === 'water', opacity: .9, side: TH.DoubleSide }))); return;
+    }
+    const S = centerline(f), dense = [];
+    for (let i = 0; i < S.length - 1; i++) { const a = S[i], b = S[i + 1], k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 6)); for (let q = 0; q < k; q++) { const x = a[0] + (b[0] - a[0]) * q / k, z = a[1] + (b[1] - a[1]) * q / k; dense.push(new TH.Vector3(x, hAt(x, z) + (f.layer === 'silt' ? 1.4 : f.layer === 'power' ? 30 : .6), z)); } }
+    const last = S.at(-1); dense.push(new TH.Vector3(last[0], hAt(last[0], last[1]) + (f.layer === 'power' ? 30 : .6), last[1]));
+    sc.add(new TH.Line(new TH.BufferGeometry().setFromPoints(dense), new TH.LineBasicMaterial({ color: f.layer === 'silt' ? 0x111111 : f.layer === 'power' ? 0x222222 : L.color })));
+    if (f.layer === 'power') { const pg = new TH.CylinderGeometry(.5, .7, 34, 6), mat = new TH.MeshLambertMaterial({ color: 0x8b5a2b }); along(S, f.poleStep || 180, false).forEach(p => { const m = new TH.Mesh(pg, mat); m.position.set(p[0], hAt(p[0], p[1]) + 17, p[1]); sc.add(m); }); } });
+  P.objects.forEach(o => { const D = OBJECTS[o.type] || OBJECTS.sign, w = o.w || D.w, d = o.d || D.d, h = H3[o.type] || 3, y0 = o.type === 'upperoffice' ? 9 : 0, hh = o.type === 'upperoffice' ? 9 : h;
+    const geo = D.shape === 'circle' ? new TH.CylinderGeometry(Math.max(.6, w / 2), Math.max(.6, w / 2), hh, 10) : new TH.BoxGeometry(w, hh, d);
+    const m = new TH.Mesh(geo, new TH.MeshLambertMaterial({ color: D.color })); m.position.set(o.x, hAt(o.x, o.z) + y0 + hh / 2, o.z); m.rotation.y = o.yaw || 0; if (o.type === 'wreck') m.rotation.z = .5; sc.add(m); });
+  const cam = new TH.PerspectiveCamera(50, 1, 1, 9000), orb = { yaw: .7, pitch: .55, dist: 900, tx: view.cx, tz: view.cz };
+  const place = () => { const ty = hAt(orb.tx, orb.tz); cam.position.set(orb.tx + Math.sin(orb.yaw) * Math.cos(orb.pitch) * orb.dist, ty + Math.sin(orb.pitch) * orb.dist, orb.tz + Math.cos(orb.yaw) * Math.cos(orb.pitch) * orb.dist); cam.lookAt(orb.tx, ty, orb.tz); };
+  const size = () => { const rr = box.getBoundingClientRect(); r.setSize(rr.width, rr.height, false); cam.aspect = rr.width / rr.height; cam.updateProjectionMatrix(); };
+  const P3 = new Map(); let pd = 0;
+  const el = r.domElement;
+  el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); P3.set(e.pointerId, [e.clientX, e.clientY]); if (P3.size === 2) { const [a, b] = [...P3.values()]; pd = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+  el.addEventListener('pointermove', e => { if (!P3.has(e.pointerId)) return; const pr = P3.get(e.pointerId); P3.set(e.pointerId, [e.clientX, e.clientY]);
+    if (P3.size === 2) { const [a, b] = [...P3.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); orb.dist = clamp(orb.dist * pd / d, 60, 3500); pd = d; }
+    else { orb.yaw -= (e.clientX - pr[0]) * .006; orb.pitch = clamp(orb.pitch + (e.clientY - pr[1]) * .005, .08, 1.45); } });
+  const up = e => P3.delete(e.pointerId); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', e => { e.preventDefault(); orb.dist = clamp(orb.dist * Math.exp(e.deltaY * .0012), 60, 3500); }, { passive: false });
+  let alive = true; const loop = () => { if (!alive) return; size(); place(); r.render(sc, cam); requestAnimationFrame(loop); }; loop();
+  three = { dispose() { alive = false; r.dispose(); el.remove(); sc.traverse(o => { if (o.geometry) o.geometry.dispose(); }); three = null; } };
+}
+$('btn3d').onclick = open3D; $('close3d').onclick = () => { $('three').hidden = true; if (three) three.dispose(); };
+
+// ---------------------------------------------------------------- boot
+new ResizeObserver(resize).observe($('mapwrap'));
+addEventListener('resize', () => { renderToolbar(); });
+renderRail(); renderToolbar();
+(async () => {
+  try { const r = await fetch('memphis.json'); if (r.ok) example = await r.json(); } catch (e) { /* offline preview */ }
+  let draft = null; try { draft = JSON.parse(localStorage.getItem('ssb.draft') || 'null'); } catch (e) { /* blocked */ }
+  try { if (draft && draft.format === FORMAT) loadProject(draft); else if (example) loadProject(example); else newProject('highplains'); }
+  catch (e) { newProject('highplains'); }
+  resize(); fit();
+  if (window.claude && claude.use) {
+    claude.use('db').then(d => { db = d; if (d) setStatus(P.meta.builtin ? 'Example — Save makes your own copy' : 'Connected'); }).catch(() => {});
+    claude.use('user').then(u => { user = u; }).catch(() => {});
+    claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+  }
+})();
+</script>
+
+</body></html>
