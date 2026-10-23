@@ -263,7 +263,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-f';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-g';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -1142,11 +1142,26 @@ function autoLBDs(n) {
       const nrm = [-at.d[1], at.d[0]], others = P.features.filter(g => (g.layer === 'dc' || g.layer === 'ac') && g !== f);
       const spot = [6, -6].map(o => [at.p[0] + nrm[0] * o, at.p[1] + nrm[1] * o]).find(q => !blockedAt(q[0], q[1], { water: 3, road: 3, yard: 2, cable: 0, obj: 3, lbd: 0 }) && !others.some(g => lineDist(centerline(g), q[0], q[1]) < 3));
       if (!spot || lbds().some(q => Math.hypot(q.x - spot[0], q.z - spot[1]) < 12)) continue;
-      const o = { id: uid('lbd'), type: 'lbd', x: r1(spot[0]), z: r1(spot[1]), yaw: Math.round(-Math.atan2(at.d[1], at.d[0]) * 1000) / 1000, name: 'LBD' };
-      P.objects.push(o); made.push(o); need--;
+      const o = { id: uid('lbd'), type: 'lbd', x: r1(spot[0]), z: r1(spot[1]), yaw: 0, name: 'LBD' };
+      faceLBD(o); P.objects.push(o); made.push(o); need--;
     }
   });
   return { made: made.length, runs: dcs.length };
+}
+// an LBD's front (the side with the handles — the game model's local +z, world (sin yaw, cos yaw)) faces its DC cable, the box parallel to the run
+function faceLBD(o) {
+  let best = null;
+  P.features.filter(f => f.layer === 'dc' && f.pts.length >= 2).forEach(f => { const S = curvy(f) ? centerline(f) : f.pts, n = nearestOnLine(S, o.x, o.z); if (n.d < 60 && (!best || n.d < best.n.d)) best = { n, S }; });
+  if (!best) return false;
+  const a = best.S[best.n.i], b = best.S[best.n.i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nr = [-(b[1] - a[1]) / L, (b[0] - a[0]) / L];
+  const to = [best.n.p[0] - o.x, best.n.p[1] - o.z], s = nr[0] * to[0] + nr[1] * to[1] >= 0 ? 1 : -1, yaw = Math.round(Math.atan2(nr[0] * s, nr[1] * s) * 1000) / 1000;
+  if (Math.abs((o.yaw || 0) - yaw) < 1e-3) return false;
+  o.yaw = yaw; return true;
+}
+function applyFaceLBDs() {
+  const snap = snapshot(), n = P.objects.filter(o => o.type === 'lbd').reduce((c, o) => c + (faceLBD(o) ? 1 : 0), 0);
+  if (!n) { toast('Every LBD already faces its DC cable', 'ok'); return; }
+  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty(); renderPanel(); draw(); toast(`Turned ${n} LBD${n > 1 ? 's' : ''} to face the DC cable`, 'ok');
 }
 function applyLBDs() {
   const n = UI.lbdN || 2, snap = snapshot(), r = autoLBDs(n);
@@ -1379,6 +1394,7 @@ function drawObject(o, sel) {
   else if (D.shape === 'star') { const r = 10; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, q = i % 2 ? r * .45 : r; ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q); } ctx.closePath(); ctx.fill(); ctx.stroke(); }
   else { const ww = Math.max(mn, w), dd = Math.max(mn * .6, d); ctx.fillRect(-ww / 2, -dd / 2, ww, dd); ctx.strokeRect(-ww / 2, -dd / 2, ww, dd);
     if (['truck', 'utv', 'forklift'].includes(o.type)) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(-ww / 2 + 1, -dd / 2 + 1, ww - 2, Math.max(2, dd * .12)); }
+    if (o.type === 'lbd') { ctx.fillStyle = '#facc15'; ctx.fillRect(-ww / 2 + 1, dd / 2 - Math.max(1.5, dd * .3), ww - 2, Math.max(1.5, dd * .3)); }     // yellow = the front (faces the DC cable)
     if (o.type === 'storage') { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ww / 2 - 2, -dd / 2 + 1, 2, dd - 2); } }
   ctx.restore();
 }
@@ -1582,7 +1598,7 @@ cv.addEventListener('pointerdown', e => {
     f.pts.push([r1(x), r1(z)]); renderPanel(); draw(); return;
   }
   if (UI.tool === 'preset') { pushUndo(); const y = stampPreset(UI.preset, r1(x), r1(z), UI.presetYaw || 0, UI.presetReplace !== false && P.features.some(f => f.layer === 'yard')); UI.sel = { kind: 'f', id: y.id }; UI.tab = 'sel'; toast(YARD_PRESETS[UI.preset].label + ' placed', 'ok'); setTool('select'); renderPanel(); draw(); return; }
-  if (UI.tool === 'object') { pushUndo(); const o = { id: uid(UI.obj), type: UI.obj, x: r1(x), z: r1(z), yaw: 0 }; if (UI.obj === 'controlpoint') o.name = 'CP-' + (P.objects.filter(q => q.type === 'controlpoint').length + 1); P.objects.push(o); UI.sel = { kind: 'o', id: o.id }; renderPanel(); draw(); return; }
+  if (UI.tool === 'object') { pushUndo(); const o = { id: uid(UI.obj), type: UI.obj, x: r1(x), z: r1(z), yaw: 0 }; if (UI.obj === 'controlpoint') o.name = 'CP-' + (P.objects.filter(q => q.type === 'controlpoint').length + 1); if (o.type === 'lbd') faceLBD(o); P.objects.push(o); UI.sel = { kind: 'o', id: o.id }; renderPanel(); draw(); return; }
   if (UI.tool === 'measure') { const m = UI.measure; if (!m.a || m.b) { UI.measure = { a: [x, z] }; } else m.b = [x, z]; renderToolbar(); draw(); return; }
   if (['terrain', 'paint', 'trees'].includes(UI.tool)) { pushUndo(); painting = true; UI.flatH = hAt(x, z); drag = { paint: true, last: performance.now() }; applyBrush(x, z, 1 / 30); draw(); return; }
   // select
@@ -1632,6 +1648,7 @@ const endPtr = e => {
     const wasRoad = !RoadNet.live || !RiverNet.live; RoadNet.live = RiverNet.live = true; snapMark = null;
     if (drag && drag.whole && drag.moved && drag.whole.layer === 'yard') { const y = drag.whole; let hs = 0; y.pts.forEach(p => hs += hAt(...p)); unpaintArea(drag.from, y.pts); flattenArea(y.pts, Math.round(hs / y.pts.length * 2) / 2); terrainDirty = contourDirty = true; }
     if (drag && ((drag.whole && drag.moved) || drag.vertex !== undefined) && (drag.whole || drag.f).layer === 'river') carveRiver(drag.whole || drag.f);
+    if (drag && drag.obj && drag.moved && drag.obj.type === 'lbd') faceLBD(drag.obj);                    // a moved LBD turns to face its DC cable
     if (drag && (drag.vertex !== undefined || drag.obj || (drag.whole && drag.moved))) renderPanel();
     if (painting) endPaint(); drag = null; if (wasRoad) draw();
   }
@@ -1734,7 +1751,8 @@ function paneSite() {
     <div class="row"><span>Biggest block (ft)</span><input type="number" id="aMax" value="${UI.arrMax ?? 400}" min="100" max="1000" step="20" inputmode="numeric"></div>
     <div class="btns"><button class="btn go" id="aGo">✨ Make array blocks</button></div>
     <div class="row"><span>LBDs per DC run</span><span class="seg" id="lbdN">${[2, 3, 4].map(k => `<button data-v="${k}" class="${(UI.lbdN || 2) === k ? 'on' : ''}">${k}</button>`).join('')}</span></div>
-    <div class="btns"><button class="btn" id="lGo">✨ Add LBDs at DC run ends</button></div></div>
+    <div class="btns"><button class="btn" id="lGo">✨ Add LBDs at DC run ends</button><button class="btn" id="lFace">↻ Face LBDs to DC</button></div>
+    <p class="note">LBDs always face their DC cable (the yellow edge on the map is the front) — new and moved ones turn by themselves.</p></div>
   <div class="sect"><h3>Roads</h3>
     <div class="row"><span>Corner rounding</span><input type="range" id="sFillet" min="4" max="60" step="1" value="${P.world.fillet ?? 18}"></div>
     <p class="note">How round the curb returns are where roads meet (${P.world.fillet ?? 18} ft). Bigger = wider, smoother turns.</p></div>
@@ -1862,6 +1880,7 @@ function paneSel() {
       <div class="row"><span>Name</span><input type="text" id="oName" value="${esc(o.name || '')}" placeholder="${esc(D.label)}"></div>
       <div class="row"><span>Type</span><select id="oType">${Object.entries(OBJECTS).map(([k, v]) => opt(k, v.label, o.type)).join('')}</select></div>
       <div class="row"><span>Facing ${deg}°</span><input type="range" id="oYaw" min="-180" max="180" step="5" value="${deg}"></div>
+      ${o.type === 'lbd' ? `<div class="btns"><button class="btn go" id="oFace">↻ Face the DC cable</button></div>` : ''}
       <div class="btns"><button class="btn" data-orot="-90">↺ 90°</button><button class="btn" data-orot="90">↻ 90°</button><button class="btn" data-orot="180">Turn around</button></div>
       <div class="row"><span>Northing</span><input type="number" id="oN" value="${(5000 - o.z).toFixed(1)}" step=".1" inputmode="decimal"></div>
       <div class="row"><span>Easting</span><input type="number" id="oE" value="${(5000 + o.x).toFixed(1)}" step=".1" inputmode="decimal"></div>
@@ -1896,7 +1915,7 @@ function wirePane(pane) {
   pane.querySelectorAll('#bScope button').forEach(b => b.addEventListener('click', () => { UI.bScope = b.dataset.v; renderPanel(); }));
   on('bCoast', 'change', e => { UI.bCoast = clamp(+e.target.value || 60, 10, 400); }); on('bRiver', 'change', e => { UI.bRiver = clamp(+e.target.value || 0, 0, 300); }); on('bSilt', 'change', e => { UI.bSilt = clamp(+e.target.value || 10, 2, 100); });
   on('aMax', 'change', e => { UI.arrMax = clamp(+e.target.value || 400, 100, 1000); }); on('aGo', 'click', () => { applyArrays({ max: UI.arrMax ?? 400 }); closeSheetOnPhone(); });
-  pane.querySelectorAll('#lbdN button').forEach(b => b.addEventListener('click', () => { UI.lbdN = +b.dataset.v; renderPanel(); })); on('lGo', 'click', () => { applyLBDs(); closeSheetOnPhone(); });
+  pane.querySelectorAll('#lbdN button').forEach(b => b.addEventListener('click', () => { UI.lbdN = +b.dataset.v; renderPanel(); })); on('lGo', 'click', () => { applyLBDs(); closeSheetOnPhone(); }); on('lFace', 'click', () => applyFaceLBDs());
   on('bGo', 'click', () => { applyBorders(bordersOpt()); closeSheetOnPhone(); });
   on('sFillet', 'input', e => { P.world.fillet = +e.target.value; RoadNet.live = false; draw(); }); on('sFillet', 'change', e => { pushUndo(); P.world.fillet = +e.target.value; RoadNet.live = true; renderPanel(); draw(); });
   on('sIsland', 'change', edit(e => { P.world.island = { shore: 1185, sea: -5, rough: 0, seed: 1, ...P.world.island, on: e.target.checked, chosen: true }; terrainDirty = true; }));
@@ -1982,6 +2001,7 @@ function wirePane(pane) {
     on('oYaw', 'pointerdown', () => pushUndo()); on('oYaw', 'input', e => { o.yaw = +e.target.value * Math.PI / 180; e.target.previousElementSibling.textContent = 'Facing ' + e.target.value + '°'; draw(); }); on('oYaw', 'change', () => markDirty());
     pane.querySelectorAll('[data-orot]').forEach(el => el.addEventListener('click', edit(() => { let y = (o.yaw || 0) - +el.dataset.orot * Math.PI / 180; while (y > Math.PI) y -= 2 * Math.PI; while (y < -Math.PI) y += 2 * Math.PI; o.yaw = Math.round(y * 1000) / 1000; })));
     on('oW', 'change', edit(e => { o.w = +e.target.value; })); on('oD', 'change', edit(e => { o.d = +e.target.value; }));
+    on('oFace', 'click', edit(() => { if (!faceLBD(o)) toast('No DC cable within 60 ft', 'err'); }));
     on('oDup', 'click', edit(() => { const c = { ...o, id: uid(o.type), x: o.x + 10, z: o.z + 10 }; P.objects.push(c); UI.sel = { kind: 'o', id: c.id }; }));
     on('oDel', 'click', () => deleteSel());
   }
