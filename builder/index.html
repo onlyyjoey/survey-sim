@@ -365,8 +365,9 @@ const MTYPES = {
   boundary:  { label: 'Boundary loop', layers: ['lod', 'silt', 'fence', 'array', 'habitat', 'note'], line: true, hint: 'Stake every corner of a closed area, plus extra stakes at the spacing.' },
   line:      { label: 'Line run', layers: ['ac', 'dc', 'silt', 'fence', 'note', ...UTIL_LAYERS], line: true, hint: 'Stake along open lines at the spacing (corners always get a stake).' },
   roadEdges: { label: 'Edge of road', layers: ['road'], line: true, hint: 'Both edges of each road, around the curb returns at intersections, stopping at road ends and yards.' },
-  points:    { label: 'Point stakeout', layers: ['piles', 'topo', 'note'], line: false, hint: 'One marker on every point (piles, corners, monuments).' },
-  topo:      { label: 'Buggy topo', layers: ['topo'], line: false, hint: 'Drive the UTV over each point with the rod on the mount.' },
+  piles:     { label: 'Pile stakeout (LBD / inverter)', layers: [], line: false, hint: 'Nails & tassel on every pile — made for you: 2 per LBD, 10 per inverter pad (place them from Add → Solar).' },
+  topo:      { label: 'Buggy topo', layers: ['lod', 'array', 'habitat'], line: false, hint: 'Topo shots are spread out for you over the area — only inside the LOD, never in water, rivers, roads or the yard. Drive the UTV over each one with the rod on the mount.' },
+  points:    { label: 'Point stakeout (old point sets)', layers: ['piles', 'topo', 'note'], line: false, legacy: true, hint: 'One marker on every point of an old point set.' },
   locate:    { label: 'Utility / cable locate', layers: ['ac', 'dc', ...UTIL_LAYERS], line: false, hint: 'Pin flags along buried lines, skipping where they run under roads. Use the utility colour (red electric, yellow gas, blue water, green sewer, orange telecom).' },
   mark:      { label: 'Mark trees (spray X)', layers: ['array', 'habitat', 'lod', 'note'], line: false, hint: 'Spray a red X on the trees inside the area; the rod beeps you to them. The tree crew drops them when it\'s done.' },
   delivery:  { label: 'Forklift delivery', layers: [], line: false, hint: 'Forklift the boxes from the delivery semi into the storage conex. Needs a "Delivery semi" and a "Storage conex" on the map.' },
@@ -523,6 +524,8 @@ function terrainToJSON(T) {
 }
 function projectJSON() {
   P.meta.updated = today();
+  P.features.forEach(f => { if (f.layer === 'array' && f.closed) { const R = rackFor(f); f.rack = { pitch: f.pitch || 20, step: f.step || 20, rows: R.rows }; } });
+  P.missions.forEach(m => { if (m.type === 'topo' || m.type === 'piles') m.points = missionStakes(m).flat(); });
   P.features.forEach(f => { if (f.layer === 'road' || f.layer === 'river') { const S = centerline(f); f.path = simplify(S, .4).map(p => p.map(r1)); f.deadEnds = f.dead && (f.dead[0] || f.dead[1]) ? f.dead.map(d => d ? culR(f) : 0) : undefined; } });
   const isl = P.world.island; if (isl) { if (isl.on) isl.outline = Shore.poly(isl, 96); else delete isl.outline; }
   return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
@@ -847,12 +850,82 @@ const RiverNet = {
   },
 };
 
+// ---------------------------------------------------------------- auto layouts (mirror the game's Plan): racking piles in each array, topo shots
+const AUTO = { key: '', rack: new Map(), topo: new Map() };
+function autoKey() { return JSON.stringify([P.features.map(f => [f.id, f.layer, f.pts, f.w, f.pitch, f.step, f.edge, f.curve]), P.objects.map(o => [o.type, o.x, o.z, o.yaw, o.w, o.d]), P.world.island]); }
+function autoFresh() { const k = autoKey(); if (k !== AUTO.key) { AUTO.key = k; AUTO.rack.clear(); AUTO.topo.clear(); } }
+const CABLES = ['ac', 'dc', 'ugpower', 'gas', 'waterline', 'sewer', 'telecom'];
+function objRectDist(o, x, z) { const D = OBJECTS[o.type] || OBJECTS.sign, c = Math.cos(o.yaw || 0), s = Math.sin(o.yaw || 0), dx = x - o.x, dz = z - o.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
+  return Math.hypot(Math.max(0, Math.abs(lx) - (o.w || D.w) / 2), Math.max(0, Math.abs(lz) - (o.d || D.d) / 2)); }
+// why a spot can't take a pile / shot (shared rules: water, rivers, roads, yards, buildings, cables, the island's coast)
+function blockedAt(x, z, m) {
+  const isl = P.world.island; if (isl && isl.on && Math.hypot(x, z) > Shore.r(isl, x, z) - 30) return 'sea';
+  for (const f of P.features) {
+    const L = f.layer;
+    if (L === 'water' && (inPoly(f.pts, x, z) || lineDist(f.pts, x, z, true) < m.water)) return 'pond';
+    if (L === 'river' && lineDist(centerline(f), x, z) < (f.w || 30) / 2 + m.water) return 'river';
+    if (L === 'road' && lineDist(centerline(f), x, z) < (f.w || 12) / 2 + (f.existing ? m.road + 3 : m.road)) return 'road';
+    if (L === 'yard' && (inPoly(f.pts, x, z) || lineDist(f.pts, x, z, true) < m.yard)) return 'yard';
+    if (m.cable && CABLES.includes(L) && lineDist(centerline(f), x, z) < m.cable) return 'cable';
+    if (m.cable && L === 'power' && lineDist(centerline(f), x, z) < m.cable + 2) return 'power line';
+  }
+  for (const o of P.objects) {
+    if (['substation', 'inverterpad', 'office', 'breakroom', 'storage', 'upperoffice', 'wreck', 'transformer', 'culvert'].includes(o.type) && objRectDist(o, x, z) < m.obj) return o.type === 'inverterpad' ? 'inverter' : o.type === 'substation' ? 'substation' : 'building';
+    if (o.type === 'lbd' && Math.hypot(x - o.x, z - o.z) < m.lbd) return 'lbd';
+    if (o.type === 'controlpoint' && Math.hypot(x - o.x, z - o.z) < 7) return 'control point';
+  }
+  return '';
+}
+// racking piles: N-S tracker rows every f.pitch east-west, a pile every f.step along the row, wherever nothing else is
+function rackFor(f) {
+  autoFresh(); if (AUTO.rack.has(f.id)) return AUTO.rack.get(f.id);
+  const pitch = f.pitch || 20, step = f.step || 20, edge = f.edge ?? 10, lod = P.features.find(q => q.layer === 'lod' && q.closed), area = polyArea(f.pts);
+  const fences = P.features.filter(q => q.layer === 'silt' && q.closed && polyArea(q.pts) < area * .5);
+  const xs = f.pts.map(p => p[0]), zs = f.pts.map(p => p[1]), skip = {}, rows = [], m = { water: 14, road: 5, yard: 14, cable: 8, obj: 8, lbd: 10 };
+  const why = (x, z) => {
+    if (!inPoly(f.pts, x, z)) return 'out'; if (lineDist(f.pts, x, z, true) < edge) return 'edge';
+    if (lod && (!inPoly(lod.pts, x, z) || lineDist(lod.pts, x, z, true) < 18)) return 'lod';
+    if (fences.some(q => inPoly(q.pts, x, z) || lineDist(q.pts, x, z, true) < 6)) return 'silt fence';
+    return blockedAt(x, z, m);
+  };
+  for (let x = Math.ceil((Math.min(...xs) - pitch / 2) / pitch) * pitch + pitch / 2; x <= Math.max(...xs); x += pitch) {
+    let run = []; const flush = () => { if (run.length >= 2) rows.push(run); run = []; };
+    for (let z = Math.ceil((Math.min(...zs) - step / 2) / step) * step + step / 2; z <= Math.max(...zs); z += step) { const w = why(x, z); if (w) { if (w !== 'out') skip[w] = (skip[w] || 0) + 1; flush(); } else run.push([x, z]); }
+    flush();
+  }
+  const out = { rows, piles: rows.reduce((s, r) => s + r.length, 0), skip }; AUTO.rack.set(f.id, out); return out;
+}
+// topo shots: a loose staggered grid over the areas, only inside the LOD, never in water / rivers / roads / the yard / buildings
+function topoFor(fs, spacing) {
+  autoFresh(); const key = fs.map(f => f.id).join() + '|' + spacing; if (AUTO.topo.has(key)) return AUTO.topo.get(key);
+  const lod = P.features.find(q => q.layer === 'lod' && q.closed), areas = fs.filter(f => f.closed && f.pts.length > 2), sp = Math.max(20, spacing || 70), out = [];
+  if (areas.length) {
+    const all = areas.flatMap(f => f.pts), xs = all.map(p => p[0]), zs = all.map(p => p[1]), m = { water: 8, road: 4, yard: 12, cable: 0, obj: 12, lbd: 6 };
+    for (let z = Math.min(...zs), r = 0; z <= Math.max(...zs); z += sp, r++) for (let x = Math.min(...xs) + (r & 1 ? sp / 2 : 0); x <= Math.max(...xs); x += sp) {
+      if (!areas.some(f => inPoly(f.pts, x, z) && lineDist(f.pts, x, z, true) > 14)) continue;
+      if (lod && (!inPoly(lod.pts, x, z) || lineDist(lod.pts, x, z, true) < 14)) continue;
+      if (!blockedAt(x, z, m)) out.push([Math.round(x), Math.round(z)]);
+    }
+  }
+  AUTO.topo.set(key, out); return out;
+}
+// pile stakeout: 2 piles per LBD, 10 per inverter pad (the game's real stakeout pattern)
+function pilePoints(of) {
+  const out = [];
+  if (of === 'inv') P.objects.filter(o => o.type === 'inverterpad').forEach(o => { const c = Math.cos(o.yaw || 0), s = Math.sin(o.yaw || 0), NS = [0, 5.167, 8.917, 14.417, 19.167], ES = [0, 7.63];
+    ES.forEach((e, k) => (k ? NS.slice().reverse() : NS).forEach(n => { const lx = -3.815 + e, lz = 9.5835 - n; out.push([r1(o.x + lx * c + lz * s), r1(o.z - lx * s + lz * c)]); })); });
+  else P.objects.filter(o => o.type === 'lbd').forEach(o => [-2.2, 2.2].forEach(d => out.push([r1(o.x + Math.cos(o.yaw || 0) * d), r1(o.z - Math.sin(o.yaw || 0) * d)])));
+  return out;
+}
+
 // --- stake previews (what each mission would put in the ground; mirrors the game's generators)
 function missionStakes(m) {
   const fs = (m.features || []).map(id => P.features.find(f => f.id === id)).filter(Boolean), runs = [];
   if (m.type === 'boundary') fs.forEach(f => runs.push(m.spacing > 0 ? along(f.pts, m.spacing, f.closed) : f.pts.map(p => [...p])));
   else if (m.type === 'line') fs.forEach(f => runs.push(along(curvy(f) ? simplify(centerline(f), 1) : f.pts, m.spacing || 0, f.closed)));
-  else if (m.type === 'points' || m.type === 'topo') fs.forEach(f => runs.push(f.pts.map(p => [...p])));
+  else if (m.type === 'points') fs.forEach(f => runs.push(f.pts.map(p => [...p])));
+  else if (m.type === 'topo') { const areas = fs.filter(f => f.closed && LAYERS[f.layer]?.geom === 'area'); runs.push(topoFor(areas, m.spacing || 70)); fs.filter(f => LAYERS[f.layer]?.geom === 'points').forEach(f => runs.push(f.pts.map(p => [...p]))); }
+  else if (m.type === 'piles') runs.push(pilePoints(m.of || 'lbd'));
   else if (m.type === 'roadEdges') return RoadNet.edgeRuns(fs.map(f => f.id), m.spacing || 32);
   else if (m.type === 'locate') {
     const roads = P.features.filter(f => f.layer === 'road'), out = [];
@@ -877,7 +950,9 @@ function missionIssues(m) {
     if (!P.objects.some(o => o.type === 'forklift')) out.push('Place at least one forklift.');
     return out;
   }
-  if (!fs.length) out.push('Pick at least one feature to stake.');
+  if (m.type === 'piles') { const n = pilePoints(m.of || 'lbd').length; if (!n) out.push(m.of === 'inv' ? 'Place an inverter pad (Add → Solar).' : 'Place some LBDs (Add → Solar).'); return out; }
+  if (!fs.length) out.push(m.type === 'topo' ? 'Pick the area to spread topo shots over (the LOD covers the whole job).' : 'Pick at least one feature to stake.');
+  if (m.type === 'topo' && fs.length && !missionStakes(m)[0]?.length) out.push('No room for topo shots there.');
   if (fs.some(f => !f)) out.push('A linked feature was deleted.');
   const T_ = MTYPES[m.type]; if (T_ && fs.some(f => f && !T_.layers.includes(f.layer))) out.push('Some features are on layers this mission type does not use.');
   if (m.type === 'boundary' && fs.some(f => f && !f.closed)) out.push('Boundary loops need closed areas.');
@@ -985,6 +1060,12 @@ function drawPresetGhost() {
   ctx.globalAlpha = .75; strokePath(g.yard, true); ctx.fillStyle = 'rgba(180,173,160,.6)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
   g.objs.forEach(o => drawObject(o, false)); ctx.globalAlpha = 1;
 }
+// the racking rows and piles the array will get (panels go on these rows)
+function drawRack(f) {
+  const R = rackFor(f), st = f.step || 20, pw = Math.max(1.5, 6.5 * view.s);
+  ctx.fillStyle = 'rgba(28,48,110,.55)'; R.rows.forEach(r => { const a = r[0], b = r.at(-1); ctx.fillRect(sx(a[0]) - pw / 2, sz(a[1] - st / 2), pw, (b[1] - a[1] + st) * view.s); });
+  if (view.s > 1.1) { ctx.fillStyle = '#c0c6cf'; R.rows.forEach(r => r.forEach(p => { ctx.fillRect(sx(p[0]) - 1.5, sz(p[1]) - 1.5, 3, 3); })); }
+}
 const isSel = f => !!(UI.sel && UI.sel.kind === 'f' && UI.sel.id === f.id);
 let snapMark = null;
 // all the roads as one network: gravel fill with rounded curb returns, existing roads in their own surface, edge lines
@@ -1032,6 +1113,8 @@ function drawFeature(f, sel) {
   } else {
     strokePath(S, f.closed && !curvy(f));
     if (L.fill && f.closed) { ctx.fillStyle = L.color; ctx.globalAlpha = L.fill; ctx.fill(); ctx.globalAlpha = 1; }
+    if (f.layer === 'array' && f.closed && view.s > .3) drawRack(f);
+    strokePath(S, f.closed && !curvy(f));
     if (L.halo) { ctx.strokeStyle = L.halo; ctx.lineWidth = 5; ctx.stroke(); } else { ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 4.5; ctx.stroke(); }
     ctx.strokeStyle = L.color; ctx.lineWidth = f.layer === 'silt' ? 2.5 : f.layer === 'power' ? 1.6 : 2.2; ctx.setLineDash(L.dash || []); ctx.stroke(); ctx.setLineDash([]);
     if (f.layer === 'power') along(S, f.poleStep || 180, false).forEach(p => { const X = sx(p[0]), Y = sz(p[1]); ctx.fillStyle = '#8b5a2b'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X, Y, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
@@ -1069,7 +1152,7 @@ const ICON = {
   trees: '<path d="M12 2l6 9h-3l4 6H5l4-6H6z"/><path d="M12 17v5"/>', measure: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/>',
 };
-const TOOLS = [['select', 'Select', 'V'], ['add', 'Add', 'A'], ['road', 'Road', 'D'], ['draw', 'Draw', 'L'], ['river', 'River', 'W'], ['points', 'Points', 'P'], '|',
+const TOOLS = [['select', 'Select', 'V'], ['add', 'Add', 'A'], ['road', 'Road', 'D'], ['draw', 'Draw', 'L'], ['river', 'River', 'W'], '|',
   ['terrain', 'Sculpt', 'T'], ['paint', 'Ground', 'G'], ['trees', 'Trees', 'R'], ['measure', 'Measure', 'M'], '|', ['undo', 'Undo', ''], ['redo', 'Redo', '']];
 function renderRail() {
   $('rail').innerHTML = TOOLS.map(t => t === '|' ? '<div class="sep"></div>' : `<button class="tool${UI.tool === t[0] || (t[0] === 'add' && (UI.tool === 'object' || UI.tool === 'preset')) ? ' on' : ''}${t[0] === 'add' ? ' add' : ''}" data-tool="${t[0]}" title="${t[1]}${t[2] ? ' (' + t[2] + ')' : ''}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${t[0] === 'add' ? 2.6 : 1.8}" stroke-linejoin="round" stroke-linecap="round">${ICON[t[0]]}</svg><span>${t[1]}</span></button>`).join('');
@@ -1456,11 +1539,12 @@ function paneMissions() {
 }
 function missionForm(m, iss) {
   const T_ = MTYPES[m.type] || MTYPES.boundary, cand = P.features.filter(f => T_.layers.includes(f.layer));
-  const spacing = ['boundary', 'line', 'roadEdges', 'locate'].includes(m.type), stakes = !['delivery'].includes(m.type);
-  const markers = m.type === 'mark' ? ['paint'] : m.type === 'delivery' ? ['forklift'] : m.type === 'topo' ? ['rod'] : m.type === 'locate' ? ['pin', 'paint'] : m.type === 'points' ? ['nail', 'pin', 'lath'] : ['lath', 'pin', 'nail'];
+  const spacing = ['boundary', 'line', 'roadEdges', 'locate', 'topo'].includes(m.type), stakes = !['delivery'].includes(m.type);
+  const markers = m.type === 'mark' ? ['paint'] : m.type === 'delivery' ? ['forklift'] : m.type === 'topo' ? ['rod'] : m.type === 'locate' ? ['pin', 'paint'] : m.type === 'points' || m.type === 'piles' ? ['nail', 'pin', 'lath'] : ['lath', 'pin', 'nail'];
   return `<div class="row"><span>Title</span><input type="text" data-mf="title" value="${esc(m.title)}"></div>
-    <div class="row"><span>Type</span><select data-mf="type">${Object.entries(MTYPES).map(([k, t]) => opt(k, t.label, m.type)).join('')}</select></div>
+    <div class="row"><span>Type</span><select data-mf="type">${Object.entries(MTYPES).filter(([k, t]) => !t.legacy || k === m.type).map(([k, t]) => opt(k, t.label, m.type)).join('')}</select></div>
     <p class="note">${T_.hint}</p>
+    ${m.type === 'piles' ? `<div class="row"><span>Piles for</span><span class="seg" id="mOf"><button data-v="lbd" class="${(m.of || 'lbd') === 'lbd' ? 'on' : ''}">LBDs (${P.objects.filter(o => o.type === 'lbd').length})</button><button data-v="inv" class="${m.of === 'inv' ? 'on' : ''}">Inverter pads (${P.objects.filter(o => o.type === 'inverterpad').length})</button></span></div>` : ''}
     ${T_.layers.length ? `<div class="sect"><span class="note"><b>${m.type === 'mark' ? 'Mark trees inside' : 'Stakes these'}</b></span><div class="checks">${cand.map(f => `<label><input type="checkbox" data-mfeat="${f.id}" ${(m.features || []).includes(f.id) ? 'checked' : ''}><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${LAYERS[f.layer].color};border:1px solid rgb(0 0 0/.3)"></span>${esc(f.name)}</label>`).join('') || '<span class="note">Nothing on the right layers yet (' + T_.layers.map(l => LAYERS[l].label).join(', ') + ').</span>'}</div></div>` : ''}
     ${spacing ? `<div class="row"><span>Spacing (ft)</span><input type="number" data-mf="spacing" value="${m.spacing || 0}" min="0" max="400" step="1" inputmode="numeric"></div>` : ''}
     ${m.type === 'mark' ? `<div class="row"><span>Trees to mark</span><input type="number" data-mf="count" value="${m.count || 10}" min="1" max="40" inputmode="numeric"></div>` : ''}
@@ -1493,7 +1577,9 @@ function paneSel() {
       ${lineish && !isRoad && !isRiver ? `<label class="checks"><label><input type="checkbox" id="fClosed" ${area ? 'checked' : ''}> Closed area (loop back to the start)</label></label>` : ''}
       ${f.layer === 'power' ? `<div class="row"><span>Pole every (ft)</span><input type="number" id="fPole" value="${f.poleStep || 180}" min="60" max="400" step="10" inputmode="numeric"></div>` : ''}
       ${UTIL_LAYERS.includes(f.layer) && f.layer !== 'power' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fBury" value="${f.depth ?? 3}" min="1" max="20" step=".5" inputmode="decimal"></div>` : ''}
-      ${f.layer === 'array' ? `<div class="row"><span>Row pitch (ft)</span><input type="number" id="fPitch" value="${f.pitch || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Pile step (ft)</span><input type="number" id="fStep" value="${f.step || 20}" min="8" max="60" inputmode="numeric"></div>` : ''}
+      ${f.layer === 'array' ? (() => { const R = rackFor(f), sk = Object.entries(R.skip).sort((a, b) => b[1] - a[1]); return `<div class="tip" style="border-color:var(--line);background:var(--raise)"><b class="h" style="color:var(--survey)">RACKING &amp; PANELS</b><div><em>Piles</em><span><b>${R.piles}</b> in ${R.rows.length} rows — panels go on these rows</span></div>${sk.length ? `<div><em>Skipped</em><span>${sk.map(([k, n]) => n + ' ' + k).join(' · ')}</span></div>` : ''}</div>
+        <div class="row"><span>Row spacing (ft)</span><input type="number" id="fPitch" value="${f.pitch || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Pile spacing (ft)</span><input type="number" id="fStep" value="${f.step || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Keep off edge (ft)</span><input type="number" id="fEdge" value="${f.edge ?? 10}" min="0" max="60" inputmode="numeric"></div>
+        <p class="note">Rows run north–south like Memphis. Piles stay off roads, cables and utilities, rivers, ponds, the yard, buildings, LBDs and the inverter pad, and inside the LOD.</p>`; })() : ''}
       ${f.layer === 'water' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fDepth" value="${f.depth || 3}" min="1" max="30" step=".5" inputmode="decimal"></div>` : ''}
       <div class="row"><span>Used by</span><span class="mono">${used.length ? used.join(', ') : 'no missions yet'}</span></div>
       <div class="btns"><button class="btn go" id="fMission">Make a mission</button><button class="btn" id="fDup">Duplicate</button><button class="btn danger" id="fDel">Delete</button></div></div>
@@ -1507,7 +1593,6 @@ function paneSel() {
       <div class="row"><span>Side</span><span class="seg" id="oSide">${(area ? [['in', 'Inside'], ['out', 'Outside']] : [['l', 'Left'], ['r', 'Right'], ['both', 'Both']]).map(([v, l]) => `<button data-v="${v}" class="${(UI.offS || (area ? 'in' : 'l')) === v ? 'on' : ''}">${l}</button>`).join('')}</span></div>
       <div class="row"><span>As</span><select id="oLayer">${Object.entries(LAYERS).filter(([k, v]) => v.geom !== 'points' && k !== 'river' && (area ? true : v.geom === 'line')).map(([k, v]) => opt(k, v.label, UI.offL && LAYERS[UI.offL].geom !== 'points' ? UI.offL : (f.layer === 'lod' ? 'silt' : f.layer))).join('')}</select></div>
       <div class="btns"><button class="btn go" id="oMake">Make the copy</button></div></div>` : ''}
-    ${(f.closed && ['array', 'topo', 'habitat', 'lod', 'yard'].includes(f.layer)) ? `<div class="sect"><h3>Fill with points</h3><div class="row"><span>Grid (ft)</span><input type="number" id="fGrid" value="70" min="10" max="400" inputmode="numeric"></div><div class="btns"><button class="btn" id="fGridGo">Make topo grid</button></div></div>` : ''}
     ${pts ? `<div class="sect"><p class="note">${f.pts.length} points. Use the Points tool to add more; drag a point to move it.</p></div>` : ''}`; }
   if (o) { const D = OBJECTS[o.type] || OBJECTS.sign, deg = Math.round((o.yaw || 0) * 180 / Math.PI);
     return `<div class="sect"><h3>${D.icon || ''} ${esc(D.label)}</h3>
@@ -1578,8 +1663,9 @@ function wirePane(pane) {
     all('[data-mf]', 'change', el => { pushUndo(); const k = el.dataset.mf; M[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? +el.value : el.value;
       if (k === 'paint') M.paint = M.paint.toUpperCase();
       if (k === 'tip') M.tip = M.tip.trim() || null;
-      if (k === 'type') { M.features = (M.features || []).filter(id => { const f = P.features.find(q => q.id === id); return f && MTYPES[M.type].layers.includes(f.layer); }); M.marker = { locate: 'pin', points: 'nail', mark: 'paint', delivery: 'forklift', topo: 'rod' }[M.type] || 'lath'; if (M.type === 'mark') { M.ribbon = 'Red'; M.build = ['trees']; } if (M.type === 'delivery') M.build = ['panels']; M.line = !!MTYPES[M.type].line; }
+      if (k === 'type') { M.features = (M.features || []).filter(id => { const f = P.features.find(q => q.id === id); return f && MTYPES[M.type].layers.includes(f.layer); }); M.marker = { locate: 'pin', points: 'nail', piles: 'nail', mark: 'paint', delivery: 'forklift', topo: 'rod' }[M.type] || 'lath'; if (M.type === 'topo') { M.spacing = M.spacing || 70; const lod = P.features.find(f => f.layer === 'lod'); if (!M.features.length && lod) M.features = [lod.id]; } if (M.type === 'piles') { M.of ||= 'lbd'; M.build = [M.of === 'inv' ? 'invp' : 'lbd']; } if (M.type === 'mark') { M.ribbon = 'Red'; M.build = ['trees']; } if (M.type === 'delivery') M.build = ['panels']; M.line = !!MTYPES[M.type].line; }
       if (k === 'brief' || k === 'title' || k === 'tip') { const t = pane.querySelector(`[data-mpick="${M.id}"]`); if (t) t.textContent = M.title || 'Untitled mission'; if (k === 'tip') renderPanel(); } else renderPanel(); draw(); });
+    const mo = v('mOf'); if (mo) mo.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { pushUndo(); M.of = b.dataset.v; M.build = [M.of === 'inv' ? 'invp' : 'lbd']; renderPanel(); draw(); }));
     on('mTipOwn', 'change', edit(e => { M.tip = e.target.checked ? tipText(M) : null; }));
     pane.querySelectorAll('[data-mfeat]').forEach(el => el.addEventListener('change', edit(() => { const id = el.dataset.mfeat; M.features = el.checked ? [...new Set([...(M.features || []), id])] : (M.features || []).filter(x => x !== id);
       const f = P.features.find(q => q.id === id); if (el.checked && M.type === 'locate' && f && UTIL_RIBBON[f.layer] && M.features.length === 1) M.ribbon = UTIL_RIBBON[f.layer]; })));
@@ -1600,7 +1686,7 @@ function wirePane(pane) {
     segOn('fCurve', s => { pushUndo(); f.curve = s; renderPanel(); draw(); });
     on('fDepthR', 'change', edit(e => { f.depth = clamp(+e.target.value || 4, 1, 30); })); on('fCarve', 'click', edit(() => carveRiver(f)));
     on('fPole', 'change', edit(e => { f.poleStep = clamp(+e.target.value || 180, 60, 400); })); on('fBury', 'change', edit(e => { f.depth = +e.target.value; }));
-    on('fPitch', 'change', edit(e => { f.pitch = +e.target.value; })); on('fStep', 'change', edit(e => { f.step = +e.target.value; })); on('fDepth', 'change', edit(e => { f.depth = +e.target.value; }));
+    on('fPitch', 'change', edit(e => { f.pitch = +e.target.value; })); on('fStep', 'change', edit(e => { f.step = +e.target.value; })); on('fEdge', 'change', edit(e => { f.edge = clamp(+e.target.value, 0, 60); })); on('fDepth', 'change', edit(e => { f.depth = +e.target.value; }));
     on('fReverse', 'click', edit(() => f.pts.reverse()));
     pane.querySelectorAll('[data-rot]').forEach(el => el.addEventListener('click', edit(() => { const c = featCenter(f), deg = +el.dataset.rot, carry = f.layer === 'yard' ? P.objects.filter(o => inPoly(f.pts, o.x, o.z)) : [];
       const from = f.pts; f.pts = rotatePts(f.pts, deg, c); if (f.layer === 'yard') unpaintArea(from, f.pts); carry.forEach(o => { const [p] = rotatePts([[o.x, o.z]], deg, c); o.x = p[0]; o.z = p[1]; o.yaw = Math.round(((o.yaw || 0) - deg * Math.PI / 180) * 1000) / 1000; }); if (f.layer === 'yard') flattenArea(f.pts, hAt(...c)); })));
@@ -1617,9 +1703,6 @@ function wirePane(pane) {
       UI.sel = { kind: 'f', id: last.id }; setStatus('Copy made ' + d + ' ft ' + ({ in: 'inside', out: 'outside', l: 'left', r: 'right', both: 'each side' })[side], 'ok'); }));
     on('fDup', 'click', edit(() => { const c = JSON.parse(JSON.stringify(f)); c.id = uid(f.layer); c.name += ' copy'; c.pts = c.pts.map(p => [p[0] + 30, p[1] + 30]); P.features.push(c); UI.sel = { kind: 'f', id: c.id }; }));
     on('fDel', 'click', () => deleteSel());
-    on('fGridGo', 'click', edit(() => { const sp = clamp(+v('fGrid').value || 70, 10, 400), pts = []; const xs = f.pts.map(p => p[0]), zs = f.pts.map(p => p[1]);
-      for (let z = Math.min(...zs) + sp / 2, r = 0; z < Math.max(...zs); z += sp, r++) for (let x = Math.min(...xs) + (r % 2 ? sp / 2 : 0); x < Math.max(...xs); x += sp) if (inPoly(f.pts, x, z) && lineDist(f.pts, x, z, true) > 10) pts.push([Math.round(x), Math.round(z)]);
-      const t = { id: uid('topo'), layer: 'topo', name: 'Topo shots', pts, closed: false }; P.features.push(t); UI.sel = { kind: 'f', id: t.id }; }));
     on('fMission', 'click', edit(() => { const type = f.layer === 'road' ? 'roadEdges' : UTIL_LAYERS.includes(f.layer) ? 'locate' : Object.entries(MTYPES).find(([, t]) => t.layers.includes(f.layer))?.[0] || 'line'; addMission(type, [f.id]); UI.tab = 'missions'; }));
   }
   const o = selObject();
@@ -1638,10 +1721,11 @@ function addMission(type, features) {
   let k = 1; while (P.missions.some(m => m.id === 'M' + k)) k++;
   const prev = P.missions.at(-1), t = type || 'boundary', f0 = features && P.features.find(f => f.id === features[0]);
   const presets = { lod: ['White', 'LOD', ['clear']], silt: ['Blue', 'SILT', ['silt']], road: ['Green', 'EOR', ['road']], ac: ['Pink', 'AC', ['ac']], dc: ['Orange', 'DC', ['dc']], piles: ['Blue', 'PILE', []], topo: ['Yellow', 'TOPO', []], fence: ['Orange', 'FENCE', ['fence']] }[f0?.layer] || [UTIL_RIBBON[f0?.layer] || 'Orange', 'STAKE', []];
-  const marker = { locate: 'pin', points: 'nail', mark: 'paint', delivery: 'forklift', topo: 'rod' }[t] || 'lath';
+  const marker = { locate: 'pin', points: 'nail', piles: 'nail', mark: 'paint', delivery: 'forklift', topo: 'rod' }[t] || 'lath';
   const m = { id: 'M' + k, title: f0 ? (t === 'locate' ? 'Locate the ' : t === 'mark' ? 'Mark trees in the ' : 'Stake the ') + f0.name.toLowerCase() : t === 'delivery' ? 'Unload the panel delivery' : 'New mission', brief: '', type: t, features: features || [], spacing: t === 'roadEdges' ? 32 : t === 'line' ? 30 : t === 'locate' ? 36 : 0,
     ribbon: t === 'mark' ? 'Red' : t === 'locate' ? (UTIL_RIBBON[f0?.layer] || 'Red') : presets[0], paint: presets[1], marker, line: !!MTYPES[t]?.line, prereq: prev ? [prev.id] : [], build: t === 'mark' ? ['trees'] : t === 'delivery' ? ['panels'] : t === 'locate' ? [] : presets[2], tip: null };
   if (t === 'mark') m.count = 10;
+  if (t === 'topo') { m.spacing = 70; m.ribbon = 'Yellow'; m.paint = 'TOPO'; if (!m.features.length) { const lod = P.features.find(f => f.layer === 'lod'); if (lod) m.features = [lod.id]; } }
   P.missions.push(m); UI.mission = m.id;
 }
 
@@ -1649,7 +1733,7 @@ function addMission(type, features) {
 const CATS = ['Office yards', 'Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
 function catalogItems() {
   const items = [];
-  Object.entries(LAYERS).forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
+  Object.entries(LAYERS).filter(([, L]) => L.geom !== 'points').forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
     sub: k === 'road' ? 'Draw it — curves & junctions round off' : k === 'river' ? 'Draw it — cuts its own channel' : L.geom === 'points' ? 'Tap to drop points' : L.geom === 'area' ? 'Draw an area' : 'Draw a line' }));
   Object.entries(YARD_PRESETS).forEach(([k, Y]) => items.push({ kind: 'preset', key: k, label: Y.label, cat: 'Office yards', kw: 'office yard conex preset layout parking fuel porta ' + Y.sub, sub: Y.sub }));
   Object.entries(OBJECTS).forEach(([k, D]) => items.push({ kind: 'obj', key: k, label: D.label, cat: D.cat, kw: D.kw || '', color: D.color, icon: D.icon, sub: 'Tap to place' }));
