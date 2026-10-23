@@ -263,7 +263,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-c';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-d';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -984,6 +984,58 @@ function applyBorders(o) {
   toast(`LOD ${(r.lods.reduce((s, p) => s + polyArea(p), 0) / 43560).toFixed(1)} ac + silt fence made`, 'ok');
 }
 
+// ---------------------------------------------------------------- pull AC / DC cables back off the LOD and silt fences
+// every closed LOD / silt loop: a cable that mostly runs inside it is kept `clear` ft inside, one that runs outside (a pond ring) is kept clear of it.
+// Corners are pushed straight away from the nearest fence; then any straight stretch that still passes too close gets a new corner, pushed too.
+// Ends tied to the substation / inverter pad / an LBD / another cable never move.
+function pullCables(clear) {
+  const bounds = P.features.filter(f => (f.layer === 'lod' || f.layer === 'silt') && f.closed && f.pts.length >= 3).map(f => f.pts);
+  const cables = P.features.filter(f => (f.layer === 'ac' || f.layer === 'dc') && f.pts.length >= 2);
+  const fixedAt = p => P.objects.some(o => ['substation', 'inverterpad', 'lbd', 'transformer'].includes(o.type) && objRectDist(o, p[0], p[1]) < 6);
+  let moved = 0, touched = 0;
+  cables.forEach(f => {
+    const rules = bounds.map(B => ({ B, ring: [...B, B[0]], inside: f.pts.filter(p => inPoly(B, ...p)).length * 2 >= f.pts.length }));
+    const others = cables.filter(g => g !== f);
+    const pinned = (p, i) => (i === 0 || i === f.pts.length - 1) && (fixedAt(p) || others.some(g => lineDist(g.pts, p[0], p[1]) < 3));
+    const pins = f.pts.filter((p, i) => pinned(p, i));
+    const room = p => Math.min(...rules.map(r => { const d = nearestOnLine(r.ring, p[0], p[1]).d; return inPoly(r.B, ...p) === r.inside ? d : -d; }), 1e9);
+    const push = p => {
+      let q = p, ch = false;
+      for (let it = 0; it < 8; it++) {
+        let any = false;
+        rules.forEach(r => {
+          const n = nearestOnLine(r.ring, q[0], q[1]), ins = inPoly(r.B, ...q);
+          if (ins === r.inside && n.d >= clear - .05) return;
+          let dx = q[0] - n.p[0], dz = q[1] - n.p[1], L = Math.hypot(dx, dz);
+          if (L < 1e-6) { const a = r.ring[n.i], b = r.ring[n.i + 1]; dx = -(b[1] - a[1]); dz = b[0] - a[0]; L = Math.hypot(dx, dz) || 1; if (inPoly(r.B, n.p[0] + dx / L, n.p[1] + dz / L) !== r.inside) { dx = -dx; dz = -dz; } }
+          else if (ins !== r.inside) { dx = -dx; dz = -dz; }
+          q = [n.p[0] + dx / L * clear, n.p[1] + dz / L * clear]; any = ch = true;
+        });
+        if (!any) break;
+      }
+      return ch ? q.map(r1) : null;
+    };
+    let changed = false;
+    f.pts = f.pts.map((p, i) => { if (pinned(p, i)) return p; const q = push(p); if (q) { moved++; changed = true; return q; } return p; });
+    for (let guard = 0; guard < 40; guard++) {
+      let worst = null;
+      for (let i = 0; i < f.pts.length - 1; i++) { const a = f.pts[i], b = f.pts[i + 1], n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 5));
+        for (let k = 1; k < n; k++) { const p = [a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]; if (pins.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < clear * 1.5)) continue;
+          const c = room(p); if (c < clear - 1.5 && (!worst || c < worst.c)) worst = { i, p, c }; } }
+      if (!worst) break;
+      const q = push(worst.p); if (!q) break; f.pts.splice(worst.i + 1, 0, q); moved++; changed = true;
+    }
+    if (changed) touched++;
+  });
+  return { moved, touched };
+}
+function applyPull() {
+  const clear = UI.pullClear ?? 20, snap = snapshot(), r = pullCables(clear);
+  if (!r.moved) { toast(`All AC / DC cables are already ${clear} ft inside the LOD & silt`, 'ok'); return; }
+  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty();
+  renderPanel(); draw(); toast(`Moved ${r.moved} corner${r.moved > 1 ? 's' : ''} on ${r.touched} cable${r.touched > 1 ? 's' : ''} — ${clear} ft inside now`, 'ok');
+}
+
 // --- stake previews (what each mission would put in the ground; mirrors the game's generators)
 function missionStakes(m) {
   const fs = (m.features || []).map(id => P.features.find(f => f.id === id)).filter(Boolean), runs = [];
@@ -1237,7 +1289,7 @@ function renderToolbar() {
   const snap = `<button id="tbSnap" class="${UI.snap ? 'on' : ''}" title="Snap to other lines and corners">Snap</button>`;
   if (UI.tool === 'draw') {
     const lay = Object.fromEntries(Object.entries(LAYERS).filter(([k, v]) => v.geom !== 'points' && k !== 'road' && k !== 'river')), area = LAYERS[UI.layer].geom === 'area';
-    h = `<div class="tb"><select id="tbLayer" aria-label="What to draw">${opts(lay, UI.layer)}</select>${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand'], ...(area ? [['box', 'Box']] : [])], UI.drawMode)}${snap}${finish}${!UI.draft && (UI.layer === 'lod' || UI.layer === 'silt') ? '<button class="go" id="tbAuto">✨ Auto LOD + silt</button>' : ''}</div>`;
+    h = `<div class="tb"><select id="tbLayer" aria-label="What to draw">${opts(lay, UI.layer)}</select>${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand'], ...(area ? [['box', 'Box']] : [])], UI.drawMode)}${snap}${finish}${!UI.draft && (UI.layer === 'lod' || UI.layer === 'silt') ? '<button class="go" id="tbAuto">✨ Auto LOD + silt</button>' : ''}${!UI.draft && (UI.layer === 'ac' || UI.layer === 'dc') ? '<button id="tbPull">↩ Pull cables off LOD</button>' : ''}</div>`;
     hint = UI.draft ? (UI.drawMode === 'tap' ? `Tap to add corners · ${area ? 'tap the first corner or Done to close' : 'double-tap or Done to end'}` : 'Keep drawing…') : UI.drawMode === 'free' ? 'Draw with your finger — it smooths into clean corners' : UI.drawMode === 'box' ? 'Drag a box' : 'Tap the map to start a ' + LAYERS[UI.layer].label.toLowerCase();
   } else if (UI.tool === 'road') {
     h = `<div class="tb"><label>Width</label><input type="number" id="tbRoadW" value="${UI.road}" min="6" max="60" step="1">${seg('tbSurf', [['gravel', 'Gravel'], ['caliche', 'Caliche'], ['dirt', 'Dirt'], ['paved', 'Paved']], UI.roadSurf)}${seg('tbCurve', [['smooth', 'Curvy'], ['straight', 'Straight']], UI.roadCurve)}${seg('tbMode', [['tap', 'Tap'], ['free', 'Freehand']], UI.drawMode === 'box' ? 'tap' : UI.drawMode)}${snap}${finish}</div>`;
@@ -1276,7 +1328,7 @@ function renderToolbar() {
   on('tbRoadW', 'change', e => { UI.road = clamp(+e.target.value || 16, 4, 80); draw(); });
   segOn('tbSurf', v => { UI.roadSurf = v; }); segOn('tbCurve', v => { UI.roadCurve = v; });
   on('tbRivW', 'change', e => { UI.river = clamp(+e.target.value || 30, 4, 300); draw(); }); on('tbRivD', 'change', e => { UI.rdepth = clamp(+e.target.value || 4, 1, 30); });
-  on('tbFinish', 'click', () => finishDraft()); on('tbAuto', 'click', () => { setTool('select'); applyBorders(bordersOpt()); }); on('tbCancel', 'click', () => { UI.draft = null; snapMark = null; renderToolbar(); draw(); });
+  on('tbFinish', 'click', () => finishDraft()); on('tbPull', 'click', () => applyPull()); on('tbAuto', 'click', () => { setTool('select'); applyBorders(bordersOpt()); }); on('tbCancel', 'click', () => { UI.draft = null; snapMark = null; renderToolbar(); draw(); });
   segOn('tbPLayer', v => { UI.player = v; }); segOn('tbRepl', v => { UI.presetReplace = v === '1'; }); on('tbTurn', 'click', () => { UI.presetYaw = ((UI.presetYaw || 0) + 90) % 360; draw(); }); on('tbNewSet', 'click', () => { UI.sel = null; renderToolbar(); renderPanel(); draw(); });
   on('tbPick', 'click', () => openCatalog()); on('tbStop', 'click', () => setTool('select'));
   segOn('tbTMode', v => { UI.tmode = v; }); on('tbGround', 'change', e => { UI.ground = e.target.value; }); segOn('tbTrees', v => { UI.trmode = v; });
@@ -1657,6 +1709,7 @@ function paneSel() {
         <div class="row"><span>Row spacing (ft)</span><input type="number" id="fPitch" value="${f.pitch || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Pile spacing (ft)</span><input type="number" id="fStep" value="${f.step || 20}" min="8" max="60" inputmode="numeric"></div><div class="row"><span>Keep off edge (ft)</span><input type="number" id="fEdge" value="${f.edge ?? 10}" min="0" max="60" inputmode="numeric"></div>
         <p class="note">Rows run north–south like Memphis. Piles stay off roads, cables and utilities, rivers, ponds, the yard, buildings, LBDs and the inverter pad, and inside the LOD.</p>`; })() : ''}
       ${f.layer === 'water' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fDepth" value="${f.depth || 3}" min="1" max="30" step=".5" inputmode="decimal"></div>` : ''}
+      ${f.layer === 'ac' || f.layer === 'dc' ? `<div class="sect" style="gap:6px"><div class="row"><span>Keep off LOD/silt (ft)</span><input type="number" id="fPullD" value="${UI.pullClear ?? 20}" min="3" max="100" inputmode="numeric"></div><div class="btns"><button class="btn go" id="fPull">↩ Pull all AC &amp; DC cables in</button></div></div>` : ''}
       ${f.layer === 'lod' || f.layer === 'silt' ? `<div class="btns"><button class="btn" id="fAutoB">✨ Redo LOD + silt automatically</button></div>` : ''}
       <div class="row"><span>Used by</span><span class="mono">${used.length ? used.join(', ') : 'no missions yet'}</span></div>
       <div class="btns"><button class="btn go" id="fMission">Make a mission</button><button class="btn" id="fDup">Duplicate</button><button class="btn danger" id="fDel">Delete</button></div></div>
@@ -1783,6 +1836,7 @@ function wirePane(pane) {
       UI.sel = { kind: 'f', id: last.id }; setStatus('Copy made ' + d + ' ft ' + ({ in: 'inside', out: 'outside', l: 'left', r: 'right', both: 'each side' })[side], 'ok'); }));
     on('fDup', 'click', edit(() => { const c = JSON.parse(JSON.stringify(f)); c.id = uid(f.layer); c.name += ' copy'; c.pts = c.pts.map(p => [p[0] + 30, p[1] + 30]); P.features.push(c); UI.sel = { kind: 'f', id: c.id }; }));
     on('fDel', 'click', () => deleteSel()); on('fAutoB', 'click', () => applyBorders(bordersOpt()));
+    on('fPullD', 'change', e => { UI.pullClear = clamp(+e.target.value || 20, 3, 100); }); on('fPull', 'click', () => applyPull());
     on('fMission', 'click', edit(() => { const type = f.layer === 'road' ? 'roadEdges' : UTIL_LAYERS.includes(f.layer) ? 'locate' : Object.entries(MTYPES).find(([, t]) => t.layers.includes(f.layer))?.[0] || 'line'; addMission(type, [f.id]); UI.tab = 'missions'; }));
   }
   const o = selObject();
@@ -1813,6 +1867,7 @@ function addMission(type, features) {
 const CATS = ['Office yards', 'Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
 function catalogItems() {
   const items = [];
+  items.push({ kind: 'auto', key: 'pull', label: '↩ Pull cables off LOD / silt', cat: 'Solar', kw: 'move push ac dc cable away lod silt fence clearance automatic', sub: 'Moves AC & DC back inside, clear of the fences' });
   items.push({ kind: 'auto', key: 'borders', label: '✨ Auto LOD + silt fence', cat: 'Survey', kw: 'automatic generate lod silt fence border boundary quick', sub: 'One tap: around everything, off rivers & coast' });
   Object.entries(LAYERS).filter(([, L]) => L.geom !== 'points').forEach(([k, L]) => items.push({ kind: 'layer', key: k, label: L.label, cat: L.cat, kw: L.kw || '', color: L.color, geom: L.geom,
     sub: k === 'road' ? 'Draw it — curves & junctions round off' : k === 'river' ? 'Draw it — cuts its own channel' : L.geom === 'points' ? 'Tap to drop points' : L.geom === 'area' ? 'Draw an area' : 'Draw a line' }));
@@ -1875,7 +1930,7 @@ function openCatalog() {
 const bordersOpt = () => ({ scope: UI.bScope || 'island', coast: UI.bCoast ?? 60, river: UI.bRiver ?? 40, silt: UI.bSilt ?? 10, work: 80 });
 function pickItem(kind, key) {
   UI.sel = null; UI.vtx = null;
-  if (kind === 'auto') { setTool('select'); applyBorders(bordersOpt()); return; }
+  if (kind === 'auto') { setTool('select'); if (key === 'pull') applyPull(); else applyBorders(bordersOpt()); return; }
   if (kind === 'preset') { UI.preset = key; UI.presetYaw = 0; setTool('preset'); }
   else if (kind === 'obj') { UI.obj = key; setTool('object'); }
   else if (key === 'road') setTool('road');
