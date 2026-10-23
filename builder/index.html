@@ -263,7 +263,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-g';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-h';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -1058,10 +1058,11 @@ function fenceRuns(f) {
   FR.set(f, { sig, runs }); return runs;
 }
 
-// ---------------------------------------------------------------- auto array blocks: square-ish rectangles of free ground inside the LOD
-// A 20 ft grid lined up with the racking (piles sit on the cell centres, 10 ft in from a block's edge). A cell is free when it's inside the LOD
-// (25 ft in, clear of silt fences) and away from roads, cables, rivers, ponds, the yard, buildings, LBDs and hand-drawn arrays. Then the biggest
-// free rectangle (sides ≤ 2:1, 120 ft to `max` ft) is taken again and again, leaving a one-cell lane round each, until nothing worth having is left.
+// ---------------------------------------------------------------- auto arrays: fill the open ground inside the LOD
+// A 20 ft grid lined up with the racking (piles on the cell centres). A cell is free when it's inside the LOD (20 ft in, clear of silt fences) and
+// away from roads, cables, rivers, ponds, the yard, buildings, LBDs and hand-drawn arrays. The free ground is "opened" (anything narrower than
+// `narrow` ft — thin corridors, slivers — is shaved off), traced with a slightly rounded outline (straight along roads and cables, curving where the
+// ground curves), and every piece of at least `minAc` acres becomes one array. Pieces only split where something actually runs between them.
 function autoArrays(o) {
   const C = 20, lods = P.features.filter(f => f.layer === 'lod' && f.closed && f.pts.length > 2);
   const isl = P.world.island && P.world.island.on ? P.world.island : null;
@@ -1075,12 +1076,12 @@ function autoArrays(o) {
   const area = (pts, r, fn) => { const ax = pts.map(p => p[0]), az = pts.map(p => p[1]);
     for (let j = Math.max(0, Math.floor((Math.min(...az) - r - gz0) / C)); j <= Math.min(nz - 1, Math.floor((Math.max(...az) + r - gz0) / C)); j++) for (let i = Math.max(0, Math.floor((Math.min(...ax) - r - gx0) / C)); i <= Math.min(nx - 1, Math.floor((Math.max(...ax) + r - gx0) / C)); i++) if (fn(cx(i), cz(j))) block[j * nx + i] = 1; };
   P.features.forEach(f => {
-    if (f.layer === 'road') stamp(centerline(f), (f.w || 12) / 2 + (f.existing ? 15 : 12));
-    else if (f.layer === 'river') stamp(centerline(f), (f.w || 30) / 2 + 22);
-    else if (CABLES.includes(f.layer) || f.layer === 'power') stamp(centerline(f), 14);
+    if (f.layer === 'road') stamp(centerline(f), (f.w || 12) / 2 + (f.existing ? 13 : 10));
+    else if (f.layer === 'river') stamp(centerline(f), (f.w || 30) / 2 + 18);
+    else if (CABLES.includes(f.layer) || f.layer === 'power') stamp(centerline(f), 12);
     else if (f.layer === 'water' || f.layer === 'yard' || (f.layer === 'array' && !f.auto)) { const r = f.layer === 'water' ? 22 : f.layer === 'yard' ? 16 : 20; area(f.pts, r, (x, z) => inPoly(f.pts, x, z) || lineDist(f.pts, x, z, true) < r); }
-    else if (f.layer === 'silt' && f.closed) stamp([...f.pts, f.pts[0]], 14);
-    else if (f.layer === 'silt') stamp(f.pts, 14);
+    else if (f.layer === 'silt' && f.closed) stamp([...f.pts, f.pts[0]], 12);
+    else if (f.layer === 'silt') stamp(f.pts, 12);
   });
   P.objects.forEach(q => { const D = OBJECTS[q.type] || OBJECTS.sign, r = q.type === 'lbd' ? 14 : q.type === 'controlpoint' ? 8 : ['tree', 'boulder', 'sign', 'marker', 'spawn'].includes(q.type) ? 0 : 12; if (!r) return;
     area([[q.x - (q.w || D.w) - r, q.z - (q.d || D.d) - r], [q.x + (q.w || D.w) + r, q.z + (q.d || D.d) + r]], 0, (x, z) => objRectDist(q, x, z) < r); });
@@ -1088,33 +1089,53 @@ function autoArrays(o) {
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const q = j * nx + i, x = cx(i), z = cz(j); if (block[q]) continue;
     if (isl && Math.hypot(x, z) > Shore.r(isl, x, z) - (lods.length ? 30 : 80)) continue;
-    if (lods.length && !lods.some(f => inPoly(f.pts, x, z) && lineDist(f.pts, x, z, true) >= 25)) continue;
+    if (lods.length && !lods.some(f => inPoly(f.pts, x, z) && lineDist(f.pts, x, z, true) >= 20)) continue;
+    if (i === 0 || j === 0 || i === nx - 1 || j === nz - 1) continue;
     free[q] = 1;
   }
-  const minS = 6, maxS = Math.max(minS, Math.round((o.max || 400) / C)), blocks = [];
-  for (let round = 0; round < 60; round++) {
-    const S = new Int32Array((nx + 1) * (nz + 1)), at = (i, j) => S[j * (nx + 1) + i];
-    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) S[(j + 1) * (nx + 1) + i + 1] = free[j * nx + i] + at(i, j + 1) + at(i + 1, j) - at(i, j);
-    const ok = (i, j, w, h) => i + w <= nx && j + h <= nz && at(i + w, j + h) - at(i, j + h) - at(i + w, j) + at(i, j) === w * h;
-    let best = null;
-    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-      if (!free[j * nx + i]) continue;
-      let h = maxS;
-      for (let w = 1; w <= maxS; w++) {
-        if (!ok(i, j, w, 1)) break;
-        while (h > 0 && !ok(i, j, w, h)) h--;
-        if (h < minS) { if (w >= minS) break; continue; }
-        if (w < minS) continue;
-        const hh = Math.min(h, w * 2); if (w > hh * 2) break;
-        const sc = w * hh - Math.abs(w - hh) * .01;
-        if (!best || sc > best.sc) best = { i, j, w, h: hh, sc };
-      }
-    }
-    if (!best) break;
-    blocks.push(best);
-    for (let j = best.j - 1; j <= best.j + best.h; j++) for (let i = best.i - 1; i <= best.i + best.w; i++) if (i >= 0 && j >= 0 && i < nx && j < nz) free[j * nx + i] = 0;
+  // opening: erode then grow back by r cells (a disc) — shaves off anything narrower than about 2r+1 cells
+  const r = Math.max(1, Math.floor((o.narrow || 60) / C / 2)), disc = [];      // 60 ft → r 1 (3 cells), 100 ft → r 2 (5 cells)
+  for (let b = -r; b <= r; b++) for (let a = -r; a <= r; a++) if (a * a + b * b <= r * r + .5) disc.push([a, b]);
+  const ero = new Uint8Array(nx * nz), opn = new Uint8Array(nx * nz), get = (A, i, j) => i >= 0 && j >= 0 && i < nx && j < nz && A[j * nx + i];
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (free[j * nx + i] && disc.every(([a, b]) => get(free, i + a, j + b))) ero[j * nx + i] = 1;
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (ero[j * nx + i]) disc.forEach(([a, b]) => { const ii = i + a, jj = j + b; if (get(free, ii, jj)) opn[jj * nx + ii] = 1; });
+  // cut the open ground into square blocks (`block` ft) that touch each other; slivers and small bits join the neighbour they share most edge with
+  const T = Math.max(6, Math.round((o.block || 300) / C)), lab = new Int32Array(nx * nz).fill(-1), frags = [];
+  for (let q0 = 0; q0 < nx * nz; q0++) {
+    if (!opn[q0] || lab[q0] >= 0) continue;
+    const id = frags.length, ti = Math.floor((q0 % nx) / T), tj = Math.floor(Math.floor(q0 / nx) / T), st = [q0], fr = { id, n: 0, i0: 1e9, i1: -1, j0: 1e9, j1: -1 }; lab[q0] = id;
+    while (st.length) { const q = st.pop(), i = q % nx, j = (q / nx) | 0; fr.n++; fr.i0 = Math.min(fr.i0, i); fr.i1 = Math.max(fr.i1, i); fr.j0 = Math.min(fr.j0, j); fr.j1 = Math.max(fr.j1, j);
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([a, b]) => { const ii = i + a, jj = j + b, qq = jj * nx + ii; if (ii < 0 || jj < 0 || ii >= nx || jj >= nz || !opn[qq] || lab[qq] >= 0 || Math.floor(ii / T) !== ti || Math.floor(jj / T) !== tj) return; lab[qq] = id; st.push(qq); }); }
+    frags.push(fr);
   }
-  return blocks.map(b => { const x0 = gx0 + b.i * C, z0 = gz0 + b.j * C, x1 = x0 + b.w * C, z1 = z0 + b.h * C; return [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]; });
+  const minCells = Math.max((o.minAc ?? .75) * 43560 / (C * C), T * T * .3), alive = frags.map(() => true);
+  const weak = f => f.n < minCells || Math.min(f.i1 - f.i0, f.j1 - f.j0) + 1 < 4;
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    frags.filter(f => alive[f.id] && weak(f)).sort((a, b) => a.n - b.n).forEach(f => {
+      if (!alive[f.id]) return;
+      const touch = new Map();
+      for (let j = f.j0; j <= f.j1; j++) for (let i = f.i0; i <= f.i1; i++) { if (lab[j * nx + i] !== f.id) continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([a, b]) => { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= nx || jj >= nz) return; const g = lab[jj * nx + ii]; if (g >= 0 && g !== f.id) touch.set(g, (touch.get(g) || 0) + 1); }); }
+      if (!touch.size) return;
+      const gid = [...touch.entries()].sort((a, b) => b[1] - a[1])[0][0], g = frags[gid];
+      for (let j = f.j0; j <= f.j1; j++) for (let i = f.i0; i <= f.i1; i++) if (lab[j * nx + i] === f.id) lab[j * nx + i] = gid;
+      g.n += f.n; g.i0 = Math.min(g.i0, f.i0); g.i1 = Math.max(g.i1, f.i1); g.j0 = Math.min(g.j0, f.j0); g.j1 = Math.max(g.j1, f.j1); alive[f.id] = false; changed = true;
+    });
+    if (!changed) break;
+  }
+  // trace each block with a slightly soft outline (3×3, centre counts double) at ½: neighbours meet exactly on their shared edge
+  const out = [];
+  frags.forEach(f => {
+    if (!alive[f.id] || f.n * C * C < (o.minAc ?? .75) * 43560 * .6) return;
+    const i0 = f.i0 - 2, j0 = f.j0 - 2, w = f.i1 - f.i0 + 5, h = f.j1 - f.j0 + 5, G = new Float32Array(w * h), inF = (i, j) => i >= 0 && j >= 0 && i < nx && j < nz && lab[j * nx + i] === f.id;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { let sum = 0; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) if (inF(i0 + i + a, j0 + j + b)) sum += a || b ? 1 : 2; G[j * w + i] = .5 - sum / 10; }
+    const loops = marchingLoops(G, w, h, gx0 + (i0 + .5) * C, gz0 + (j0 + .5) * C, C).filter(L => L.closed && L.pts.length > 3);
+    if (!loops.length) return;
+    const L = loops.sort((a, b) => polyArea(b.pts) - polyArea(a.pts))[0];
+    out.push({ pts: simplify([...L.pts, L.pts[0]], 2.5).slice(0, -1).map(p => p.map(r1)), j: f.j0, i: f.i0 });
+  });
+  return out.sort((a, b) => a.j - b.j || a.i - b.i).map(b => b.pts);
 }
 function applyArrays(o) {
   const blocks = autoArrays(o);
@@ -1122,10 +1143,10 @@ function applyArrays(o) {
   pushUndo();
   const old = P.features.filter(f => f.layer === 'array' && f.auto).map(f => f.id);
   P.features = P.features.filter(f => !(f.layer === 'array' && f.auto));
-  const made = blocks.map((pts, k) => { const f = { id: uid('array'), layer: 'array', name: 'Array ' + (k + 1), pts, closed: true, pitch: 20, step: 20, edge: 10, auto: 'array' }; P.features.push(f); return f; });
+  const made = blocks.map((pts, k) => { const f = { id: uid('array'), layer: 'array', name: 'Array ' + (k + 1), pts, closed: true, pitch: 20, step: 20, edge: 7, auto: 'array' }; P.features.push(f); return f; });
   P.missions.forEach(m => { if ((m.features || []).some(id => old.includes(id))) m.features = [...new Set([...m.features.filter(id => !old.includes(id)), ...made.map(f => f.id)])]; });
   const ac = made.reduce((s, f) => s + polyArea(f.pts), 0) / 43560, piles = made.reduce((s, f) => s + rackFor(f).piles, 0);
-  UI.sel = null; UI.tab = 'layers'; renderPanel(); draw(); toast(`${made.length} array blocks · ${ac.toFixed(1)} ac · ${piles} piles`, 'ok');
+  UI.sel = null; UI.tab = 'layers'; renderPanel(); draw(); toast(`${made.length} array${made.length > 1 ? 's' : ''} · ${ac.toFixed(1)} ac · ${piles} piles`, 'ok');
 }
 // ---------------------------------------------------------------- auto LBDs: at least n at the far end of every DC run (the end away from the inverter)
 function autoLBDs(n) {
@@ -1747,9 +1768,11 @@ function paneSite() {
     <div class="row"><span>Silt inside LOD (ft)</span><input type="number" id="bSilt" value="${UI.bSilt ?? 10}" min="2" max="100" inputmode="numeric"></div>
     <div class="btns"><button class="btn go" id="bGo">✨ Make LOD + silt fence</button></div></div>
   <div class="sect"><h3>Auto solar layout</h3>
-    <p class="note">Array blocks fill the open ground inside the LOD as square-ish areas — around roads, cables, rivers, ponds and the yard. Each block is its own array, easy to move or delete. Run again to redo them (your hand-drawn arrays stay).</p>
-    <div class="row"><span>Biggest block (ft)</span><input type="number" id="aMax" value="${UI.arrMax ?? 400}" min="100" max="1000" step="20" inputmode="numeric"></div>
-    <div class="btns"><button class="btn go" id="aGo">✨ Make array blocks</button></div>
+    <p class="note">Arrays fill the open ground inside the LOD as square blocks that touch each other — straight along roads and cables, curving where the ground curves. Slivers and thin corridors are left out. Run again to redo them (hand-drawn arrays stay).</p>
+    <div class="row"><span>Block size (ft)</span><input type="number" id="aBlock" value="${UI.arrBlock ?? 300}" min="120" max="1000" step="20" inputmode="numeric"></div>
+    <div class="row"><span>Skip strips under (ft)</span><input type="number" id="aNarrow" value="${UI.arrNarrow ?? 60}" min="40" max="300" step="20" inputmode="numeric"></div>
+    <div class="row"><span>Smallest array (ac)</span><input type="number" id="aMin" value="${UI.arrMin ?? .75}" min=".1" max="10" step=".25" inputmode="decimal"></div>
+    <div class="btns"><button class="btn go" id="aGo">✨ Make arrays</button></div>
     <div class="row"><span>LBDs per DC run</span><span class="seg" id="lbdN">${[2, 3, 4].map(k => `<button data-v="${k}" class="${(UI.lbdN || 2) === k ? 'on' : ''}">${k}</button>`).join('')}</span></div>
     <div class="btns"><button class="btn" id="lGo">✨ Add LBDs at DC run ends</button><button class="btn" id="lFace">↻ Face LBDs to DC</button></div>
     <p class="note">LBDs always face their DC cable (the yellow edge on the map is the front) — new and moved ones turn by themselves.</p></div>
@@ -1858,7 +1881,7 @@ function paneSel() {
         <p class="note">Rows run north–south like Memphis. Piles stay off roads, cables and utilities, rivers, ponds, the yard, buildings, LBDs and the inverter pad, and inside the LOD.</p>`; })() : ''}
       ${f.layer === 'water' ? `<div class="row"><span>Depth (ft)</span><input type="number" id="fDepth" value="${f.depth || 3}" min="1" max="30" step=".5" inputmode="decimal"></div>` : ''}
       ${f.layer === 'dc' ? `<div class="btns"><button class="btn" id="fLbd">✨ Add LBDs at DC run ends</button></div>` : ''}
-      ${f.layer === 'array' && f.auto ? `<div class="btns"><button class="btn" id="fArr">✨ Redo all array blocks</button></div>` : ''}
+      ${f.layer === 'array' && f.auto ? `<div class="btns"><button class="btn" id="fArr">✨ Redo all auto arrays</button></div>` : ''}
       ${f.layer === 'ac' || f.layer === 'dc' ? `<div class="sect" style="gap:6px"><div class="row"><span>Keep off LOD/silt (ft)</span><input type="number" id="fPullD" value="${UI.pullClear ?? 20}" min="3" max="100" inputmode="numeric"></div><div class="btns"><button class="btn go" id="fPull">↩ Pull all AC &amp; DC cables in</button></div></div>` : ''}
       ${(f.layer === 'lod' || f.layer === 'silt') && f.closed ? `<label class="checks"><label><input type="checkbox" id="fGaps" ${gapsOn(f) ? 'checked' : ''}> Leave a gap where roads cross</label></label>` : ''}
       ${f.layer === 'lod' || f.layer === 'silt' ? `<div class="btns"><button class="btn" id="fAutoB">✨ Redo LOD + silt automatically</button></div>` : ''}
@@ -1914,7 +1937,7 @@ function wirePane(pane) {
   on('sLoc', 'change', e => { P.meta.location = e.target.value; markDirty(); renderPanel(); }); on('sAuthor', 'change', e => { P.meta.author = e.target.value; markDirty(); }); on('sNotes', 'change', e => { P.meta.notes = e.target.value; markDirty(); });
   pane.querySelectorAll('#bScope button').forEach(b => b.addEventListener('click', () => { UI.bScope = b.dataset.v; renderPanel(); }));
   on('bCoast', 'change', e => { UI.bCoast = clamp(+e.target.value || 60, 10, 400); }); on('bRiver', 'change', e => { UI.bRiver = clamp(+e.target.value || 0, 0, 300); }); on('bSilt', 'change', e => { UI.bSilt = clamp(+e.target.value || 10, 2, 100); });
-  on('aMax', 'change', e => { UI.arrMax = clamp(+e.target.value || 400, 100, 1000); }); on('aGo', 'click', () => { applyArrays({ max: UI.arrMax ?? 400 }); closeSheetOnPhone(); });
+  on('aNarrow', 'change', e => { UI.arrNarrow = clamp(+e.target.value || 60, 40, 300); }); on('aMin', 'change', e => { UI.arrMin = clamp(+e.target.value || .75, .1, 10); }); on('aBlock', 'change', e => { UI.arrBlock = clamp(+e.target.value || 300, 120, 1000); }); on('aGo', 'click', () => { applyArrays(arrOpt()); closeSheetOnPhone(); });
   pane.querySelectorAll('#lbdN button').forEach(b => b.addEventListener('click', () => { UI.lbdN = +b.dataset.v; renderPanel(); })); on('lGo', 'click', () => { applyLBDs(); closeSheetOnPhone(); }); on('lFace', 'click', () => applyFaceLBDs());
   on('bGo', 'click', () => { applyBorders(bordersOpt()); closeSheetOnPhone(); });
   on('sFillet', 'input', e => { P.world.fillet = +e.target.value; RoadNet.live = false; draw(); }); on('sFillet', 'change', e => { pushUndo(); P.world.fillet = +e.target.value; RoadNet.live = true; renderPanel(); draw(); });
@@ -1990,7 +2013,7 @@ function wirePane(pane) {
       UI.sel = { kind: 'f', id: last.id }; setStatus('Copy made ' + d + ' ft ' + ({ in: 'inside', out: 'outside', l: 'left', r: 'right', both: 'each side' })[side], 'ok'); }));
     on('fDup', 'click', edit(() => { const c = JSON.parse(JSON.stringify(f)); c.id = uid(f.layer); c.name += ' copy'; c.pts = c.pts.map(p => [p[0] + 30, p[1] + 30]); P.features.push(c); UI.sel = { kind: 'f', id: c.id }; }));
     on('fDel', 'click', () => deleteSel()); on('fAutoB', 'click', () => applyBorders(bordersOpt())); on('fGaps', 'change', edit(e => { f.roadGaps = e.target.checked; }));
-    on('fPullD', 'change', e => { UI.pullClear = clamp(+e.target.value || 20, 3, 100); }); on('fPull', 'click', () => applyPull()); on('fLbd', 'click', () => applyLBDs()); on('fArr', 'click', () => applyArrays({ max: UI.arrMax ?? 400 }));
+    on('fPullD', 'change', e => { UI.pullClear = clamp(+e.target.value || 20, 3, 100); }); on('fPull', 'click', () => applyPull()); on('fLbd', 'click', () => applyLBDs()); on('fArr', 'click', () => applyArrays(arrOpt()));
     on('fMission', 'click', edit(() => { const type = f.layer === 'road' ? 'roadEdges' : UTIL_LAYERS.includes(f.layer) ? 'locate' : Object.entries(MTYPES).find(([, t]) => t.layers.includes(f.layer))?.[0] || 'line'; addMission(type, [f.id]); UI.tab = 'missions'; }));
   }
   const o = selObject();
@@ -2022,7 +2045,7 @@ function addMission(type, features) {
 const CATS = ['Office yards', 'Survey', 'Roads & water', 'Utilities', 'Solar', 'Buildings', 'Vehicles', 'People', 'Site & crew', 'Nature'];
 function catalogItems() {
   const items = [];
-  items.push({ kind: 'auto', key: 'arrays', label: '✨ Auto array blocks', cat: 'Solar', kw: 'automatic array panels racking blocks generate fill', sub: 'Square blocks round roads, cables & rivers' });
+  items.push({ kind: 'auto', key: 'arrays', label: '✨ Auto arrays', cat: 'Solar', kw: 'automatic array panels racking blocks generate fill', sub: 'Fill the open ground round roads, cables & rivers' });
   items.push({ kind: 'auto', key: 'lbds', label: '✨ Auto LBDs at DC ends', cat: 'Solar', kw: 'automatic lbd load break disconnect dc run end', sub: 'At least 2 at the end of every DC run' });
   items.push({ kind: 'auto', key: 'pull', label: '↩ Pull cables off LOD / silt', cat: 'Solar', kw: 'move push ac dc cable away lod silt fence clearance automatic', sub: 'Moves AC & DC back inside, clear of the fences' });
   items.push({ kind: 'auto', key: 'borders', label: '✨ Auto LOD + silt fence', cat: 'Survey', kw: 'automatic generate lod silt fence border boundary quick', sub: 'One tap: around everything, off rivers & coast' });
@@ -2084,10 +2107,11 @@ function openCatalog() {
   $('modal').querySelector('.dlg').addEventListener('pointerup', e => { const d = down; down = null; if (!d || d.id !== e.pointerId || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return; e.preventDefault(); if (d.b.dataset.it) choose(d.b); else chip(d.b); });
   list.addEventListener('click', e => { if (e.detail === 0) { const b = e.target.closest('[data-it]'); if (b) choose(b); } });     // keyboard (Enter / Space) still works
 }
+const arrOpt = () => ({ narrow: UI.arrNarrow ?? 60, minAc: UI.arrMin ?? .75, block: UI.arrBlock ?? 300 });
 const bordersOpt = () => ({ scope: UI.bScope || 'island', coast: UI.bCoast ?? 60, river: UI.bRiver ?? 40, silt: UI.bSilt ?? 10, work: 80 });
 function pickItem(kind, key) {
   UI.sel = null; UI.vtx = null;
-  if (kind === 'auto') { setTool('select'); if (key === 'pull') applyPull(); else if (key === 'arrays') applyArrays({ max: UI.arrMax ?? 400 }); else if (key === 'lbds') applyLBDs(); else applyBorders(bordersOpt()); return; }
+  if (kind === 'auto') { setTool('select'); if (key === 'pull') applyPull(); else if (key === 'arrays') applyArrays(arrOpt()); else if (key === 'lbds') applyLBDs(); else applyBorders(bordersOpt()); return; }
   if (kind === 'preset') { UI.preset = key; UI.presetYaw = 0; setTool('preset'); }
   else if (kind === 'obj') { UI.obj = key; setTool('object'); }
   else if (key === 'road') setTool('road');
