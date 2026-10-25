@@ -51,6 +51,7 @@ import * as THREE from 'three';
 //          LOD / silt fence, AC / DC, LBDs, inverters, the substation, control points and the racking rows.
 //          The chosen site is kept in localStorage (or ?site=<id>); picking another one on the title screen reloads.
 // =====================================================================
+const GAME_VERSION = '1.57.3';                     // bump on every deploy: the hosted copy checks version.json against it
 const SITE_LIST = [
     { id: 'memphis', name: 'MEMPHIS, TN', sub: 'Mid-South solar site', art: 'memphis' },
     { id: 'amarillo', name: 'AMARILLO, TX', sub: 'High Plains solar site', art: 'plains', file: 'sites/amarillo.site.json' },
@@ -14849,7 +14850,7 @@ const Title = {
             <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
             ${B('BACK TO MENU', 'back', 2)}
         </section>
-        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.57.2</span></div>`;
+        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v${GAME_VERSION}</span></div>`;
         document.body.appendChild(el); this.el = el;
         el.addEventListener('click', e => {
             const card = e.target.closest('.tm-card');
@@ -15866,7 +15867,29 @@ window.addEventListener('orientationchange', () => { refit(); setTimeout(refit, 
 if (STANDALONE) setInterval(() => { const [w, h] = viewWH(), c = renderer.domElement; if (Math.abs(c.clientWidth - w) > 2 || Math.abs(c.clientHeight - h) > 2) refit(); }, 1000);
 
 // Debug handle for the browser console
-window.GAME = { ISITE, SiteWorld, Batch, Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
+// hosted copy: a newer version on GitHub shows an "Update ready" button (saves, then reloads past the browser's cache)
+const UpdateCheck = {
+    shown: false,
+    async check() {
+        if (this.shown || !/^https?:/.test(location.protocol) || /claude\.ai|claudeusercontent/.test(location.host)) return;
+        try {
+            const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+            const j = await r.json(); if (j && j.v && j.v !== GAME_VERSION) this.show(j.v);
+        } catch (e) { /* offline: fine */ }
+    },
+    show(v) {
+        this.shown = true;
+        const b = document.createElement('button');
+        b.textContent = `⬆ Update ready (v${v}) — tap to load it`;
+        b.style.cssText = 'position:fixed;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9999;padding:10px 16px;border-radius:20px;border:0;background:#f59e0b;color:#1a1205;font:700 15px system-ui,sans-serif;box-shadow:0 3px 12px rgba(0,0,0,.4);cursor:pointer';
+        const go = e => { e.preventDefault(); e.stopPropagation(); try { Save.dirty = true; Save.flush(); } catch (er) { /* keep going */ } const u = new URL(location.href); u.searchParams.set('v', Date.now()); location.replace(u.toString()); };
+        b.addEventListener('click', go); b.addEventListener('touchend', go);
+        document.body.appendChild(b);
+    },
+};
+setTimeout(() => UpdateCheck.check(), 4000);
+addEventListener('visibilitychange', () => { if (!document.hidden) UpdateCheck.check(); });
+window.GAME = { GAME_VERSION, UpdateCheck, ISITE, SiteWorld, Batch, Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
                 getTerrainHeight, handleVehicleToggle, toggleDevMenu, baseStationPos, baseStationGroup, powerOnBase, powerOffBase, updateEquipmentUI,
                 continueLineFromStake, setActiveColor, nearestStake, breakLine, Anims,
                 Justin, JustinDialog, Mod, Greg, crashLine, Gun, GUN, Fists, Combat, Crosshair, Deer, DEER, Pow, DECK, TaskManager, Vitals, Boars, BOAR, Bears, BEAR, Coyotes, COYOTE, Wild, FOLIAGE, Dozer, SiltFence, Fx, Mantle, Bump, Slide, SLIDE, SUB, SPUR, SUBZONE, zoneDist, hopInPassenger, nearestRide, Roll, ROLL, Aim, SUBSTATION, spurDist, BigMap, MapLayers, Goof, DeathScreen, FIST_MOVES, PVP, RodMelee,
