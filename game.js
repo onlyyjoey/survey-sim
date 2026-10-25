@@ -51,7 +51,7 @@ import * as THREE from 'three';
 //          LOD / silt fence, AC / DC, LBDs, inverters, the substation, control points and the racking rows.
 //          The chosen site is kept in localStorage (or ?site=<id>); picking another one on the title screen reloads.
 // =====================================================================
-const GAME_VERSION = '1.58.0';                     // bump on every deploy: the hosted copy checks version.json against it
+const GAME_VERSION = '1.58.1';                     // bump on every deploy: the hosted copy checks version.json against it
 const SITE_LIST = [
     { id: 'memphis', name: 'MEMPHIS, TN', sub: 'Mid-South solar site', art: 'memphis' },
     { id: 'amarillo', name: 'AMARILLO, TX', sub: 'High Plains solar site', art: 'plains', file: 'sites/amarillo.site.json' },
@@ -1244,7 +1244,34 @@ const Colliders = {
 //   player: blocks the walker   vehicle: blocks vehicles   walk: can be stood on (floors, steps)
 //   on: false = ignored
 const Boxes = {
-    list: [],
+    list: [], grid: new Map(), GC: 32, _st: 0, _out: [],
+    // a box that never moves: kept in a 32-ft grid so thousands of them (panel rows) cost nothing far away
+    addStatic(o) {
+        const b = { player: true, vehicle: false, walk: false, on: true, tag: 'box', yaw: 0, ...o, _q: 0 };
+        this.setYaw(b, b.yaw);
+        const G = this.GC, R = b.br;
+        for (let ix = Math.floor((b.cx - R) / G); ix <= Math.floor((b.cx + R) / G); ix++)
+            for (let iz = Math.floor((b.cz - R) / G); iz <= Math.floor((b.cz + R) / G); iz++) { const k = ix * 100003 + iz; if (!this.grid.has(k)) this.grid.set(k, []); this.grid.get(k).push(b); }
+        return b;
+    },
+    // the moving boxes + the static ones near (x, z), in one reused array
+    iter(x, z, r) {
+        if (!this.grid.size) return this.list;
+        const out = this._all || (this._all = []); out.length = 0;
+        for (let i = 0; i < this.list.length; i++) out.push(this.list[i]);
+        const nb = this.near(x, z, r); for (let i = 0; i < nb.length; i++) out.push(nb[i]);
+        return out;
+    },
+    near(x, z, r) {
+        const out = this._out; out.length = 0; if (!this.grid.size) return out;
+        const st = ++this._st, G = this.GC;
+        for (let ix = Math.floor((x - r) / G); ix <= Math.floor((x + r) / G); ix++)
+            for (let iz = Math.floor((z - r) / G); iz <= Math.floor((z + r) / G); iz++) {
+                const L = this.grid.get(ix * 100003 + iz); if (!L) continue;
+                for (const b of L) if (b._q !== st) { b._q = st; out.push(b); }
+            }
+        return out;
+    },
     add(o) {
         const b = { player: true, vehicle: false, walk: false, on: true, tag: 'box', yaw: 0, ...o };
         this.setYaw(b, b.yaw);
@@ -1319,7 +1346,7 @@ function resolvePlayerVsStatics(pos, r, feetY) {
         if (d < 1e-4) { pos.x += min; continue; }
         const k = (min - d) / d; pos.x += dx * k; pos.z += dz * k;
     }
-    for (const b of Boxes.list) {
+    for (const b of Boxes.iter(pos.x, pos.z, r + 2)) {
         if (!b.on || !b.player) continue;
         if (Math.abs(pos.x - b.cx) > b.br + r || Math.abs(pos.z - b.cz) > b.br + r) continue;
         if (feetY >= b.y1 - 0.05) continue;                                    // standing on top
@@ -1375,7 +1402,7 @@ function resolveVehicleVsStatics(v) {
         const imp = Math.hypot(wx, wz) + 0.01;
         if (imp > impact) { impact = imp; v.lastHit = c.tag; }
     }
-    for (const b of Boxes.list) {
+    for (const b of Boxes.iter(o.cx, o.cz, Math.hypot(o.hx, o.hz) + 2)) {
         if (!b.on || !b.vehicle) continue;
         if (Math.hypot(o.cx - b.cx, o.cz - b.cz) > b.br + Math.hypot(o.hx, o.hz)) continue;
         const push = pushBoxOutOfBox(o, b);
@@ -8358,8 +8385,30 @@ function padMound(bw, bd, tw, td, h, skirt) {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
     return g;
 }
+// a big instanced set split over the map in CELL-ft squares: each square is its own InstancedMesh, frustum-culled once it's
+// settled, hidden past the view distance and only casting shadows near you (the whole array used to draw — twice, with the
+// shadow pass — every frame)
+function chunkedInstances(parent, geo, mat, pts, cell = 220) {
+    const keyOf = p => Math.floor(p.x / cell) * 100003 + Math.floor(p.z / cell), cells = new Map(), slot = new Array(pts.length);
+    pts.forEach((p, i) => { const k = keyOf(p); let c = cells.get(k); if (!c) { c = { n: 0, x: 0, z: 0 }; cells.set(k, c); } slot[i] = [c, c.n++]; c.x += p.x; c.z += p.z; });
+    const meshes = [];
+    cells.forEach(c => { c.m = new THREE.InstancedMesh(geo, mat, c.n); c.m.castShadow = true; c.m.receiveShadow = true; c.m.frustumCulled = false; c.m.userData.cx = c.x / c.n; c.m.userData.cz = c.z / c.n; c.dirty = false; parent.add(c.m); meshes.push(c.m); });
+    const set = { meshes, cells: [...cells.values()],
+        put(i, mtx) { const [c, k] = slot[i]; c.m.setMatrixAt(k, mtx); c.dirty = true; },
+        flush() { this.cells.forEach(c => { if (c.dirty) { c.m.instanceMatrix.needsUpdate = true; c.dirty = false; } }); },
+        settle() { this.flush(); meshes.forEach(m => { m.computeBoundingSphere(); m.frustumCulled = true; }); },
+    };
+    Build.chunked.push(set);
+    return set;
+}
 const Build = {
-    done: new Set(), group: null, mats: null, rackMesh: null, rackState: null,
+    done: new Set(), group: null, mats: null, rackMesh: null, rackState: null, chunked: [], chunkAt: 0,
+    // every half second: far chunks hidden, only near ones in the shadow pass
+    tickChunks(now) {
+        if (now < this.chunkAt || !this.chunked.length) return; this.chunkAt = now + 500;
+        const P = camera.position, far = (typeof Cull === 'object' ? Cull.view : 450) + 160;
+        this.chunked.forEach(set => set.meshes.forEach(m => { const d = Math.hypot(m.userData.cx - P.x, m.userData.cz - P.z); m.visible = d < far; m.castShadow = d < 300; }));
+    },
     ORDER: ['road', 'ac', 'lbd', 'invp', 'dc', 'inv', 'rack', 'trees', 'panels'],
     STAGES: { T6: ['road'], T7: ['ac'], T9: ['lbd'], T10: ['invp'], T11: ['dc', 'inv'], T13: ['rack'], T14: ['trees'], T15: ['panels'] },
     init() {
@@ -8417,12 +8466,22 @@ const Build = {
         if (n) updateEquipmentUI();
     },
     // a strip that hugs the terrain along a polyline
+    // (merged into ~80 ft pieces: one mesh per 2-ft step of a curved cable was 11,000+ meshes on a big site)
     strip(pts, width, lift, mat) {
-        const meshes = [];
+        const meshes = []; let pos = [], idx = [], len = 0;
+        const flush = () => {
+            if (!idx.length) return;
+            const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+            const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.renderOrder = 1; this.group.add(m); meshes.push(m); pos = []; idx = []; len = 0;
+        };
         for (let i = 0; i < pts.length - 1; i++) {
-            const g = groundRibbon(pts[i], pts[i + 1], width, lift).geo; g.computeVertexNormals();
-            const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.renderOrder = 1; this.group.add(m); meshes.push(m);
+            const g = groundRibbon(pts[i], pts[i + 1], width, lift).geo, o = pos.length / 3, A = g.attributes.position.array, I = g.index.array;
+            for (let k = 0; k < A.length; k++) pos.push(A[k]);
+            for (let k = 0; k < I.length; k++) idx.push(I[k] + o);
+            g.dispose(); len += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z);
+            if (len > 80) flush();
         }
+        flush();
         return meshes;
     },
     // gravel road: one continuous strip along a smoothed path, sampled every 2' along and 8× across so it hugs the
@@ -8530,6 +8589,7 @@ const Build = {
         [2.2, 1.0].forEach(yy => add(new THREE.BoxGeometry(4.6, 0.16, 0.16), this.mats.steel, 0.2, yy, -0.3));
         add(new THREE.BoxGeometry(0.4, 5.6, 0.4), this.mats.steel, 2.7, 2.8, -0.2);
         const coil = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.04, 6, 20), this.mats.copper); coil.position.set(3.0, 3.6, 0.1); coil.rotation.y = Math.PI / 2; g.add(coil);
+        Batch.freeze({ group: g });                                       // one unit = a few draw calls
         g.scale.setScalar(0.001); this.group.add(g);
         return g;
     },
@@ -8571,6 +8631,7 @@ const Build = {
         add(0.04, 0.8, 0.8, this.mats.warn, W / 2 - 0.98, 6.2, 6.9); add(0.04, 0.8, 0.8, this.mats.warn, -W / 2 + 0.98, 5.4, 0.8);
         [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => add(0.9, 0.12, 0.9, this.mats.warn, a * (W / 2 - 0.5), H + 1.12, b * (Lz / 2 - 0.5)));
         Boxes.add({ cx: I.x, cz: I.z, yaw: I.yaw || 0, hx: W / 2, hz: Lz / 2, y0: y - 1, y1: y + 14, player: true, vehicle: true, tag: 'inverter' });
+        Batch.freeze({ group: g });
         if (anim) {                                                                               // craned down onto its piles
             const y1 = y + 3.2; g.position.y = y1 + 16; pad.scale.set(1, 0.001, 1);
             Anims.push({ age: 0, dur: 3.2, step: t => { const k = clamp(t / 1.0, 0, 1); pad.scale.set(1, Math.max(0.001, k), 1); const u = clamp((t - 0.9) / 2.2, 0, 1); g.position.y = y1 + 16 * (1 - (1 - Math.pow(1 - u, 2))); },
@@ -8582,12 +8643,13 @@ const Build = {
     b_rack(anim) {
         const R = Plan.rack(), n = R.piles.length; if (!n) return;
         const geo = new THREE.BoxGeometry(0.5, RACK.h, 0.34); geo.translate(0, RACK.h / 2, 0);
-        const m = new THREE.InstancedMesh(geo, this.mats.steel, n); m.castShadow = true; m.frustumCulled = false; this.group.add(m); this.rackMesh = m;
+        const C = chunkedInstances(this.group, geo, this.mats.steel, R.piles), m = { instanceMatrix: { set needsUpdate(v) { C.flush(); } } }; this.rackMesh = C;
         const o = new THREE.Object3D();
-        const place = (p, dy) => { o.position.set(p.x, p.y + dy, p.z); o.rotation.set(0, 0, 0); o.scale.set(1, Math.max(0.2, (p.top - p.y - 0.15) / RACK.h), 1); o.updateMatrix(); m.setMatrixAt(p.i, o.matrix); };
+        const place = (p, dy) => { o.position.set(p.x, p.y + dy, p.z); o.rotation.set(0, 0, 0); o.scale.set(1, Math.max(0.2, (p.top - p.y - 0.15) / RACK.h), 1); o.updateMatrix(); C.put(p.i, o.matrix); };
+        const solid = p => { if (!p.col) p.col = Colliders.add(p.x, p.z, 0.32, p.top - p.y, { tag: 'pile' }); };      // a pile you can bump into, once it's in the ground
         R.piles.forEach(p => place(p, anim ? -RACK.h - 1 : 0));
         m.instanceMatrix.needsUpdate = true;
-        if (!anim) return;
+        if (!anim) { R.piles.forEach(solid); C.settle(); return; }
         const per = 0.9, rowGap = 0.55, dur = R.rows.length * rowGap + 3 + per;
         showToast(`🔩 Racking piles going up — ${n} piles across ${R.rows.length} rows.`);
         Anims.push({ age: 0, dur, step: t => {
@@ -8596,10 +8658,10 @@ const Build = {
                 if (u <= 0 || p.up) return;
                 const e = 1 - Math.pow(1 - u, 3); place(p, (-RACK.h - 1) * (1 - e));
                 if (!p.dust && u > 0.05) { p.dust = true; if (k % 2 === 0) Smoke.emit(V(p.x, p.y + 0.3, p.z), V(rr(-0.8, 0.8), rr(0.8, 1.6), rr(-0.8, 0.8)), 0x8a6d4c, 0.3, 0.9); }
-                if (u >= 1) { p.up = true; if (RACK.pd10) RACK.pd10(p); }
+                if (u >= 1) { p.up = true; solid(p); if (RACK.pd10) RACK.pd10(p); }
             }));
             m.instanceMatrix.needsUpdate = true;
-        }, done: () => { R.piles.forEach(p => place(p, 0)); m.instanceMatrix.needsUpdate = true; showToast('✅ Racking piles are all standing. That\'s the job for now — nice work!'); } });
+        }, done: () => { R.piles.forEach(p => { place(p, 0); solid(p); }); C.settle(); showToast('✅ Racking piles are all standing. That\'s the job for now — nice work!'); } });
     },
     // the trees Justin had marked come down (every tree whose crown would sit in a panel row)
     b_trees(anim) {
@@ -8635,11 +8697,17 @@ const Build = {
             for (let x = 0; x <= w; x += w / 12) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); } for (let y = 0; y <= h; y += h / 6) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
             c.strokeStyle = '#c9ced3'; c.lineWidth = 3; c.strokeRect(1, 1, w - 2, h - 2); });
         const pm = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tex, roughness: 0.28, metalness: 0.35 });
-        const panels = new THREE.InstancedMesh(new THREE.BoxGeometry(PW, 0.14, PL - 0.12), pm, n); panels.castShadow = true; panels.frustumCulled = false;
         rows.forEach(r => { r.tz0 = Math.min(r.a.z, r.b.z) - 3; r.tz1 = Math.max(r.a.z, r.b.z) + 3; r.zs = [r.tz0, ...r.row.map(i => R.piles[i].z).filter(z => z > r.tz0 && z < r.tz1), r.tz1]; });
         let nt = 0; rows.forEach(r => { r.t0 = nt; nt += r.zs.length - 1; });
-        const tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.42, 1), this.mats.steel, nt); tubes.castShadow = true; tubes.frustumCulled = false;
-        this.group.add(panels, tubes); this.panelMesh = panels;
+        const panelPts = [], tubePts = [];
+        rows.forEach(r => { for (let j = 0; j < r.n; j++) panelPts.push({ x: r.a.x, z: r.tz0 + (j + 0.5) * (r.tz1 - r.tz0) / r.n }); for (let q = 0; q < r.zs.length - 1; q++) tubePts.push({ x: r.a.x, z: (r.zs[q] + r.zs[q + 1]) / 2 }); });
+        const PC = chunkedInstances(this.group, new THREE.BoxGeometry(PW, 0.14, PL - 0.12), pm, panelPts), TC = chunkedInstances(this.group, new THREE.BoxGeometry(0.42, 0.42, 1), this.mats.steel, tubePts);
+        const panels = { setMatrixAt: (i, mx) => PC.put(i, mx), instanceMatrix: { set needsUpdate(v) { PC.flush(); } } }, tubes = { setMatrixAt: (i, mx) => TC.put(i, mx), instanceMatrix: { set needsUpdate(v) { TC.flush(); } } };
+        this.panelMesh = PC;
+        // a finished row is solid: one box per tube span, from just under the low panel edge to over the top (on a grid)
+        const solidRow = r => { if (r.solid) return; r.solid = true;
+            for (let q = 0; q < r.zs.length - 1; q++) { const za = r.zs[q], zb = r.zs[q + 1], ya = rackTop(R, r.row, za), yb = rackTop(R, r.row, zb);
+                Boxes.addStatic({ cx: r.a.x, cz: (za + zb) / 2, hx: PW / 2 * Math.cos(0.22), hz: (zb - za) / 2, y0: Math.min(ya, yb) + 0.36 - PW / 2 * Math.sin(0.22) - 0.15, y1: Math.max(ya, yb) + 0.36 + PW / 2 * Math.sin(0.22) + 0.2, player: true, vehicle: true, tag: 'panels' }); } };
         const o = new THREE.Object3D(), TILT = 0.22, top = (r, z) => rackTop(R, r.row, z);
         const placeRow = (r, k01) => {
             const z0 = r.tz0, len = r.tz1 - r.tz0, zEnd = z0 + len * k01;
@@ -8655,13 +8723,13 @@ const Build = {
         };
         rows.forEach(r => placeRow(r, anim ? 0 : 1));
         panels.instanceMatrix.needsUpdate = true; tubes.instanceMatrix.needsUpdate = true;
-        if (!anim) return;
+        if (!anim) { rows.forEach(solidRow); PC.settle(); TC.settle(); return; }
         showToast(`☀️ Panels going up — ${n} modules across ${rows.length} rows!`);
         const per = 1.6, gap = 0.35;
         Anims.push({ age: 0, dur: rows.length * gap + per + 0.5, step: t => {
-            rows.forEach((r, ri) => { const u = clamp((t - ri * gap) / per, 0, 1); if (u > 0 && !r.full) { placeRow(r, u); if (u >= 1) r.full = true; } });
+            rows.forEach((r, ri) => { const u = clamp((t - ri * gap) / per, 0, 1); if (u > 0 && !r.full) { placeRow(r, u); if (u >= 1) { r.full = true; solidRow(r); } } });
             panels.instanceMatrix.needsUpdate = true; tubes.instanceMatrix.needsUpdate = true;
-        }, done: () => { rows.forEach(r => placeRow(r, 1)); panels.instanceMatrix.needsUpdate = true; tubes.instanceMatrix.needsUpdate = true; showToast('✅ Every row has its panels. That\'s a solar farm!'); } });
+        }, done: () => { rows.forEach(r => { placeRow(r, 1); solidRow(r); }); PC.settle(); TC.settle(); showToast('✅ Every row has its panels. That\'s a solar farm!'); } });
     },
     // ---- map: what's been built (under the line work) ----
     drawMap(focus, sc, big) {
@@ -9773,7 +9841,7 @@ const Wild = {
     mod(k) { return CRIT_BY_K[k] ? Critters : k === 'b' ? Boars : k === 'r' ? Bears : k === 'd' ? Deer : Coyotes; },
     lists() {
         const L = [['b', Boars.list], ['r', Bears.list], ['d', Deer.list], ['c', Coyotes.list]];
-        if (typeof Critters === 'object') Object.values(CRIT).forEach(c => L.push([c.k, Critters.list.filter(a => a.kind === c.k)]));
+        if (typeof Critters === 'object') for (const k in Critters.byK) if (Critters.byK[k].length) L.push([k, Critters.byK[k]]);
         return L;
     },
     crew() { return Net.on && !Net.helping() && Net.remotes.size > 0; },        // I'm the one simulating for a crew
@@ -9864,7 +9932,8 @@ const Wild = {
         if (n.hp < a.hp) a.flash = 0.15;
         a.hp = n.hp; a.state = n.st; a.speed = n.sp;
         a.flash = Math.max(0, (a.flash || 0) - delta);
-        if (CRIT_BY_K[kind]) { if (a.state === 'flee' || a.state === 'walk' || a.state === 'attack' || a.state === 'pronk') a.want = a.speed; if (a.sp === 'jackrabbit' && a.speed > 0.5) a.hop = (a.hop || 0) + delta * 3; Critters.pose(a, delta, now); Critters.place(a); return; }
+        if (CRIT_BY_K[kind] && flatDist(a.pos, camera.position) > Critters.FAR) { a.group.visible = false; return; }
+        if (CRIT_BY_K[kind]) { a.group.visible = a.state !== 'hide'; if (a.state === 'flee' || a.state === 'walk' || a.state === 'attack' || a.state === 'pronk') a.want = a.speed; if (a.sp === 'jackrabbit' && a.speed > 0.5) a.hop = (a.hop || 0) + delta * 3; Critters.pose(a, delta, now); Critters.place(a); return; }
         const sp = Math.abs(a.speed), L = a.legs;
         if (kind === 'd') {
             const run = a.state === 'flee' && sp > 8;
@@ -12125,7 +12194,7 @@ function buildRattlesnake() {
 const CRIT_BUILD = { pronghorn: buildPronghorn, jackrabbit: buildJackrabbit, prairiedog: buildPrairieDog, tarantula: buildTarantula, rattlesnake: buildRattlesnake };
 
 const Critters = {
-    list: [], timer: 4, towns: [], built: false,
+    list: [], byK: {}, timer: 4, towns: [], built: false, FAR: 300,
     ok(sp) { return !!SITE_WILD && SITE_WILD.has(sp); },
     mood(sp) { const w = SITE_WILD && SITE_WILD.get(sp), m = w && w.mood; return ['passive', 'skittish', 'defensive', 'hostile'].includes(m) ? m : CRIT[sp].mood; },
     count(sp) { const w = SITE_WILD && SITE_WILD.get(sp); return Math.min(CRIT[sp].cap, w ? w.count : 0); },
@@ -12161,8 +12230,11 @@ const Critters = {
         Object.assign(a, { sp, C, kind: C.k, buck: variant ? 1 : 0, hp: C.hp, flash: 0, pos: V(x, getTerrainHeight(x, z), z), home: { x, z }, yaw: Math.random() * 6.283,
                            state: 'idle', t: 1 + Math.random() * 3, speed: 0, phase: Math.random() * 6, target: null, cool: 0, struck: false, st: 0, rear: 0, up: 0, mood: this.mood(sp) });
         if (C.town === undefined) a.bar = this.bar(a);
-        a.group.position.copy(a.pos); a.group.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(a.group);
-        this.list.push(a); return a;
+        const shadow = sp === 'pronghorn' || sp === 'tarantula';                 // the little ones don't need a shadow pass of their own
+        a.group.position.copy(a.pos); a.group.traverse(o => { if (o.isMesh) o.castShadow = shadow; });
+        Batch.freeze(a);                                                          // static parts merged: a handful of draw calls per animal
+        scene.add(a.group);
+        this.list.push(a); (this.byK[a.kind] || (this.byK[a.kind] = [])).push(a); return a;
     },
     bar(a) {
         const bar = new THREE.Group(), bg = new THREE.Mesh(BOAR_BAR_GEO, BOAR_BAR_BG); bg.scale.set(1.8, 0.28, 1);
@@ -12175,6 +12247,7 @@ const Critters = {
         scene.remove(a.group); if (a.bar) { scene.remove(a.bar); a.fill.material.dispose(); }
         a.group.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); Object.values(a.mats).forEach(m => m.dispose());
         const i = this.list.indexOf(a); if (i >= 0) this.list.splice(i, 1);
+        const L = this.byK[a.kind], j = L ? L.indexOf(a) : -1; if (j >= 0) L.splice(j, 1);
     },
     clear() { [...this.list].forEach(a => this.remove(a)); },
     calm() { this.list.forEach(a => { if (a.state === 'attack' || a.state === 'warn') { a.state = 'idle'; a.t = 2; } }); },
@@ -12265,6 +12338,9 @@ const Critters = {
             this.think(a, delta, now);
             if (a.state === 'dead') continue;
             this.move(a, delta);
+            const far = flatDist(a.pos, camera.position) > this.FAR, hidden = a.state === 'hide';   // nobody can see it: skip the animation
+            a.group.visible = !far && !hidden;
+            if (far || hidden) { if (a.bar) a.bar.visible = false; continue; }
             this.pose(a, delta, now);
             this.place(a);
         }
@@ -12348,11 +12424,12 @@ const Critters = {
             a.hop = (a.hop || 0) + delta * (a.state === 'flee' ? 3.2 : 2.2);
             const inAir = (a.hop % 1) < 0.62; a.speed = inAir ? a.want : a.speed * Math.max(0, 1 - delta * 18);
         } else a.speed += (a.want - a.speed) * Math.min(1, delta * (a.sp === 'pronghorn' ? 2.5 : 4));
+        if (Math.abs(a.speed) < 0.02) { a.speed = 0; return; }                   // standing still: no collision work
         const mx = Math.sin(a.yaw) * a.speed * delta, mz = Math.cos(a.yaw) * a.speed * delta, n = Math.max(1, Math.ceil(Math.hypot(mx, mz) / 0.5));
         for (let k = 0; k < n; k++) {
             const nx = a.pos.x + mx / n, nz = a.pos.z + mz / n;
             if (ISITE && (ISITE.waterD(nx, nz) < 1 || shoreDist(nx, nz) < 25)) { a.yaw += Math.PI * 0.6; a.speed *= 0.3; break; }
-            a.pos.x = nx; a.pos.z = nz; resolvePlayerVsStatics(a.pos, a.C.radius, a.pos.y);
+            a.pos.x = nx; a.pos.z = nz; if (a.C.radius >= 0.7) resolvePlayerVsStatics(a.pos, a.C.radius, a.pos.y);
         }
         a.pos.y = getTerrainHeight(a.pos.x, a.pos.z);
     },
@@ -15258,6 +15335,7 @@ function animate() {
     Bears.update(delta, now);
     Coyotes.update(delta, now);
     Critters.update(delta, now);
+    Build.tickChunks(now);
     Wild.tumble(delta);
     Snakes.update(delta, now);
     MiniGame.update(delta);
