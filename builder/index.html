@@ -82,6 +82,7 @@ main.map { grid-area: map; position: relative; background: var(--map-bg); min-wi
 .selbar svg { width: 18px; height: 18px; }
 .zoombtns { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
 .zoombtns button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font: 600 20px var(--f-mono); box-shadow: 0 2px 10px rgb(0 0 0 / .2); }
+.autoupd { position: absolute; left: 50%; transform: translateX(-50%); top: 70px; z-index: 6; background: #f59e0b; color: #1a1205; border: 0; border-radius: 20px; padding: 9px 16px; font: 700 14px var(--f-body); box-shadow: 0 3px 12px rgb(0 0 0 / .35); cursor: pointer; }
 .hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; background: rgb(15 18 16 / .86); color: #f1f5ef; padding: 8px 14px; border-radius: 20px; font-size: 14px; pointer-events: none; max-width: calc(100% - 140px); text-align: center; }
 aside.panel { grid-area: panel; border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .grab { display: none; }
@@ -195,6 +196,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
   .zoombtns button { width: 46px; height: 46px; }
   .selbar { top: 62px; right: 8px; }
   .hint { bottom: 70px; max-width: calc(100% - 24px); font-size: 14.5px; }
+  .autoupd { top: 68px; font-size: 15px; padding: 10px 18px; white-space: nowrap; } .autoupd .lg { display: none; }
   aside.panel { position: fixed; left: 0; right: 0; bottom: 0; height: 74%; z-index: 20; border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px rgb(0 0 0 / .35); transform: translateY(102%); transition: transform .24s ease; padding-bottom: env(safe-area-inset-bottom, 0px); }
   aside.panel.open { transform: none; }
   .grab { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px 4px; }
@@ -240,6 +242,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
     <div class="hud"><div class="coord" id="coord">N —<br>E —<br>Elev —</div><div class="coord" id="scale"></div></div>
     <div class="zoombtns"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zfit" aria-label="Fit site" style="font-size:13px">FIT</button></div>
     <div class="hint" id="hint" hidden></div>
+    <button class="autoupd" id="autoUpd" hidden>↻ Update piles<span class="lg"> &amp; fence gaps</span></button>
     <div class="selbar" id="selbar" hidden></div>
     <div id="three" hidden><div class="t3hint">Drag to orbit · pinch or scroll to zoom</div><button class="btn close3d" id="close3d">Close 3D</button></div>
   </main>
@@ -263,7 +266,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.23-h';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.25-a';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -522,17 +525,27 @@ function terrainToJSON(T) {
   T.h.forEach((v, i) => dv.setInt16(i * 2, v, true));
   return { n: T.n, cell: T.cell, origin: T.origin, h: b64FromBytes(b), paint: b64FromBytes(T.paint), trees: b64FromBytes(T.trees), cut: i16ToB64(T.cut), ground: GROUND.map(g => g.id), units: { h: 'tenths of a foot (rivers already cut in)', cut: 'tenths of a foot the river channels lowered each cell', trees: '0-255 = 0-4 trees per cell' } };
 }
-function projectJSON() {
+// the saved file: the editable map plus, for the game, everything the builder works out (racking rows, stakes, fence gaps, SCABs, road paths, coast)
+// built on copies so the live map stays light (undo snapshots, drag frames); lite = a local draft, which skips the worked-out extras
+const DERIVED = ['rack', 'runs', 'path', 'deadEnds'];
+function stripDerived(j) { (j.features || []).forEach(f => DERIVED.forEach(k => delete f[k])); (j.missions || []).forEach(m => { if (m.type === 'topo' || m.type === 'piles') delete m.points; }); delete j.scabs; if (j.world && j.world.island) delete j.world.island.outline; return j; }
+function projectJSON(lite) {
   P.meta.updated = today();
-  P.features.forEach(f => { if (f.layer === 'array' && f.closed) { const R = rackFor(f); f.rack = { pitch: f.pitch || 20, step: f.step || 20, rows: R.rows }; } });
-  P.missions.forEach(m => { if (m.type === 'topo' || m.type === 'piles') m.points = missionStakes(m).flat(); });
-  P.features.forEach(f => { const fr = (f.layer === 'lod' || f.layer === 'silt') ? fenceRuns(f) : null; if (fr) f.runs = fr.map(r => r.map(p => p.map(r1))); else delete f.runs; });
-  P.scabs = scabs().map(s => ({ ...s, w: 6, d: 3.5, h: 5 }));            // green SCAB junction boxes where AC cables join (made automatically)
-  P.features.forEach(f => { if (f.layer === 'road' || f.layer === 'river') { const S = centerline(f); f.path = simplify(S, .4).map(p => p.map(r1)); f.deadEnds = f.dead && (f.dead[0] || f.dead[1]) ? f.dead.map(d => d ? culR(f) : 0) : undefined; } });
-  const isl = P.world.island; if (isl) { if (isl.on) isl.outline = Shore.poly(isl, 96); else delete isl.outline; }
-  return { ...P, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
+  const base = { ...P, features: P.features.map(f => { const c = { ...f }; DERIVED.forEach(k => delete c[k]); return c; }), missions: P.missions.map(m => { const c = { ...m }; if (m.type === 'topo' || m.type === 'piles') delete c.points; return c; }) };
+  delete base.scabs; base.world = { ...P.world, island: P.world.island ? { ...P.world.island } : P.world.island }; if (base.world.island) delete base.world.island.outline;
+  if (lite) return { ...base, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
+  if (autoStale()) autoRefresh();                                       // the game gets up-to-date piles / gaps even if you didn't tap Update
+  base.features.forEach((c, i) => { const f = P.features[i];
+    if (f.layer === 'array' && f.closed) { const R = rackFor(f); c.rack = { pitch: f.pitch || 20, step: f.step || 20, rows: R.rows }; }
+    const fr = (f.layer === 'lod' || f.layer === 'silt') ? fenceRuns(f) : null; if (fr) c.runs = fr.map(r => r.map(p => p.map(r1)));
+    if (f.layer === 'road' || f.layer === 'river') { const S = centerline(f); c.path = simplify(S, .4).map(p => p.map(r1)); if (f.dead && (f.dead[0] || f.dead[1])) c.deadEnds = f.dead.map(d => d ? culR(f) : 0); } });
+  base.missions.forEach((c, i) => { const m = P.missions[i]; if (m.type === 'topo' || m.type === 'piles') c.points = missionStakes(m).flat(); });
+  base.scabs = scabs().map(s => ({ ...s, w: 6, d: 3.5, h: 5 }));            // green SCAB junction boxes where AC cables join (made automatically)
+  const isl = base.world.island; if (isl && isl.on) isl.outline = Shore.poly(isl, 96);
+  return { ...base, format: FORMAT, version: VERSION, terrain: terrainToJSON(T) };
 }
 function upgrade(j) {                                            // v1 → v2: road curves, island, mission tips, renamed types
+  stripDerived(j);
   j.world = { fillet: 18, ...j.world };
   j.world.island = { on: true, shore: 1185, sea: -5, rough: 0, seed: 1, ...j.world.island };
   if (!j.world.island.chosen) j.world.island.on = true;
@@ -549,7 +562,7 @@ function loadProject(j) {
   UI.sel = null; UI.mission = null; UI.draft = null; history.length = 0; future.length = 0;
   terrainDirty = true; contourDirty = true; RoadNet.sig = ''; RiverNet.sig = '';
   $('pname').value = P.meta.name || 'Untitled site';
-  fit(); renderPanel(); draw(); setStatus(P.meta.builtin ? 'Example — Save makes your own copy' : '');
+  autoRefresh(); fit(); renderPanel(); draw(); setStatus(P.meta.builtin ? 'Example — Save makes your own copy' : '');
 }
 function hAt(x, z) {                                           // bilinear height (ft)
   const g = (x - T.origin) / T.cell, k = (z - T.origin) / T.cell, i = clamp(Math.floor(g), 0, T.n - 2), j = clamp(Math.floor(k), 0, T.n - 2), u = clamp(g - i, 0, 1), v = clamp(k - j, 0, 1), n = T.n, H = T.h;
@@ -586,7 +599,7 @@ function newProject(biome, name, blank) {
     P.meta.name = name || 'New site';
     T.paint.fill(Math.max(0, GROUND.findIndex(g => g.id === B.ground)));
     P.objects.push({ id: uid('spawn'), type: 'spawn', x: 0, z: 0, yaw: 0 });
-    loadProject(projectJSON()); return;
+    loadProject(projectJSON(true)); return;
   }
   generateTerrain(B.relief, P.world.seed, biome);
   // a starter yard with the crew's gear (the Row preset, same layout as Memphis), so the site is playable from the first minute
@@ -604,7 +617,7 @@ function newProject(biome, name, blank) {
     P.missions.push({ id: 'M2', title: 'Silt fence inside the LOD', brief: "Dozers cleared the mesquite. Silt fence goes just inside the LOD so the caliche dust doesn't wash into the bar ditch. Use yellow, paint SF.", type: 'boundary', features: ['silt'], spacing: 0, ribbon: 'Yellow', paint: 'SF', marker: 'lath', line: true, prereq: ['M1'], build: ['silt'], tip: null });
     P.missions.push({ id: 'M3', title: 'Edge of the access road', brief: "Road crew's waiting on caliche. Stake both edges of the access road off the county road. Green ribbon, EOR.", type: 'roadEdges', features: ['spine'], spacing: 32, ribbon: 'Green', paint: 'EOR', marker: 'lath', line: true, prereq: ['M2'], build: ['road'], tip: null });
   }
-  loadProject(projectJSON());
+  loadProject(projectJSON(true));
 }
 function presetGeom(key, cx, cz, deg) {
   const pr = YARD_PRESETS[key], a = deg * PI / 180, c = Math.cos(a), sn = Math.sin(a), at = (x, z) => [r1(cx + x * c - z * sn), r1(cz + x * sn + z * c)];
@@ -853,9 +866,27 @@ const RiverNet = {
 };
 
 // ---------------------------------------------------------------- auto layouts (mirror the game's Plan): racking piles in each array, topo shots
-const AUTO = { key: '', rack: new Map(), topo: new Map(), scabs: null };
-function autoKey() { return JSON.stringify([P.features.map(f => [f.id, f.layer, f.pts, f.w, f.pitch, f.step, f.edge, f.curve]), P.objects.map(o => [o.type, o.x, o.z, o.yaw, o.w, o.d]), P.world.island]); }
-function autoFresh() { const k = autoKey(); if (k !== AUTO.key) { AUTO.key = k; AUTO.rack.clear(); AUTO.topo.clear(); AUTO.scabs = null; } }
+const AUTO = { key: '', rack: new Map(), topo: new Map(), scabs: null, sig: new Map(), bb: new Map(), gen: 0, done: '' };
+// racking piles, topo shots and LOD/silt road breaks are FROZEN: they only re-work when you tap ↻ Update (or run an auto tool / export).
+// an array still re-racks when you edit that array itself, a fence when you reshape that fence
+function autoRefresh() { AUTO.gen++; AUTO.rack.clear(); AUTO.topo.clear(); AUTO.scabs = null; AUTO.done = autoKey(); }
+function autoHasAny() { return P.features.some(f => (f.layer === 'array' && f.closed) || gapsOn(f)) || P.missions.some(m => m.type === 'topo'); }
+function autoStale() { return !!AUTO.done && autoHasAny() && autoKey() !== AUTO.done; }
+function autoUpdate() { autoRefresh(); renderPanel(); draw(); toast('Piles, topo shots & fence gaps updated', 'ok'); }
+function autoKey() { return JSON.stringify([P.features.map(f => [f.id, f.layer, f.pts, f.w, f.pitch, f.step, f.edge, f.curve, f.existing]), P.objects.map(o => [o.type, o.x, o.z, o.yaw, o.w, o.d]), P.world.island]); }
+// on any change: re-sign each feature (its own data + a padded bounding box) so each array only re-racks when something near it changed
+function autoFresh() {
+  const k = autoKey(); if (k === AUTO.key) return;
+  AUTO.key = k; AUTO.scabs = null; AUTO.sig.clear(); AUTO.bb.clear();
+  P.features.forEach(f => { AUTO.sig.set(f.id, JSON.stringify([f.layer, f.pts, f.w, f.pitch, f.step, f.edge, f.curve, f.existing, f.closed]));
+    const S = (f.layer === 'road' || f.layer === 'river') && f.pts.length >= 2 ? centerline(f) : f.pts, pad = (f.w || 0) / 2;
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity; S.forEach(p => { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; });
+    AUTO.bb.set(f.id, [x0 - pad, z0 - pad, x1 + pad, z1 + pad]); });
+  [...AUTO.rack.keys()].forEach(id => { if (!AUTO.sig.has(id)) AUTO.rack.delete(id); });
+}
+// while a point, object or shape is being dragged, keep showing the last racking / shots and work them out again on release
+function autoHeld() { try { return !!(drag && !drag.pan && !drag.paint && !drag.sketch && !drag.box); } catch (e) { return false; } }
+const bbHit = (a, b, m) => !!(a && b && a[0] - m <= b[2] && a[2] + m >= b[0] && a[1] - m <= b[3] && a[3] + m >= b[1]);
 // SCAB boxes (green AC junction cabinets): wherever two AC cables cross, one tees into another, or two meet end to end
 function scabs() {
   autoFresh(); if (AUTO.scabs) return AUTO.scabs;
@@ -878,19 +909,24 @@ const CABLES = ['ac', 'dc', 'ugpower', 'gas', 'waterline', 'sewer', 'telecom'];
 function objRectDist(o, x, z) { const D = OBJECTS[o.type] || OBJECTS.sign, c = Math.cos(o.yaw || 0), s = Math.sin(o.yaw || 0), dx = x - o.x, dz = z - o.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
   return Math.hypot(Math.max(0, Math.abs(lx) - (o.w || D.w) / 2), Math.max(0, Math.abs(lz) - (o.d || D.d) / 2)); }
 // why a spot can't take a pile / shot (shared rules: water, rivers, roads, yards, buildings, cables, the island's coast)
-function blockedAt(x, z, m) {
+// a line's centre distance; racking passes pre-cut pieces (_cls: only the bits near that array, simplified) so piles don't walk whole 2-ft roads
+const cDist = (f, x, z) => { if (!f._cls) return lineDist(centerline(f), x, z); let d = Infinity; for (const q of f._cls) { const v = lineDist(q, x, z); if (v < d) d = v; } return d; };
+function clipNear(S, b, m) { const out = []; let cur = null; const inb = (p, q) => Math.max(p[0], q[0]) >= b[0] - m && Math.min(p[0], q[0]) <= b[2] + m && Math.max(p[1], q[1]) >= b[1] - m && Math.min(p[1], q[1]) <= b[3] + m;
+  for (let i = 0; i < S.length - 1; i++) { if (inb(S[i], S[i + 1])) { if (!cur) { cur = [S[i]]; out.push(cur); } cur.push(S[i + 1]); } else cur = null; }
+  return out; }
+function blockedAt(x, z, m, fs = P.features, os = P.objects, sc = null) {
   const isl = P.world.island; if (isl && isl.on && Math.hypot(x, z) > Shore.r(isl, x, z) - 30) return 'sea';
-  for (const f of P.features) {
+  for (const f of fs) {
     const L = f.layer;
     if (L === 'water' && (inPoly(f.pts, x, z) || lineDist(f.pts, x, z, true) < m.water)) return 'pond';
-    if (L === 'river' && lineDist(centerline(f), x, z) < (f.w || 30) / 2 + m.water) return 'river';
-    if (L === 'road' && lineDist(centerline(f), x, z) < (f.w || 12) / 2 + (f.existing ? m.road + 3 : m.road)) return 'road';
+    if (L === 'river' && cDist(f, x, z) < (f.w || 30) / 2 + m.water) return 'river';
+    if (L === 'road' && cDist(f, x, z) < (f.w || 12) / 2 + (f.existing ? m.road + 3 : m.road)) return 'road';
     if (L === 'yard' && (inPoly(f.pts, x, z) || lineDist(f.pts, x, z, true) < m.yard)) return 'yard';
-    if (m.cable && CABLES.includes(L) && lineDist(centerline(f), x, z) < m.cable) return 'cable';
-    if (m.cable && L === 'power' && lineDist(centerline(f), x, z) < m.cable + 2) return 'power line';
+    if (m.cable && CABLES.includes(L) && cDist(f, x, z) < m.cable) return 'cable';
+    if (m.cable && L === 'power' && cDist(f, x, z) < m.cable + 2) return 'power line';
   }
-  if (m.obj && scabs().some(s => Math.hypot(x - s.x, z - s.z) < m.obj + 3)) return 'scab box';
-  for (const o of P.objects) {
+  if (m.obj && (sc || scabs()).some(s => Math.hypot(x - s.x, z - s.z) < m.obj + 3)) return 'scab box';
+  for (const o of os) {
     if (['substation', 'inverterpad', 'office', 'breakroom', 'storage', 'upperoffice', 'wreck', 'transformer', 'culvert'].includes(o.type) && objRectDist(o, x, z) < m.obj) return o.type === 'inverterpad' ? 'inverter' : o.type === 'substation' ? 'substation' : 'building';
     if (o.type === 'lbd' && Math.hypot(x - o.x, z - o.z) < m.lbd) return 'lbd';
     if (o.type === 'controlpoint' && Math.hypot(x - o.x, z - o.z) < 7) return 'control point';
@@ -899,36 +935,42 @@ function blockedAt(x, z, m) {
 }
 // racking piles: N-S tracker rows every f.pitch east-west, a pile every f.step along the row, wherever nothing else is
 function rackFor(f) {
-  autoFresh(); if (AUTO.rack.has(f.id)) return AUTO.rack.get(f.id);
-  const pitch = f.pitch || 20, step = f.step || 20, edge = f.edge ?? 10, lod = P.features.find(q => q.layer === 'lod' && q.closed), area = polyArea(f.pts);
-  const fences = P.features.filter(q => q.layer === 'silt' && q.closed && polyArea(q.pts) < area * .5);
+  autoFresh();
+  const c = AUTO.rack.get(f.id), own = AUTO.sig.get(f.id) + '#' + AUTO.gen; if (c && (autoHeld() || c.own === own)) return c;
+  const M = 45, b = AUTO.bb.get(f.id), fs = P.features.filter(g => g !== f && g.layer !== 'array' && (g.layer === 'lod' || bbHit(AUTO.bb.get(g.id), b, M)));
+  const os = P.objects.filter(o => b && o.x > b[0] - M - 70 && o.x < b[2] + M + 70 && o.z > b[1] - M - 70 && o.z < b[3] + M + 70), isl = P.world.island || {};
+  const key = AUTO.sig.get(f.id) + '|' + fs.map(g => g.id + AUTO.sig.get(g.id)).join('|') + '|' + JSON.stringify([os.map(o => [o.type, o.x, o.z, o.yaw, o.w, o.d]), isl.on, isl.shore, isl.rough, isl.seed]);
+  const sc = scabs().filter(q => b && q.x > b[0] - 30 && q.x < b[2] + 30 && q.z > b[1] - 30 && q.z < b[3] + 30);
+  const near = fs.map(g => (g.layer === 'road' || g.layer === 'river' || g.layer === 'power' || CABLES.includes(g.layer)) && g.pts.length >= 2 ? { ...g, _cls: clipNear(simplify(centerline(g), .3), b, (g.w || 12) / 2 + 40) } : g).filter(g => !g._cls || g._cls.length);
+  const pitch = f.pitch || 20, step = f.step || 20, edge = f.edge ?? 10, lod = fs.find(q => q.layer === 'lod' && q.closed), area = polyArea(f.pts);
+  const fences = fs.filter(q => q.layer === 'silt' && q.closed && polyArea(q.pts) < area * .5);
   const xs = f.pts.map(p => p[0]), zs = f.pts.map(p => p[1]), skip = {}, rows = [], m = { water: 14, road: 5, yard: 14, cable: 8, obj: 8, lbd: 10 };
   const why = (x, z) => {
     if (!inPoly(f.pts, x, z)) return 'out'; if (lineDist(f.pts, x, z, true) < edge) return 'edge';
     if (lod && (!inPoly(lod.pts, x, z) || lineDist(lod.pts, x, z, true) < 18)) return 'lod';
     if (fences.some(q => inPoly(q.pts, x, z) || lineDist(q.pts, x, z, true) < 6)) return 'silt fence';
-    return blockedAt(x, z, m);
+    return blockedAt(x, z, m, near, os, sc);
   };
   for (let x = Math.ceil((Math.min(...xs) - pitch / 2) / pitch) * pitch + pitch / 2; x <= Math.max(...xs); x += pitch) {
     let run = []; const flush = () => { if (run.length >= 2) rows.push(run); run = []; };
     for (let z = Math.ceil((Math.min(...zs) - step / 2) / step) * step + step / 2; z <= Math.max(...zs); z += step) { const w = why(x, z); if (w) { if (w !== 'out') skip[w] = (skip[w] || 0) + 1; flush(); } else run.push([x, z]); }
     flush();
   }
-  const out = { rows, piles: rows.reduce((s, r) => s + r.length, 0), skip }; AUTO.rack.set(f.id, out); return out;
+  const out = { rows, piles: rows.reduce((s, r) => s + r.length, 0), skip, key, own }; AUTO.rack.set(f.id, out); return out;
 }
 // topo shots: a loose staggered grid over the areas, only inside the LOD, never in water / rivers / roads / the yard / buildings
 function topoFor(fs, spacing) {
-  autoFresh(); const key = fs.map(f => f.id).join() + '|' + spacing; if (AUTO.topo.has(key)) return AUTO.topo.get(key);
+  autoFresh(); const key = fs.map(f => f.id).join() + '|' + spacing, c = AUTO.topo.get(key); if (c && c.g === AUTO.gen) return c.out;
   const lod = P.features.find(q => q.layer === 'lod' && q.closed), areas = fs.filter(f => f.closed && f.pts.length > 2), sp = Math.max(20, spacing || 70), out = [];
   if (areas.length) {
-    const all = areas.flatMap(f => f.pts), xs = all.map(p => p[0]), zs = all.map(p => p[1]), m = { water: 8, road: 4, yard: 12, cable: 0, obj: 12, lbd: 6 };
+    const sc = scabs(), all = areas.flatMap(f => f.pts), xs = all.map(p => p[0]), zs = all.map(p => p[1]), m = { water: 8, road: 4, yard: 12, cable: 0, obj: 12, lbd: 6 };
     for (let z = Math.min(...zs), r = 0; z <= Math.max(...zs); z += sp, r++) for (let x = Math.min(...xs) + (r & 1 ? sp / 2 : 0); x <= Math.max(...xs); x += sp) {
       if (!areas.some(f => inPoly(f.pts, x, z) && lineDist(f.pts, x, z, true) > 14)) continue;
       if (lod && (!inPoly(lod.pts, x, z) || lineDist(lod.pts, x, z, true) < 14)) continue;
-      if (!blockedAt(x, z, m)) out.push([Math.round(x), Math.round(z)]);
+      if (!blockedAt(x, z, m, P.features, P.objects, sc)) out.push([Math.round(x), Math.round(z)]);
     }
   }
-  AUTO.topo.set(key, out); return out;
+  AUTO.topo.set(key, { g: AUTO.gen, out }); return out;
 }
 // pile stakeout: 2 piles per LBD, 10 per inverter pad (the game's real stakeout pattern)
 function pilePoints(of) {
@@ -981,7 +1023,7 @@ function applyBorders(o) {
   r.silts.slice(1).forEach((pts, k) => { const f = { id: uid('silt'), layer: 'silt', name: 'Silt fence ' + (k + 2), pts, closed: true, auto: 'silt' }; P.features.push(f); extra.push([mainS.id, f.id]); });
   r.rings.forEach((pts, k) => P.features.push({ id: uid('silt'), layer: 'silt', name: 'Silt fence round the river' + (k ? ' ' + (k + 1) : ''), pts, closed: true, auto: 'ring' }));
   P.missions.forEach(m => { let fs = (m.features || []).map(id => gone.get(id) || id); extra.forEach(([main, id]) => { if (fs.includes(main)) fs.push(id); }); m.features = [...new Set(fs)]; });
-  UI.sel = { kind: 'f', id: mainL.id }; UI.tab = 'sel'; renderPanel(); draw();
+  autoRefresh(); UI.sel = { kind: 'f', id: mainL.id }; UI.tab = 'sel'; renderPanel(); draw();
   toast(`LOD ${(r.lods.reduce((s, p) => s + polyArea(p), 0) / 43560).toFixed(1)} ac + silt fence made`, 'ok');
 }
 
@@ -1033,7 +1075,7 @@ function pullCables(clear) {
 function applyPull() {
   const clear = UI.pullClear ?? 20, snap = snapshot(), r = pullCables(clear);
   if (!r.moved) { toast(`All AC / DC cables are already ${clear} ft inside the LOD & silt`, 'ok'); return; }
-  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty();
+  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty(); autoRefresh();
   renderPanel(); draw(); toast(`Moved ${r.moved} corner${r.moved > 1 ? 's' : ''} on ${r.touched} cable${r.touched > 1 ? 's' : ''} — ${clear} ft inside now`, 'ok');
 }
 
@@ -1042,8 +1084,8 @@ const gapsOn = f => (f.layer === 'lod' || f.layer === 'silt') && f.closed && f.p
 const FR = new WeakMap();
 function fenceRuns(f) {
   if (!gapsOn(f)) return null;
+  const sig = JSON.stringify(f.pts) + '#' + AUTO.gen, c = FR.get(f); if (c && (c.sig === sig || autoHeld())) return c.runs;
   const net = RoadNet.get(); if (!net || !net.G) return null;
-  const sig = RoadNet.sig + JSON.stringify(f.pts), c = FR.get(f); if (c && c.sig === sig) return c.runs;
   const S = along(f.pts, 2, true), n = S.length;
   const road = p => { const i = Math.round((p[0] - net.x0) / net.g), j = Math.round((p[1] - net.z0) / net.g); return i >= 0 && j >= 0 && i < net.nx && j < net.nz && net.G[j * net.nx + i] < 1.5; };
   const flags = S.map(p => !road(p));
@@ -1145,6 +1187,7 @@ function applyArrays(o) {
   P.features = P.features.filter(f => !(f.layer === 'array' && f.auto));
   const made = blocks.map((pts, k) => { const f = { id: uid('array'), layer: 'array', name: 'Array ' + (k + 1), pts, closed: true, pitch: 20, step: 20, edge: 7, auto: 'array' }; P.features.push(f); return f; });
   P.missions.forEach(m => { if ((m.features || []).some(id => old.includes(id))) m.features = [...new Set([...m.features.filter(id => !old.includes(id)), ...made.map(f => f.id)])]; });
+  autoRefresh();
   const ac = made.reduce((s, f) => s + polyArea(f.pts), 0) / 43560, piles = made.reduce((s, f) => s + rackFor(f).piles, 0);
   UI.sel = null; UI.tab = 'layers'; renderPanel(); draw(); toast(`${made.length} array${made.length > 1 ? 's' : ''} · ${ac.toFixed(1)} ac · ${piles} piles`, 'ok');
 }
@@ -1182,13 +1225,13 @@ function faceLBD(o) {
 function applyFaceLBDs() {
   const snap = snapshot(), n = P.objects.filter(o => o.type === 'lbd').reduce((c, o) => c + (faceLBD(o) ? 1 : 0), 0);
   if (!n) { toast('Every LBD already faces its DC cable', 'ok'); return; }
-  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty(); renderPanel(); draw(); toast(`Turned ${n} LBD${n > 1 ? 's' : ''} to face the DC cable`, 'ok');
+  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty(); autoRefresh(); renderPanel(); draw(); toast(`Turned ${n} LBD${n > 1 ? 's' : ''} to face the DC cable`, 'ok');
 }
 function applyLBDs() {
   const n = UI.lbdN || 2, snap = snapshot(), r = autoLBDs(n);
   if (!r.runs) { toast('Draw a DC run first (Draw → DC cable)', 'err'); return; }
   if (!r.made) { toast(`Every DC run already has ${n} LBDs at its end`, 'ok'); return; }
-  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty();
+  history.push(snap); if (history.length > 40) history.shift(); future.length = 0; markDirty(); autoRefresh();
   renderPanel(); draw(); toast(`Added ${r.made} LBD${r.made > 1 ? 's' : ''} at the ends of ${r.runs} DC run${r.runs > 1 ? 's' : ''}`, 'ok');
 }
 
@@ -1256,12 +1299,14 @@ function tipHTML(m) {
 }
 const tipText = m => tipRows(m).map(([k, v]) => k + ': ' + v.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&')).join('\n');
 
+
 // ---------------------------------------------------------------- drawing
 const SURF = { dirt: '#9c7d57', caliche: '#e3d9c0', gravel: '#b5b0a5', paved: '#4b4f53' };
 let drawQ = 0;
 function draw() { if (!drawQ) drawQ = requestAnimationFrame(() => { drawQ = 0; drawNow(); }); }
 function drawNow() {
   if (!P || !W) return;
+  const au = $('autoUpd'); if (au) au.hidden = autoHeld() || !autoStale();
   if (terrainDirty) buildTerrainImage();
   if (UI.contours && contourDirty && !painting) buildContours();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1671,7 +1716,7 @@ const endPtr = e => {
     if (drag && ((drag.whole && drag.moved) || drag.vertex !== undefined) && (drag.whole || drag.f).layer === 'river') carveRiver(drag.whole || drag.f);
     if (drag && drag.obj && drag.moved && drag.obj.type === 'lbd') faceLBD(drag.obj);                    // a moved LBD turns to face its DC cable
     if (drag && (drag.vertex !== undefined || drag.obj || (drag.whole && drag.moved))) renderPanel();
-    if (painting) endPaint(); drag = null; if (wasRoad) draw();
+    const held = autoHeld(); if (painting) endPaint(); drag = null; if (wasRoad || held) draw();   // released: re-rack what moved
   }
 };
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
@@ -1713,7 +1758,7 @@ addEventListener('keydown', e => {
   const t = TOOLS.find(t => t !== '|' && t[2] && t[2].toLowerCase() === k); if (t) setTool(t[0]);
 });
 addEventListener('keyup', e => { if (e.key === ' ') spaceDown = false; });
-$('zin').onclick = () => zoomAt(W / 2, H / 2, 1.4); $('zout').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4); $('zfit').onclick = () => fit(true);
+$('zin').onclick = () => zoomAt(W / 2, H / 2, 1.4); $('zout').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4); $('zfit').onclick = () => fit(true); $('autoUpd').onclick = () => autoUpdate();
 function deleteSel() { if (!UI.sel) return; UI.vtx = null; pushUndo(); if (UI.sel.kind === 'f') { P.features = P.features.filter(f => f.id !== UI.sel.id); } else P.objects = P.objects.filter(o => o.id !== UI.sel.id); UI.sel = null; renderPanel(); draw(); }
 
 // ---------------------------------------------------------------- selection bar (big buttons on the map)
@@ -1772,7 +1817,8 @@ function paneSite() {
     <div class="row"><span>Block size (ft)</span><input type="number" id="aBlock" value="${UI.arrBlock ?? 300}" min="120" max="1000" step="20" inputmode="numeric"></div>
     <div class="row"><span>Skip strips under (ft)</span><input type="number" id="aNarrow" value="${UI.arrNarrow ?? 60}" min="40" max="300" step="20" inputmode="numeric"></div>
     <div class="row"><span>Smallest array (ac)</span><input type="number" id="aMin" value="${UI.arrMin ?? .75}" min=".1" max="10" step=".25" inputmode="decimal"></div>
-    <div class="btns"><button class="btn go" id="aGo">✨ Make arrays</button></div>
+    <div class="btns"><button class="btn go" id="aGo">✨ Make arrays</button><button class="btn" id="aUpd">↻ Update piles &amp; gaps</button></div>
+    <p class="note">Piles, topo shots and the LOD/silt road breaks stay put while you edit (so it stays fast). Tap ↻ Update when you're ready — exporting updates them too.</p>
     <div class="row"><span>LBDs per DC run</span><span class="seg" id="lbdN">${[2, 3, 4].map(k => `<button data-v="${k}" class="${(UI.lbdN || 2) === k ? 'on' : ''}">${k}</button>`).join('')}</span></div>
     <div class="btns"><button class="btn" id="lGo">✨ Add LBDs at DC run ends</button><button class="btn" id="lFace">↻ Face LBDs to DC</button></div>
     <p class="note">LBDs always face their DC cable (the yellow edge on the map is the front) — new and moved ones turn by themselves.</p></div>
@@ -1940,6 +1986,7 @@ function wirePane(pane) {
   on('aNarrow', 'change', e => { UI.arrNarrow = clamp(+e.target.value || 60, 40, 300); }); on('aMin', 'change', e => { UI.arrMin = clamp(+e.target.value || .75, .1, 10); }); on('aBlock', 'change', e => { UI.arrBlock = clamp(+e.target.value || 300, 120, 1000); }); on('aGo', 'click', () => { applyArrays(arrOpt()); closeSheetOnPhone(); });
   pane.querySelectorAll('#lbdN button').forEach(b => b.addEventListener('click', () => { UI.lbdN = +b.dataset.v; renderPanel(); })); on('lGo', 'click', () => { applyLBDs(); closeSheetOnPhone(); }); on('lFace', 'click', () => applyFaceLBDs());
   on('bGo', 'click', () => { applyBorders(bordersOpt()); closeSheetOnPhone(); });
+  on('aUpd', 'click', () => { autoUpdate(); closeSheetOnPhone(); });
   on('sFillet', 'input', e => { P.world.fillet = +e.target.value; RoadNet.live = false; draw(); }); on('sFillet', 'change', e => { pushUndo(); P.world.fillet = +e.target.value; RoadNet.live = true; renderPanel(); draw(); });
   on('sIsland', 'change', edit(e => { P.world.island = { shore: 1185, sea: -5, rough: 0, seed: 1, ...P.world.island, on: e.target.checked, chosen: true }; terrainDirty = true; }));
   on('sShore', 'change', edit(e => { P.world.island.shore = clamp(+e.target.value || 1185, 500, P.world.size / 2); terrainDirty = true; }));
@@ -2127,7 +2174,7 @@ function setStatus(t, cls) { const s = $('status'); s.textContent = t; s.classNa
 let toastT = 0;
 function toast(t, cls) { let el = $('toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'hint'; el.style.cssText = 'top:auto;bottom:64px;z-index:30'; $('mapwrap').appendChild(el); } el.textContent = t; el.style.background = cls === 'err' ? 'var(--bad)' : 'rgb(20 60 30 / .92)'; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 2600); }
 function markDirty() { UI.dirty = true; clearTimeout(dirtyTimer); dirtyTimer = setTimeout(saveDraft, 1200); setStatus('Unsaved changes'); }
-function saveDraft() { try { localStorage.setItem('ssb.draft', JSON.stringify(projectJSON())); setStatus('Draft kept on this device'); } catch (e) { /* storage blocked: fine */ } }
+function saveDraft() { try { localStorage.setItem('ssb.draft', JSON.stringify(projectJSON(true))); setStatus('Draft kept on this device'); } catch (e) { /* storage blocked: fine */ } }
 const LOCAL = 'ssb.projects';
 function localList() { try { return JSON.parse(localStorage.getItem(LOCAL) || '{}'); } catch (e) { return {}; } }
 function localPut(j) { const all = localList(); all[j.meta.id] = j; try { localStorage.setItem(LOCAL, JSON.stringify(all)); return true; } catch (e) { return false; } }
