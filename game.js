@@ -191,7 +191,7 @@ function makeSite(id, j) {
 // (lx, lz in its frame, yaw + dyaw) lands on the builder's object instead
 function siteObj(type, k = 0) { const o = ISITE ? ISITE.objs(type)[k] : null; return o ? { x: o.x, z: o.z, yaw: o.yaw || 0 } : null; }
 function siteAnchor(type, lx, lz, dyaw) {
-    const L = ISITE ? ISITE.objs(type) : []; if (!L.length) return null;
+    const pl = ISITE && ISITE.place && ISITE.place[type], L = pl ? [pl] : ISITE ? ISITE.objs(type) : []; if (!L.length) return null;
     const x = L.reduce((a, o) => a + o.x, 0) / L.length, z = L.reduce((a, o) => a + o.z, 0) / L.length, yaw = (L[0].yaw || 0) + dyaw, c = Math.cos(yaw), s = Math.sin(yaw);
     return { x: x - (lx * c + lz * s), z: z - (-lx * s + lz * c), yaw };
 }
@@ -303,6 +303,38 @@ if (ISITE) {                                      // an imported site: its own s
     if (ISITE.parks[0]) CONFIG.buggy.spawn = ISITE.parks[0];
     if (ob('truckpark')) CONFIG.truck.spawn = put(ob('truckpark'));
     if (ob('spawn')) CONFIG.spawn = put(ob('spawn'));
+    // the game's generator / fuel tank / base / job box / porta-john deck are bigger than the builder's footprints: slide each
+    // one the shortest way out of the conexes (office + balcony + stairs, break room, storage) and the props already placed
+    const rect = (o, hx, hz, lx = 0, lz = 0) => { const c = Math.cos(o.yaw || 0), sn = Math.sin(o.yaw || 0); return { x: o.x + lx * c + lz * sn, z: o.z - lx * sn + lz * c, yaw: o.yaw || 0, hx, hz }; };
+    const hit = (a, b) => {                                                   // oriented rectangles overlap (separating axes)
+        const ax = [[Math.cos(a.yaw), -Math.sin(a.yaw)], [Math.sin(a.yaw), Math.cos(a.yaw)], [Math.cos(b.yaw), -Math.sin(b.yaw)], [Math.sin(b.yaw), Math.cos(b.yaw)]];
+        const ext = (r, u) => r.hx * Math.abs(u[0] * Math.cos(r.yaw) - u[1] * Math.sin(r.yaw)) + r.hz * Math.abs(u[0] * Math.sin(r.yaw) + u[1] * Math.cos(r.yaw));
+        return ax.every(u => Math.abs((b.x - a.x) * u[0] + (b.z - a.z) * u[1]) < ext(a, u) + ext(b, u));
+    };
+    const solid = [];
+    if (C.office) solid.push(rect(C.office, 22.6, 10.8, -2.1, 4));                  // office + balcony (8 ft out front) + stairs at the west end
+    if (C.breakRoom) solid.push(rect(C.breakRoom, 20.6, 6.6));
+    const so = ob('storage'); if (so) solid.push(rect(so, 10.6, 4.6));
+    ISITE.place = {};
+    const settle = (type, o, hx, hz, lx = 0) => {                              // o = centre of the prop's box
+        if (!o) return null;
+        const pad = 1.5, me = (x, z) => rect({ x, z, yaw: o.yaw }, hx + pad, hz + pad, lx), c = Math.cos(o.yaw), sn = Math.sin(o.yaw);
+        const dirs = [[0, -1], [1, 0], [-1, 0], [0, 1], [0.7, -0.7], [-0.7, -0.7], [0.7, 0.7], [-0.7, 0.7]];      // behind first (local −z), then the sides
+        let best = { x: o.x, z: o.z };
+        if (solid.some(r => hit(me(o.x, o.z), r))) {
+            outer: for (let d = 0.5; d <= 60; d += 0.5) for (const [u, v] of dirs) {
+                const x = o.x + (u * c + v * sn) * d, z = o.z + (-u * sn + v * c) * d;
+                if (!solid.some(r => hit(me(x, z), r))) { best = { x, z }; break outer; }
+            }
+        }
+        solid.push(rect({ x: best.x, z: best.z, yaw: o.yaw }, hx, hz, lx));
+        return ISITE.place[type] = { x: best.x, z: best.z, yaw: o.yaw };
+    };
+    const gen = ob('generator'); if (gen) { const g = settle('generator', { x: gen.x, z: gen.z, yaw: gen.yaw || 0 }, 9.0, 3.25); C.generator = put(g, 1.6); }
+    const ft = ob('fueltank'); if (ft) C.fuelTank = settle('fueltank', { x: ft.x, z: ft.z, yaw: ft.yaw || 0 }, 4.2, 2.5);
+    const bs = ob('basestation'); if (bs) settle('basestation', { x: bs.x, z: bs.z, yaw: 0 }, 2.2, 2.2);
+    const jb = ob('jobbox'); if (jb) settle('jobbox', { x: jb.x, z: jb.z, yaw: jb.yaw || 0 }, 2.3, 1.2);
+    const pj = ISITE.objs('portajohn'); if (pj.length) settle('portajohn', { x: pj.reduce((a, q) => a + q.x, 0) / pj.length, z: pj.reduce((a, q) => a + q.z, 0) / pj.length, yaw: pj[0].yaw || 0 }, 6.9, 3.4);
 }
 
 // =====================================================================
@@ -924,6 +956,7 @@ function forestEdge(angle) {        // treeline radius for a given compass angle
 }
 
 // The site yard is graded flat; the field blends back in around it
+function padInset(x, z) { const P = CONFIG.site.pad; return Math.min(x - P.x0, P.x1 - x, z - P.z0, P.z1 - z); }     // + = that far inside the yard pad
 function siteRectDist(x, z) {
     const P = CONFIG.site.pad;
     const dx = Math.max(P.x0 - x, 0, x - P.x1), dz = Math.max(P.z0 - z, 0, z - P.z1);
@@ -2874,9 +2907,16 @@ function buildYard(group) {
         c.fillStyle = fade; c.fillRect(0, 0, w, h);
     });
     const spill = new THREE.Mesh(new THREE.PlaneGeometry(hw * 2 + 14, 16), new THREE.MeshStandardMaterial({ map: spillTex, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-    spill.rotation.x = -Math.PI / 2; spill.position.set(xc, SITE_H + 0.1, P.z1 - 8); spill.receiveShadow = true; group.add(spill);
+    spill.rotation.x = -Math.PI / 2; spill.position.set(xc, SITE_H + 0.1, P.z1 - 8); spill.receiveShadow = true; if (!ISITE) group.add(spill);
     // granite edging around the yard
     const B = makeBatch(), y = SITE_H + 0.12;
+    if (ISITE) {                                                                // all four sides, open where a road comes in
+        const side = (ax, az, bx, bz) => { const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 4), along = Math.abs(bx - ax) > Math.abs(bz - az);
+            for (let k = 0; k < n; k++) { const u = (k + 0.5) / n, x = ax + (bx - ax) * u, z = az + (bz - az) * u; if (ISITE.roadD(x, z) < 1.5) continue;
+                B.box('matte', along ? L / n + 0.05 : 0.8, 0.3, along ? 0.8 : L / n + 0.05, x, getTerrainHeight(x, z) + 0.12, z, 0x8f8b84); } };
+        side(P.x0, P.z0, P.x1, P.z0); side(P.x0, P.z1, P.x1, P.z1); side(P.x0, P.z0, P.x0, P.z1); side(P.x1, P.z0, P.x1, P.z1);
+        B.build(group); return;
+    }
     B.box('matte', P.x1 - P.x0 + 0.8, 0.3, 0.8, (P.x0 + P.x1) / 2, y, P.z0, 0x8f8b84);
     B.box('matte', 0.8, 0.3, P.z1 - P.z0, P.x0, y, (P.z0 + P.z1) / 2, 0x8f8b84); B.box('matte', 0.8, 0.3, P.z1 - P.z0, P.x1, y, (P.z0 + P.z1) / 2, 0x8f8b84);
     B.build(group);
@@ -2996,6 +3036,63 @@ function buildPistol() {
 const PISTOL_MAT = { frame: new THREE.MeshStandardMaterial({ color: 0x1c1f22, roughness: 0.6 }), grip: new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.95 }) };
 
 // ---- put it all together ----
+// an imported yard: the generator's two cables are routed on a 1-ft grid (A*) round every conex and prop, kept off the fronts
+// (doors / balcony side cost extra), then smoothed and laid on the ground
+function siteCables(site, gen, panelW, CB) {
+    const P = CONFIG.site.pad, G = 1, x0 = P.x0 - 14, z0 = P.z0 - 14, nx = Math.ceil((P.x1 - x0 + 14) / G) + 1, nz = Math.ceil((P.z1 - z0 + 14) / G) + 1;
+    const block = new Uint8Array(nx * nz), cost = new Float32Array(nx * nz).fill(1);
+    const stampRect = (cx, cz, yaw, hx, hz, fn) => {
+        const c = Math.cos(yaw), s = Math.sin(yaw), R = Math.hypot(hx, hz) + 1;
+        for (let j = Math.max(0, Math.floor((cz - R - z0) / G)); j <= Math.min(nz - 1, Math.ceil((cz + R - z0) / G)); j++)
+            for (let i = Math.max(0, Math.floor((cx - R - x0) / G)); i <= Math.min(nx - 1, Math.ceil((cx + R - x0) / G)); i++) {
+                const dx = x0 + i * G - cx, dz = z0 + j * G - cz, lx = dx * c - dz * s, lz = dx * s + dz * c;
+                if (Math.abs(lx) <= hx && Math.abs(lz) <= hz) fn(j * nx + i, lx, lz);
+            }
+    };
+    site.conexes.slice(0, 2).forEach(cx => {
+        stampRect(cx.x, cx.z, cx.yaw, CONEX.L / 2 + 1.2, CONEX.W / 2 + 1.2, k => { block[k] = 1; });
+        stampRect(cx.x, cx.z, cx.yaw, CONEX.L / 2 + 3, CONEX.W / 2 + 14, (k, lx, lz) => { if (lz > 0) cost[k] += 5; });        // the front (doors, windows, the balcony) costs extra
+    });
+    const of = site.office; stampRect(of.x, of.z, of.yaw, CONEX.L / 2 + 6, CONEX.W / 2 + 9, (k, lx, lz) => { if (lz > CONEX.W / 2 - 1 || lx < -CONEX.L / 2) block[k] = 1; });   // balcony + stairs
+    const so = siteObj('storage'); if (so) stampRect(so.x, so.z, so.yaw, 11.2, 5.2, k => { block[k] = 1; });
+    const pl = (ISITE.place || {});
+    if (pl.fueltank) stampRect(pl.fueltank.x, pl.fueltank.z, pl.fueltank.yaw, 5, 3.2, k => { block[k] = 1; });
+    if (pl.basestation) stampRect(pl.basestation.x, pl.basestation.z, 0, 3, 3, k => { block[k] = 1; });
+    if (pl.jobbox) stampRect(pl.jobbox.x, pl.jobbox.z, pl.jobbox.yaw, 3, 2, k => { block[k] = 1; });
+    if (pl.portajohn) stampRect(pl.portajohn.x, pl.portajohn.z, pl.portajohn.yaw, 7.5, 4, k => { block[k] = 1; });
+    const C = CONFIG.site.generator, gc = localToWorldXZ(C.x, C.z, C.yaw, 1.6, 0); stampRect(gc.x, gc.z, C.yaw, 9.6, 3.8, k => { block[k] = 1; });
+    const cell = (x, z) => [clamp(Math.round((x - x0) / G), 0, nx - 1), clamp(Math.round((z - z0) / G), 0, nz - 1)];
+    const route = (a, b) => {                                                  // A* (8-way), cells near both ends always open
+        const [ai, aj] = cell(a.x, a.z), [bi, bj] = cell(b.x, b.z), open = k => !block[k] || Math.hypot((k % nx) - ai, Math.floor(k / nx) - aj) < 4.5 || Math.hypot((k % nx) - bi, Math.floor(k / nx) - bj) < 3.5;
+        const N = nx * nz, gS = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), done = new Uint8Array(N), heap = [];
+        const h = k => Math.hypot((k % nx) - bi, Math.floor(k / nx) - bj);
+        const push = (k, f) => { heap.push([f, k]); let i = heap.length - 1; while (i) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+        const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+        const st = aj * nx + ai, en = bj * nx + bi; gS[st] = 0; push(h(st), st);
+        while (heap.length) {
+            const [, k] = pop(); if (done[k]) continue; done[k] = 1; if (k === en) break;
+            const i = k % nx, j = Math.floor(k / nx);
+            for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+                if (!di && !dj) continue; const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= nx || jj >= nz) continue;
+                const q = jj * nx + ii; if (done[q] || !open(q)) continue;
+                const g2 = gS[k] + Math.hypot(di, dj) * (cost[k] + cost[q]) / 2; if (g2 < gS[q]) { gS[q] = g2; from[q] = k; push(g2 + h(q), q); }
+            }
+        }
+        if (from[en] < 0) return [a, b];
+        const out = []; for (let k = en; k >= 0; k = from[k]) out.push({ x: x0 + (k % nx) * G, z: z0 + Math.floor(k / nx) * G });
+        out.reverse(); out[0] = { x: a.x, z: a.z }; out[out.length - 1] = { x: b.x, z: b.z };
+        const keep = [out[0]];                                                  // straighten: drop points that stay in line
+        for (let i = 1; i < out.length - 1; i++) { const p = keep[keep.length - 1], q = out[i + 1]; if (polylineDist([p, q], out[i].x, out[i].z) > 0.45) keep.push(out[i]); }
+        keep.push(out[out.length - 1]); return keep;
+    };
+    site.conexes.slice(0, 2).forEach((cx, i) => {
+        const end = cx.group.localToWorld(cx.cableEnd.clone()), out = localToWorldXZ(cx.x, cx.z, cx.yaw, cx.cableEnd.x + Math.sign(cx.cableEnd.x) * 1.4, cx.cableEnd.z);
+        const path = route({ x: panelW.x, z: panelW.z }, out), y = SITE_H + 0.12;
+        const pts = [panelW, V(panelW.x, y + 0.3, panelW.z), ...path.slice(1).map(p => V(p.x, y, p.z)), V(end.x, y, end.z), end];
+        const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+        CB.geo('matte', new THREE.TubeGeometry(curve, Math.max(40, pts.length * 8), 0.1, 6, false), 0x141414);
+    });
+}
 function buildSite() {
     const C = CONFIG.site;
     const site = { group: new THREE.Group(), conexes: [], chairs: [], micros: [], hum: null };
@@ -3047,7 +3144,8 @@ function buildSite() {
     site.genStack = gen.group.localToWorld(gen.stack.clone());
     const panelW = gen.group.localToWorld(gen.panel.clone());
     const CB = makeBatch();
-    site.conexes.slice(0, 2).forEach((cx, i) => {
+    if (ISITE) siteCables(site, gen, panelW, CB);
+    else site.conexes.slice(0, 2).forEach((cx, i) => {
         const end = cx.group.localToWorld(cx.cableEnd.clone());
         const mid = V((panelW.x + end.x) / 2 + (i ? 1 : -1), SITE_H + 0.1, (panelW.z + end.z) / 2 + 1.5);
         const curve = new THREE.CatmullRomCurve3([panelW, V(panelW.x + (i ? 0.6 : -0.6), SITE_H + 0.12, panelW.z + 0.8), mid, V(end.x, SITE_H + 0.12, end.z - 0.8), end]);
@@ -4643,7 +4741,7 @@ const SEA_MESH = (() => {
     if (ISITE) m.position.set(ISITE.centre.x, CONFIG.world.sea, ISITE.centre.z); m.receiveShadow = true; scene.add(m); return m;
 })();
 
-const BSP = siteObj('basestation') || { x: 40, z: -2 }, baseStationPos = new THREE.Vector3(BSP.x, getTerrainHeight(BSP.x, BSP.z), BSP.z);
+const BSP = (ISITE && ISITE.place && ISITE.place.basestation) || siteObj('basestation') || { x: 40, z: -2 }, baseStationPos = new THREE.Vector3(BSP.x, getTerrainHeight(BSP.x, BSP.z), BSP.z);
 const baseStationGroup = buildTopconBase(baseStationPos);
 scene.add(baseStationGroup);
 Colliders.add(baseStationPos.x, baseStationPos.z, 2.2, 9, { tag: 'base' });     // tripod footprint
@@ -5027,6 +5125,8 @@ const Rejoin = {
         return null;
     },
 };
+// where the yard's things park: a save made with another layout doesn't drag the vehicles back to the old spots
+function layoutKey() { return ISITE ? 'y1:' + VEHICLES.map(v => { const p = v.cfg && v.cfg.spawn; return p ? Math.round(p.x) + ',' + Math.round(p.z) : '-'; }).join('|') : 'memphis'; }
 const Save = {
     KEY: 'surveySim.save.v1' + (ISITE ? '.' + ISITE.id : ''), ready: false, dirty: false, lastLocal: 0, lastAuto: 0, lastDb: 0,
     db: null, uid: null, dbBusy: false, pendingDb: null, wipeArmed: 0,
@@ -5049,7 +5149,7 @@ const Save = {
             pk: { drink: Pockets.have.drink, zyn: Pockets.have.zyn },
             ppe: [S.ppe.hat, S.ppe.vest, S.ppe.gloves, S.ppe.glasses], iv3: Inv.slots,
             cp: ControlPoints.list.map(c => (c.checked ? (c.res || 1) : 0)),
-            veh: VEHICLES.map(v => ({ n: v.name, x: r2(v.group.position.x), z: r2(v.group.position.z), y: r2(v.group.rotation.y), f: Math.round(v.fuel * 1000) / 1000 })),
+            veh: VEHICLES.map(v => ({ n: v.name, x: r2(v.group.position.x), z: r2(v.group.position.z), y: r2(v.group.rotation.y), f: Math.round(v.fuel * 1000) / 1000 })), ly: layoutKey(),
             tasks: TaskManager.toSave(),
             st: own.map(st => [r2(st.pt.x), r2(st.pt.y), r2(st.pt.z), st.colorIdx, st.label, r2(st.group.rotation.y),
                                st.prev && idx.has(st.prev) ? idx.get(st.prev) : -1, st.linkPrev ? 1 : 0,
@@ -5070,8 +5170,10 @@ const Save = {
         if (S.seat) standUp();
         if (S.miniGame) MiniGame.close();
         this.clearStakes();
+        const sameYard = d.ly ? d.ly === layoutKey() : !ISITE;                    // (a re-laid-out yard: everything starts in its new stall)
         (d.veh || []).forEach(sv => {
             const v = VEHICLES.find(x => x.name === sv.n); if (!v || v.remoteBy || !Number.isFinite(sv.x) || !Number.isFinite(sv.z)) return;
+            if (!sameYard) { if (typeof sv.f === 'number') v.fuel = clamp(sv.f, 0, 1); return; }
             v.group.position.x = sv.x; v.group.position.z = sv.z; v.group.rotation.y = +sv.y || 0; settleOnTerrain(v, 1);
             if (typeof sv.f === 'number') { v.fuel = clamp(sv.f, 0, 1); v.lowWarned = v.fuel < CONFIG.fuel.lowWarn; }
         });
@@ -8332,7 +8434,7 @@ const Build = {
             if (i) dist += Math.hypot(p.x - S[i - 1].x, p.z - S[i - 1].z);
             for (let j = 0; j <= across; j++) {
                 const u = j / across, s = (u - 0.5) * w, x = p.x + nx * s, z = p.z + nz * s, edge = Math.abs(u - 0.5) * 2;
-                pos.push(x, getTerrainHeight(x, z) + lift * (edge > 0.8 ? 0.55 : 1), z); uv.push(u * w / 6, dist / 6);
+                pos.push(x, getTerrainHeight(x, z) + (ISITE && padInset(x, z) > 0.8 ? -0.5 : lift * (edge > 0.8 ? 0.55 : 1)), z); uv.push(u * w / 6, dist / 6);
             }
         });
         for (let i = 0; i < S.length - 1; i++) for (let j = 0; j < across; j++) { const a = i * (across + 1) + j, b = a + across + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }   // wound to face up
@@ -8385,7 +8487,7 @@ const Build = {
         const seg = 28, ring = 3, pos = [], uv = [], idx = [];
         for (let k = 0; k <= ring; k++) for (let i = 0; i <= seg; i++) {
             const a = i / seg * Math.PI * 2, r = R * k / ring, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r;
-            pos.push(x, getTerrainHeight(x, z) + lift * (k === ring ? 0.55 : 1), z); uv.push(x / 6, z / 6);
+            pos.push(x, getTerrainHeight(x, z) + (padInset(x, z) > 0.8 ? -0.5 : lift * (k === ring ? 0.55 : 1)), z); uv.push(x / 6, z / 6);
         }
         for (let k = 0; k < ring; k++) for (let i = 0; i < seg; i++) { const a = k * (seg + 1) + i, b = a + seg + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
@@ -8725,7 +8827,15 @@ const TaskManager = {
         };
         const split = pts => { const out = []; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], m = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 150)); for (let k = 0; k < m; k++) out.push({ x: a.x + (b.x - a.x) * k / m, z: a.z + (b.z - a.z) * k / m }); } out.push(pts[pts.length - 1]); return out; };
         // gaps wherever a road (or its turnaround) crosses the loop, worked out here from the roads as drawn
-        const D = alongPolyline([...L.pts, L.pts[0]], 2); D.pop();
+        const PD = CONFIG.site.pad, mg = t.rule.code === 'LOD' ? 10 : 5;
+        const off = p => {                                                     // pushed out to `mg` ft past the yard pad
+            const cx = clamp(p.x, PD.x0, PD.x1), cz = clamp(p.z, PD.z0, PD.z1), dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
+            if (d >= mg) return p;
+            if (d > 1e-6) return { x: cx + dx / d * mg, z: cz + dz / d * mg };
+            const e = [[p.x - PD.x0, 0], [PD.x1 - p.x, 1], [p.z - PD.z0, 2], [PD.z1 - p.z, 3]].sort((a, b) => a[0] - b[0])[0][1];
+            return e === 0 ? { x: PD.x0 - mg, z: p.z } : e === 1 ? { x: PD.x1 + mg, z: p.z } : e === 2 ? { x: p.x, z: PD.z0 - mg } : { x: p.x, z: PD.z1 + mg };
+        };
+        const D = alongPolyline([...L.pts, L.pts[0]], 2).map(off); D.pop();
         const on = D.map(p => ISITE.roadD(p.x, p.z) < 2.5);
         if (on.some(Boolean) && !on.every(Boolean)) {
             const st = on.indexOf(true), runs = []; let cur = [];
@@ -8735,7 +8845,7 @@ const TaskManager = {
             runs.forEach(r => { const q = split(simp(r, 7)); if (q.length < 2) return; pts.push(...q); breaks.push(pts.length - 1); });
             if (pts.length >= 3) { t.breaks = breaks; return pts; }
         }
-        const ring = split(simp([...L.pts, L.pts[0]], 7)); ring.pop();
+        const ring = split(simp([...D, D[0]], 7)); ring.pop();
         t.breaks = []; return ring.length > 2 ? ring : null;
     },
     add({ id, title, rule, count, prerequisites = [], gen = 'random', from = null, brief = '' }) {
@@ -14739,7 +14849,7 @@ const Title = {
             <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
             ${B('BACK TO MENU', 'back', 2)}
         </section>
-        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.57.1</span></div>`;
+        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.57.2</span></div>`;
         document.body.appendChild(el); this.el = el;
         el.addEventListener('click', e => {
             const card = e.target.closest('.tm-card');
@@ -15039,7 +15149,7 @@ const Title = {
 //            (tools on one side). Becky, the warehouse manager, stands out front. After her delivery job the empty
 //            racks fill with torque tubes and panels.
 // =====================================================================================================
-const STORE = (() => { const o = siteObj('storage'); return { x: o ? o.x : 22, z: o ? o.z : -64, yaw: o ? Math.round(o.yaw / (Math.PI / 2)) * (Math.PI / 2) : 0, L: 20, W: 8, H: 8.4, t: 0.25 }; })();
+const STORE = (() => { const o = siteObj('storage'); return { x: o ? o.x : 22, z: o ? o.z : -64, yaw: o ? Math.round(o.yaw / (Math.PI / 2)) * (Math.PI / 2) + Math.PI : 0, L: 20, W: 8, H: 8.4, t: 0.25 }; })();
 const storeAt = (lx, lz) => localToWorldXZ(STORE.x, STORE.z, STORE.yaw, lx, lz);
 const Storage = {
     group: null, fill: null,
@@ -15723,6 +15833,11 @@ const Jump = {
 };
 
 Storage.init(); Becky.init(); Delivery.init(); Delivery.forklifts = [forklift1, forklift2];
+if (ISITE && ISITE.objs('storage').length) [forklift1, forklift2].forEach((f, k) => {     // parked in front of the storage doors, facing in
+    const p = storeAt(STORE.L / 2 + 9, (k ? 1 : -1) * 3.6), d = localToWorldXZ(0, 0, STORE.yaw, -1, 0), yaw = Math.atan2(d.x, d.z);
+    f.cfg = { ...f.cfg, spawn: { x: p.x, z: p.z, yaw } }; f.group.position.set(p.x, getTerrainHeight(p.x, p.z), p.z); f.group.rotation.set(0, yaw, 0);
+    if (typeof settleOnTerrain === 'function') settleOnTerrain(f, 1);
+});
 Spray.init(); TaskTip.init(); FullScreen.init();
 VEHICLES.forEach(v => Batch.freeze(v)); [rig, Justin.rig, Greg.rig, Inspector.rig, Becky.rig].forEach(r => r && Batch.freeze(r, [r.ppe && r.ppe.glasses]));       // fewer draw calls (see [BATCH])
 playerGroup.position.set(CONFIG.spawn.x, getTerrainHeight(CONFIG.spawn.x, CONFIG.spawn.z), CONFIG.spawn.z);
