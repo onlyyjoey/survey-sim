@@ -44,6 +44,150 @@ import * as THREE from 'three';
    ===================================================================== */
 
 // =====================================================================
+// [ISITE]  Sites made in the Site Builder (`survey-sim-site` v2 files). ISITE is null on the built-in Memphis job.
+//          An imported site is moved (shifted, and turned if its office is turned) so its office lands where the game's
+//          office compound is — the compound itself (conexes, Justin, Greg, PPE, porta-johns, Becky's storage) stays as
+//          built. Everything else comes from the file: ground heights + paint, the island coast, rivers, trees, roads,
+//          LOD / silt fence, AC / DC, LBDs, inverters, the substation, control points and the racking rows.
+//          The chosen site is kept in localStorage (or ?site=<id>); picking another one on the title screen reloads.
+// =====================================================================
+const SITE_LIST = [
+    { id: 'memphis', name: 'MEMPHIS, TN', sub: 'Mid-South solar site', art: 'memphis' },
+    { id: 'amarillo', name: 'AMARILLO, TX', sub: 'High Plains solar site', art: 'plains', file: 'sites/amarillo.site.json' },
+];
+const SITE_KEY = 'surveySim.site', SITE_CUSTOM_KEY = 'surveySim.customSite';
+function siteChoice() {
+    try { const q = new URLSearchParams(location.search).get('site'); if (q) return q; return localStorage.getItem(SITE_KEY) || 'memphis'; } catch (e) { return 'memphis'; }
+}
+// builder ground swatches (same order + colours as the Site Builder's GROUND list)
+const SITE_GROUND = { grass: [104, 138, 60], dry: [178, 160, 102], dirt: [138, 106, 70], red: [160, 84, 56], sand: [214, 192, 140], caliche: [222, 212, 190], gravel: [160, 156, 146], rock: [118, 112, 102], mud: [96, 82, 60] };
+const SITE_SKY = { midsouth: [0x86a9c9, 0xdfe4e0], highplains: [0x78aee4, 0xe9dfc9], desert: [0x6fa7e0, 0xf0e2c8], gulf: [0x8ab3d1, 0xe3e7e1], prairie: [0x7fb0de, 0xe6e2cf] };
+// builder tree names → the game's tree models (scale) ; 'bush' = drawn as a bush
+const SITE_TREES = {
+    loblolly: ['loblolly', 1], pine: ['loblolly', 1], oak: ['oak', 1], sweetgum: ['sweetgum', 1], cedar: ['cedar', 1], cypress: ['cypress', 1], giantpine: ['giantPine', 1],
+    poplar: ['poplar', 1], sycamore: ['sycamore', 1], elder: ['elder', 1], mesquite: ['oak', 0.55], hackberry: ['oak', 0.78], cottonwood: ['sycamore', 1.05],
+    'redberry juniper': ['cedar', 0.62], juniper: ['cedar', 0.7], 'palo verde': ['oak', 0.5], saguaro: ['cedar', 0.5], yucca: ['bush', 0.8], cholla: ['bush', 0.7],
+    creosote: ['bush', 0.9], ocotillo: ['bush', 0.8],
+};
+const ISITE = await (async () => {
+    const id = siteChoice(); if (id === 'memphis') return null;
+    try {
+        let j = null;
+        if (id === 'custom') j = JSON.parse(localStorage.getItem(SITE_CUSTOM_KEY) || 'null');
+        else { const s = SITE_LIST.find(q => q.id === id); if (s && s.file) j = await (await fetch(s.file, { cache: 'no-cache' })).json(); }
+        if (!j || j.format !== 'survey-sim-site') throw new Error('no site file for "' + id + '"');
+        return makeSite(id, j);
+    } catch (e) {
+        console.warn('site', id, e); window.__siteError = String(e);
+        try { localStorage.setItem(SITE_KEY, 'memphis'); } catch (er) { /* no storage */ }
+        return null;
+    }
+})();
+function makeSite(id, j) {
+    const W = j.world || {}, isl = W.island || {}, T = j.terrain || {}, n = T.n | 0, cell = T.cell || 20, org = T.origin ?? -(W.size || 2600) / 2;
+    const half = (W.size || 2600) / 2, feats = (j.features || []).filter(f => f && Array.isArray(f.pts)), objs = (j.objects || []).filter(o => o && isFinite(o.x) && isFinite(o.z));
+    const b64 = s => { const bin = atob(s || ''), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+    const H = new Float32Array(n * n);
+    if (T.h) { const hb = b64(T.h), dv = new DataView(hb.buffer); for (let i = 0; i < n * n && i * 2 + 1 < hb.length; i++) H[i] = dv.getInt16(i * 2, true) / 10; }
+    const paint = T.paint ? b64(T.paint) : new Uint8Array(n * n), trees = T.trees ? b64(T.trees) : new Uint8Array(n * n);
+    const groundIds = Array.isArray(T.ground) ? T.ground : Object.keys(SITE_GROUND);
+    const groundRGB = groundIds.map(g => SITE_GROUND[g] || SITE_GROUND.dry);
+    // ---- move the map so its office sits on the game's office (-22, -47), facing the same way ----
+    const office = objs.find(o => o.type === 'office') || objs.find(o => o.type === 'breakroom');
+    const yard = feats.find(f => f.layer === 'yard' && f.pts.length > 2);
+    const os = office ? { x: office.x, z: office.z } : yard ? { x: yard.pts.reduce((s, p) => s + p[0], 0) / yard.pts.length, z: yard.pts.reduce((s, p) => s + p[1], 0) / yard.pts.length } : { x: 0, z: 0 };
+    const OG = { x: -22, z: -47 }, phi = office ? -(office.yaw || 0) : 0, c = Math.cos(phi), s = Math.sin(phi);
+    const fwd = (x, z) => { const dx = x - os.x, dz = z - os.z; return { x: OG.x + dx * c + dz * s, z: OG.z - dx * s + dz * c }; };
+    const inv = (x, z) => { const dx = x - OG.x, dz = z - OG.z; return { x: os.x + dx * c - dz * s, z: os.z + dx * s + dz * c }; };
+    const line = pts => pts.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).map(p => fwd(p[0], p[1]));
+    // centripetal Catmull-Rom through the corners (the builder's 'smooth' curve), every ~2 ft
+    const smooth = pts => {
+        if (pts.length < 3) return pts;
+        const out = [], P = [pts[0], ...pts, pts[pts.length - 1]];
+        for (let i = 1; i < P.length - 2; i++) {
+            const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2], L = Math.hypot(p2.x - p1.x, p2.z - p1.z), m = Math.max(1, Math.ceil(L / 2));
+            for (let k = 0; k < m; k++) { const t = k / m, t2 = t * t, t3 = t2 * t;
+                out.push({ x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+                           z: 0.5 * (2 * p1.z + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3) }); }
+        }
+        out.push(pts[pts.length - 1]); return out;
+    };
+    const area = P => { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p.x * q.z - q.x * p.z; } return Math.abs(a / 2); };
+    // ---- grid sampling (game coords in, site grid underneath) ----
+    const bil = (A, x, z) => {
+        const q = inv(x, z), u = (q.x - org) / cell, v = (q.z - org) / cell;
+        if (!(u >= 0 && v >= 0 && u <= n - 1 && v <= n - 1)) return null;
+        const i = Math.min(n - 2, Math.floor(u)), k = Math.min(n - 2, Math.floor(v)), fu = u - i, fv = v - k, a = k * n + i;
+        return (A[a] * (1 - fu) + A[a + 1] * fu) * (1 - fv) + (A[a + n] * (1 - fu) + A[a + n + 1] * fu) * fv;
+    };
+    // ---- the coast: radius of the island at each compass angle (about the site centre), from the saved outline ----
+    const outline = Array.isArray(isl.outline) && isl.outline.length > 8 ? isl.outline : null;
+    const ring = outline ? outline.map(p => ({ a: Math.atan2(p[1], p[0]), r: Math.hypot(p[0], p[1]) })).sort((p, q) => p.a - q.a) : null;
+    const shoreR = a => {
+        if (!ring) return isl.shore || 1185;
+        let i = ring.findIndex(p => p.a > a); if (i < 0) i = ring.length;
+        const p = ring[(i - 1 + ring.length) % ring.length], q = ring[i % ring.length];
+        let da = q.a - p.a; if (da <= 0) da += Math.PI * 2; let t = a - p.a; if (t < 0) t += Math.PI * 2;
+        return p.r + (q.r - p.r) * Math.min(1, t / da);
+    };
+    const islandOn = isl.on !== false;
+    const shoreDist = (x, z) => { const q = inv(x, z); return islandOn ? shoreR(Math.atan2(q.z, q.x)) - Math.hypot(q.x, q.z) : Math.min(half - Math.abs(q.x), half - Math.abs(q.z)); };
+    // ---- features ----
+    const roads = feats.filter(f => f.layer === 'road' && f.pts.length >= 2).map((f, k) => {
+        const src = Array.isArray(f.path) && f.path.length >= 2 ? line(f.path) : f.curve === 'straight' ? line(f.pts) : smooth(line(f.pts));
+        return { id: f.id || 'road' + k, name: f.name || 'Road', pts: src, w: f.w || 12, existing: !!f.existing, surface: f.surface || 'gravel', ends: Array.isArray(f.deadEnds) ? f.deadEnds : [0, 0] };
+    });
+    const rivers = feats.filter(f => f.layer === 'river' && f.pts.length >= 2).map(f => ({ name: f.name || 'Creek', pts: Array.isArray(f.path) && f.path.length >= 2 ? line(f.path) : smooth(line(f.pts)), w: f.w || 30, depth: f.depth || 4 }));
+    const ponds = feats.filter(f => f.layer === 'water' && f.closed && f.pts.length > 2).map(f => ({ pts: line(f.pts), depth: f.depth || 4 }));
+    const loop = f => { const pts = line(f.pts), runs = Array.isArray(f.runs) && f.runs.length ? f.runs.map(line).filter(r => r.length > 1) : null; return { id: f.id, name: f.name || '', pts, runs, area: area(pts) }; };
+    const lods = feats.filter(f => f.layer === 'lod' && f.closed && f.pts.length > 2).map(loop).sort((a, b) => b.area - a.area);
+    const silts = feats.filter(f => f.layer === 'silt' && f.closed && f.pts.length > 2).map(loop).sort((a, b) => b.area - a.area);
+    const cable = f => f.curve === 'smooth' ? smooth(line(f.pts)) : line(f.pts);
+    const ac = feats.filter(f => f.layer === 'ac' && f.pts.length >= 2).map(cable), dc = feats.filter(f => f.layer === 'dc' && f.pts.length >= 2).map(cable);
+    const arrays = feats.filter(f => f.layer === 'array' && f.closed && f.pts.length > 2).map(f => ({ name: f.name, pts: line(f.pts), rows: f.rack && Array.isArray(f.rack.rows) ? f.rack.rows.map(r => line(r)).filter(r => r.length >= 2) : [] }));
+    const O = objs.map(o => { const p = fwd(o.x, o.z); return { ...o, x: p.x, z: p.z, yaw: (o.yaw || 0) + phi }; });
+    const scabs = (j.scabs || []).filter(q => isFinite(q.x) && isFinite(q.z)).map(q => { const p = fwd(q.x, q.z); return { ...q, x: p.x, z: p.z, yaw: (q.yaw || 0) + phi }; });
+    // ---- distance fields (every 4 ft over the whole map, capped at 60 ft): to the nearest road edge / river bank ----
+    const G = 4, gx0 = OG.x - 2 * half, gz0 = OG.z - 2 * half, gn = Math.ceil(4 * half / G) + 1;
+    const field = () => new Float32Array(gn * gn).fill(60);
+    const stamp = (F, x, z, R, d0) => {                       // distance from (x, z) minus d0, within R
+        const i0 = Math.max(0, Math.floor((x - R - gx0) / G)), i1 = Math.min(gn - 1, Math.ceil((x + R - gx0) / G));
+        const k0 = Math.max(0, Math.floor((z - R - gz0) / G)), k1 = Math.min(gn - 1, Math.ceil((z + R - gz0) / G));
+        for (let k = k0; k <= k1; k++) for (let i = i0; i <= i1; i++) { const d = Math.hypot(gx0 + i * G - x, gz0 + k * G - z) - d0, q = k * gn + i; if (d < F[q]) F[q] = d; }
+    };
+    const dense = (pts, step) => { const out = []; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b.x - a.x, b.z - a.z), m = Math.max(1, Math.ceil(L / step)); for (let k = 0; k < m; k++) out.push({ x: a.x + (b.x - a.x) * k / m, z: a.z + (b.z - a.z) * k / m }); } if (pts.length) out.push(pts[pts.length - 1]); return out; };
+    const RD = field(), WD = field();
+    roads.forEach(r => { dense(r.pts, 2).forEach(p => stamp(RD, p.x, p.z, r.w / 2 + 62, r.w / 2));
+        [0, 1].forEach(e => { const R = +r.ends[e] || 0; if (R > 0) { const p = e ? r.pts[r.pts.length - 1] : r.pts[0]; stamp(RD, p.x, p.z, R + 62, R); } }); });
+    rivers.forEach(r => dense(r.pts, 2).forEach(p => stamp(WD, p.x, p.z, r.w / 2 + 62, r.w / 2)));
+    const look = (F, x, z) => { const i = Math.round((x - gx0) / G), k = Math.round((z - gz0) / G); return i < 0 || k < 0 || i >= gn || k >= gn ? 60 : F[k * gn + i]; };
+    const inPoly = (P, x, z) => { let ins = false; for (let i = 0, k = P.length - 1; i < P.length; k = i++) { const a = P[i], b = P[k]; if ((a.z > z) !== (b.z > z) && x < (b.x - a.x) * (z - a.z) / (b.z - a.z) + a.x) ins = !ins; } return ins; };
+    const S = {
+        id, j, name: (j.meta && j.meta.name) || 'Imported site', location: (j.meta && j.meta.location) || '', world: W, biome: W.biome || 'midsouth',
+        sea: isFinite(isl.sea) ? isl.sea : -5, islandOn, fwd, inv, n, cell, org, H, paint, trees, groundRGB, groundIds,
+        roads, rivers, ponds, lods, silts, ac, dc, arrays, objects: O, scabs, vegetation: j.vegetation || { mix: {}, bushes: 0.5 }, wildlife: Array.isArray(j.wildlife) ? j.wildlife : [],
+        centre: fwd(0, 0), half, shoreDist,
+        yardBox: yard ? (() => { const q = line(yard.pts); return { x0: Math.min(...q.map(p => p.x)), x1: Math.max(...q.map(p => p.x)), z0: Math.min(...q.map(p => p.z)), z1: Math.max(...q.map(p => p.z)) }; })() : null,
+        coast: islandOn ? (outline ? line(outline) : Array.from({ length: 96 }, (_, k) => fwd(Math.cos(k / 96 * Math.PI * 2) * (isl.shore || 1185), Math.sin(k / 96 * Math.PI * 2) * (isl.shore || 1185))))
+            : [fwd(-half, -half), fwd(half, -half), fwd(half, half), fwd(-half, half)],
+        shoreMin: islandOn ? (ring ? Math.min(...ring.map(q => q.r)) : (isl.shore || 1185)) : half, shoreMax: islandOn ? (ring ? Math.max(...ring.map(q => q.r)) : (isl.shore || 1185)) : half * 1.42,
+        heightAt: (x, z) => bil(H, x, z),
+        paintAt(x, z, out) {                                    // blended ground colour (0-255 rgb) under (x, z)
+            const q = inv(x, z), u = (q.x - org) / cell, v = (q.z - org) / cell;
+            const i = Math.max(0, Math.min(n - 2, Math.floor(u))), k = Math.max(0, Math.min(n - 2, Math.floor(v))), fu = Math.max(0, Math.min(1, u - i)), fv = Math.max(0, Math.min(1, v - k));
+            out[0] = out[1] = out[2] = 0;
+            [[0, 0, (1 - fu) * (1 - fv)], [1, 0, fu * (1 - fv)], [0, 1, (1 - fu) * fv], [1, 1, fu * fv]].forEach(([a, b, w]) => { const g = groundRGB[paint[(k + b) * n + i + a]] || groundRGB[0]; out[0] += g[0] * w; out[1] += g[1] * w; out[2] += g[2] * w; });
+            return out;
+        },
+        roadD: (x, z) => look(RD, x, z),                         // + = outside the road (ft past its edge), − = on it
+        waterD: (x, z) => Math.min(look(WD, x, z), ponds.length ? Math.min(...ponds.map(p => inPoly(p.pts, x, z) ? -5 : 60)) : 60),
+        objs: type => O.filter(o => o.type === type),
+        inPoly,
+    };
+    return S;
+}
+
+// =====================================================================
 // [CONFIG]
 // =====================================================================
 const CONFIG = {
@@ -135,6 +279,13 @@ const CONFIG = {
     fuel: { idlePerSec: 1 / 1500, boostMult: 1.35, fillRange: 22, canAmount: 0.4, lowWarn: 0.15 },
     spawn: { x: -4, z: -4, yaw: -0.8 },
 };
+if (ISITE) {                                      // an imported site: its own sky + sea level, no Memphis pond
+    const sky = SITE_SKY[ISITE.biome]; if (sky) { CONFIG.world.skyTop = sky[0]; CONFIG.world.skyHorizon = sky[1]; }
+    CONFIG.world.sea = ISITE.sea; CONFIG.pond.x = 1e5; CONFIG.pond.z = 1e5;
+    const Y = ISITE.yardBox, P = CONFIG.site.pad, D = CONFIG.site.drive;           // the yard pad grows to cover the site's own gravel yard
+    if (Y) { P.x0 = Math.max(-180, Math.min(P.x0, Math.round(Y.x0))); P.x1 = Math.min(140, Math.max(P.x1, Math.round(Y.x1))); P.z0 = Math.max(-200, Math.min(P.z0, Math.round(Y.z0))); P.z1 = Math.min(90, Math.max(P.z1, Math.round(Y.z1))); }
+    if (P.z1 >= D.z1) D.z1 = P.z1;                                                  // (no driveway out to a farm road that isn't there)
+}
 
 // =====================================================================
 // [UTIL]
@@ -711,13 +862,18 @@ function segDist2D(px, pz, ax, az, bx, bz) {
 }
 const ROCK_SPOTS = [];                 // every placed rock {x, z, s} — snakes only spawn near these
 function roadCenterZ(x) { return Math.sin(x * ROAD.freq) * ROAD.amp + Math.sin(x * 0.0037 + 1.3) * 9; }
-function roadDist(x, z) { return Math.abs(z - roadCenterZ(x)); }
+function roadDist(x, z) { return ISITE ? 999 : Math.abs(z - roadCenterZ(x)); }          // the Memphis farm road (none on an imported site)
 function pondDist(x, z) { return Math.hypot(x - POND.x, z - POND.z); }
 // Collection substation: a small fenced pad out past the east LOD, with a dirt spur off the farm road. All the AC
 // collection cable missions end up here. (233, -62) is N 5062 / E 5233 on the survey grid. Gate faces the road (+z).
-const SUB = { x: 233, z: -62, hx: 27, hz: 21, apron: 14, h: null };
+const SUB = (() => {                                       // (an imported site: its own substation, or none — parked far off the map)
+    if (!ISITE) return { x: 233, z: -62, hx: 27, hz: 21, apron: 14, h: null };
+    const o = ISITE.objs('substation')[0];
+    return { x: o ? o.x : 1e5, z: o ? o.z : 1e5, hx: 27, hz: 21, apron: 14, h: null, none: !o };
+})();
 function subRectDist(x, z) { return Math.hypot(Math.max(Math.abs(x - SUB.x) - SUB.hx, 0), Math.max(Math.abs(z - SUB.z) - SUB.hz, 0)); }
 const SPUR = (() => {                                       // quadratic curve from the farm road, bending north up to the gate
+    if (ISITE) return { hw: 5.2, pts: [] };                 // (an imported site's roads are its own)
     const x0 = 200, z0 = roadCenterZ(200), cx = SUB.x, cz = z0 + 2, x1 = SUB.x, z1 = SUB.z + SUB.hz, pts = [];
     for (let i = 0; i <= 26; i++) {
         const t = i / 26, u = 1 - t;
@@ -726,6 +882,7 @@ const SPUR = (() => {                                       // quadratic curve f
     return { hw: 5.2, pts };
 })();
 function spurDist(x, z) {
+    if (!SPUR.pts.length) return 999;
     if (x < 180 || x > 290 || z > 60 || z < -100) return 999;
     let best = 999;
     for (let i = 0; i < SPUR.pts.length - 1; i++) {
@@ -744,6 +901,7 @@ const SUBZONE = (() => {
 function zoneDist(x, z) { return Math.hypot(Math.max(SUBZONE.x0 - x, 0, x - SUBZONE.x1), Math.max(SUBZONE.z0 - z, 0, z - SUBZONE.z1)); }
 function inSub(x, z, margin = 0) { return subRectDist(x, z) <= margin || spurDist(x, z) < SPUR.hw + margin; }
 function forestEdge(angle) {        // treeline radius for a given compass angle
+    if (ISITE) return 1e5;          // (an imported site's trees come from its tree painting)
     return CONFIG.world.forestInner + (fbm(Math.cos(angle) * 1.6 + 7, Math.sin(angle) * 1.6 + 3, 3) - 0.5) * 110;
 }
 
@@ -763,15 +921,15 @@ function driveDist(x, z) {
     return Math.hypot(Math.max(D.x0 - x, 0, x - D.x1), Math.max(P.z1 - z, 0, z - D.z1));
 }
 // the inverter's gravel pad once it's built (walkable / drivable mound): { x, z, y, bw, bd, tw, td, h }
-let PAD = null;
-function padHeight(x, z) {
-    const P = PAD, dx = Math.abs(x - P.x), dz = Math.abs(z - P.z);
+let PADS = [];
+function padHeight(P, x, z) {
+    const dx = Math.abs(x - P.x), dz = Math.abs(z - P.z);
     if (dx >= P.bw / 2 || dz >= P.bd / 2) return -Infinity;
     return P.y + P.h * Math.min(clamp((P.bw / 2 - dx) / ((P.bw - P.tw) / 2), 0, 1), clamp((P.bd / 2 - dz) / ((P.bd - P.td) / 2), 0, 1));
 }
 function getTerrainHeight(x, z) {
     let h = rawTerrainHeight(x, z);
-    if (PAD) { const p = padHeight(x, z); if (p > h) return p; }
+    for (let i = 0; i < PADS.length; i++) { const p = padHeight(PADS[i], x, z); if (p > h) return p; }
     const d = siteRectDist(x, z);
     if (d < CONFIG.site.flatFalloff) h = lerp(SITE_H, h, smoothstep(0, CONFIG.site.flatFalloff, d));
     if (SUB.h !== null) { const e = subRectDist(x, z); if (e < SUB.apron) h = lerp(SUB.h, h, smoothstep(0, SUB.apron, e)); }     // substation pad is graded flat
@@ -789,8 +947,17 @@ function hillField(x, z) {
 }
 // shoreline radius at a compass angle (the island's outline)
 function islandShore(angle) { return CONFIG.world.shore + (fbm(Math.cos(angle) * 1.3 + 21, Math.sin(angle) * 1.3 - 8, 3) - 0.5) * 80; }
-function shoreDist(x, z) { return islandShore(Math.atan2(z, x)) - Math.hypot(x, z); }          // + = inland
+function shoreDist(x, z) { return ISITE ? ISITE.shoreDist(x, z) : islandShore(Math.atan2(z, x)) - Math.hypot(x, z); }          // + = inland
+// an imported site: the builder's heights (rivers already cut in), sloping down into the sea past its coast
+function siteHeight(x, z) {
+    const g = ISITE.heightAt(x, z), sea = CONFIG.world.sea;
+    let h = g === null ? sea - 14 : g + (noise2(x * 0.03, z * 0.03) - 0.5) * 0.35;
+    const sd = shoreDist(x, z);
+    if (sd < 40) h = lerp(h, sea - 10, smoothstep(40, -45, sd));
+    return h;
+}
 function rawTerrainHeight(x, z) {
+    if (ISITE) return siteHeight(x, z);
     let h = (fbm(x * 0.0035 + 10, z * 0.0035 - 4, 3) - 0.5) * 7.5     // broad swells
           + (noise2(x * 0.03, z * 0.03) - 0.5) * 0.5                   // small field lumps
           + hillField(x, z);
@@ -809,7 +976,18 @@ const PAL = {
     litter: new THREE.Color(0x6a5236), pineStraw: new THREE.Color(0x8c6b40),
     mud: new THREE.Color(0x5a4a35), dirt: new THREE.Color(0x8a6d4c), sand: new THREE.Color(0xcdb98a),
 };
+const _sg = [0, 0, 0];
+function siteColor(x, z, c) {                       // the builder's ground paint, with a little texture
+    ISITE.paintAt(x, z, _sg); c.setRGB(_sg[0] / 255, _sg[1] / 255, _sg[2] / 255, THREE.SRGBColorSpace);
+    c.multiplyScalar(0.86 + fbm(x * 0.011, z * 0.011, 3) * 0.16 + noise2(x * 0.11, z * 0.11) * 0.1);
+    c.lerp(PAL.sand, smoothstep(30, 6, shoreDist(x, z)));                            // beach
+    const wd = ISITE.waterD(x, z); if (wd < 10) c.lerp(PAL.mud, smoothstep(10, -2, wd) * 0.75);   // creek banks + bed
+    c.lerp(PAL.dirt, (1 - smoothstep(0, 9, siteRectDist(x, z))) * 0.5);
+    c.lerp(PAL.dirt, (1 - smoothstep(0, 9, subRectDist(x, z))) * 0.55);
+    return c;
+}
 function terrainColor(x, z, c) {
+    if (ISITE) return siteColor(x, z, c);
     const n1 = fbm(x * 0.011, z * 0.011, 3), n2 = noise2(x * 0.11, z * 0.11);
     c.copy(PAL.tan).lerp(PAL.green, smoothstep(0.32, 0.68, n1));
     c.lerp(PAL.darkGreen, smoothstep(0.6, 0.85, fbm(x * 0.03 + 3, z * 0.03, 2)) * 0.5);
@@ -831,15 +1009,17 @@ function terrainColor(x, z, c) {
 function buildTerrain() {
     // one grid, finer where you play: full detail (7.2 ft) across the site and the array, 3× coarser out past ±650 ft
     // where it's hills, trees and fog. Every row / column runs edge to edge, so there are no seams or cracks.
-    const { size, segments } = CONFIG.world, fine = size / segments, core = 650, half = size / 2;
-    const axis = () => {
+    const { size, segments } = CONFIG.world;
+    let fine = size / segments, core = 650, half = size / 2, cx = 0, cz = 0;
+    if (ISITE) { cx = ISITE.centre.x; cz = ISITE.centre.z; core = ISITE.shoreMax + 60; half = core + 700; fine = 9; }
+    const axis = c => {
         const out = [];
-        for (let v = -half; v < -core - 1e-6; v += fine * 3) out.push(v);
-        for (let v = -core; v < core - 1e-6; v += fine) out.push(v);
-        for (let v = core; v < half - 1e-6; v += fine * 3) out.push(v);
-        out.push(half); return out;
+        for (let v = -half; v < -core - 1e-6; v += fine * 3) out.push(c + v);
+        for (let v = -core; v < core - 1e-6; v += fine) out.push(c + v);
+        for (let v = core; v < half - 1e-6; v += fine * 3) out.push(c + v);
+        out.push(c + half); return out;
     };
-    const xs = axis(), zs = axis(), nx = xs.length, nz = zs.length;
+    const xs = axis(cx), zs = axis(cz), nx = xs.length, nz = zs.length;
     const pos = new Float32Array(nx * nz * 3), colors = new Float32Array(nx * nz * 3), idx = [], c = new THREE.Color();
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
         const k = j * nx + i, x = xs[i], z = zs[j];
@@ -1295,6 +1475,7 @@ function grassMaterial() {
     };
     return m;
 }
+const _gc = new THREE.Color();
 const GrassField = {
     chunks: [], lazy: new Map(), group: null, kinds: null, mat: null, lazyAt: 0,
     build(group) {
@@ -1331,10 +1512,10 @@ const GrassField = {
         const chunk = new THREE.Group();
         chunk.userData.center = V(mx, 0, mz); chunk.userData.key = cx + ',' + cz;
         this.kinds.forEach(k => {
-                const items = [], n = Math.round(k.d * G.chunk * G.chunk);
+                const items = [], n = Math.round(k.d * G.chunk * G.chunk * (ISITE ? clamp((ISITE.world.grass ?? 0.7) / 0.7, 0.25, 1.3) : 1));
                 for (let i = 0; i < n; i++) {
                     const x = x0 + rnd() * G.chunk, z = z0 + rnd() * G.chunk, dist = Math.hypot(x, z);
-                    if ((inner ? dist > G.radius : dist <= G.radius) || shoreDist(x, z) < 30 || (!inner && dist < 560 && Build.has('road') && Plan.get().roads.some(r => polylineDist(r.pts, x, z) < r.w / 2 + 0.5)) || roadDist(x, z) < ROAD.halfWidth + 0.3 || pondDist(x, z) < POND.radius * 1.02 || inSite(x, z, 0.4) || inSub(x, z, 0.8)) continue;
+                    if ((inner ? dist > G.radius : dist <= G.radius) || shoreDist(x, z) < 30 || (ISITE && ISITE.waterD(x, z) < 1.5) || (!inner && (ISITE || dist < 560) && Build.has('road') && Plan.get().roads.some(r => polylineDist(r.pts, x, z) < r.w / 2 + 0.5)) || roadDist(x, z) < ROAD.halfWidth + 0.3 || pondDist(x, z) < POND.radius * 1.02 || inSite(x, z, 0.4) || inSub(x, z, 0.8)) continue;
                     const sd = Math.min(siteRectDist(x, z), driveDist(x, z));
                     if (sd < 6 && rnd() < 0.8 * (1 - sd / 6)) continue;                // thin, trampled grass around the yard
                     const edge = forestEdge(Math.atan2(z, x));
@@ -1342,6 +1523,7 @@ const GrassField = {
                     if (k.edge && dist < edge - 80 && rnd() < 0.75) continue;    // broomsedge hugs the edges
                     if (noise2(x * 0.05, z * 0.05) < 0.25 && rnd() < 0.5) continue;   // patchy spots
                     col.setHex(pick(k.tint)).multiplyScalar(rrr(0.88, 1.1));
+                    if (ISITE) { ISITE.paintAt(x, z, _sg); _gc.setRGB(_sg[0] / 255, _sg[1] / 255, _sg[2] / 255, THREE.SRGBColorSpace); col.lerp(_gc, 0.45); }
                     const s = rrr(k.scale[0], k.scale[1]);
                     items.push({ x, y: getTerrainHeight(x, z) - 0.05, z, ry: rnd() * Math.PI * 2,
                                  tx: rrr(-0.12, 0.12), tz: rrr(-0.12, 0.12), s, sy: s * rrr(0.85, 1.2), color: col.clone() });
@@ -1732,6 +1914,7 @@ const VARIANT_WEIGHTS = { sweetgum: [[0, 4], [1, 3], [2, 2], [3, 1]] };
 // Place one tree (adds collider). Returns false if the spot is taken.
 function placeTree(buckets, species, x, z, scale) {
     if (shoreDist(x, z) < 45) return false;                                         // nothing on the beach / in the sea
+    if (ISITE && (ISITE.roadD(x, z) < 3 || ISITE.waterD(x, z) < 1)) return false;   // (imported site: off its roads + out of its creeks)
     if (roadDist(x, z) < ROAD.halfWidth + 3) return false;
     if (pondDist(x, z) < POND.radius * 0.6 && species !== 'cypress') return false;
     if (Math.hypot(x, z) < CONFIG.world.clearRadius || inSite(x, z, 12)) return false;
@@ -1756,6 +1939,7 @@ function buildFoliage(group) {
         for (let v = 0; v < variantCount[sp]; v++) { const { r, lo, mid } = withLod(() => TREE_SPECIES[sp](v)); buckets[sp].push({ ...r, lo, mid, items: [] }); }
     }
 
+    if (ISITE) { siteFoliage(group, buckets); return; }
     // 1) Field oaks — big lone shade trees in the open field
     const oakSpots = [[-72, 58], [88, -62], [-128, -96], [36, 150], [160, 4], [-160, 40]];
     oakSpots.slice(0, C.fieldOaks).forEach(([x, z]) => placeTree(buckets, 'oak', x, z, rr(1.05, 1.25)));
@@ -4285,16 +4469,155 @@ function poseWalk(rig, delta, moving, sprint, holdingRod, emptyHands) {
 }
 
 // =====================================================================
+// [SITEWORLD]  An imported site's water (creeks + ponds), its old roads, its trees / bushes / rocks, its coast on the map
+// =====================================================================
+const SiteWorld = {
+    waterMat: null,
+    build() {
+        const S = ISITE;
+        this.waterMat = new THREE.MeshStandardMaterial({ color: 0x4d6a6c, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+        S.rivers.forEach(r => scene.add(this.river(r)));
+        S.ponds.forEach(p => { const m = this.pond(p); if (m) scene.add(m); });
+        S.roads.filter(r => r.existing).forEach(r => scene.add(this.oldRoad(r)));
+    },
+    // a flat ribbon along `pts` (w wide, `across` strips); y(i) per point
+    ribbon(pts, w, y, mat, across = 6, uvs = 6) {
+        const pos = [], uv = [], idx = []; let dist = 0;
+        pts.forEach((p, i) => {
+            const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], L = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / L, nz = (b.x - a.x) / L;
+            if (i) dist += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+            for (let j = 0; j <= across; j++) { const u = j / across, s = (u - 0.5) * w, x = p.x + nx * s, z = p.z + nz * s; pos.push(x, y(i, x, z), z); uv.push(u * w / uvs, dist / uvs); }
+        });
+        for (let i = 0; i < pts.length - 1; i++) for (let j = 0; j < across; j++) { const a = i * (across + 1) + j, b = a + across + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+        const m = new THREE.Mesh(g, mat); m.receiveShadow = true; return m;
+    },
+    // creek water: a few feet up from the cut bed, smoothed along the creek, settling to sea level where it runs out to sea.
+    // Wider than the channel so the banks trim it.
+    river(r) {
+        const P = alongPolyline(r.pts, 4), n = P.length, sea = CONFIG.world.sea;
+        const bed = P.map(p => getTerrainHeight(p.x, p.z) + r.depth * 0.7);
+        const L = bed.map((_, i) => { let s = 0, c = 0; for (let k = -6; k <= 6; k++) { const j = i + k; if (j >= 0 && j < n) { s += bed[j]; c++; } } return s / c; });
+        P.forEach((p, i) => { const sd = shoreDist(p.x, p.z); if (sd < 60) L[i] = lerp(sea + 0.1, L[i], smoothstep(-10, 60, sd)); });
+        const m = this.ribbon(P, r.w + 16, i => L[i], this.waterMat, 6);
+        m.renderOrder = 0; return m;
+    },
+    pond(p) {
+        const pts = p.pts; if (pts.length < 3) return null;
+        let lo = Infinity; pts.forEach(q => { lo = Math.min(lo, getTerrainHeight(q.x, q.z)); });
+        const tri = THREE.ShapeUtils.triangulateShape(pts.map(q => new THREE.Vector2(q.x, q.z)), []);
+        const pos = []; pts.forEach(q => pos.push(q.x, lo - 0.3, q.z));
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(tri.flat()); g.computeVertexNormals();
+        return new THREE.Mesh(g, this.waterMat);
+    },
+    // a road that's already there (county road, old ranch road): dirt / caliche / paved strip from the start
+    oldRoad(r) {
+        const S = alongPolyline(r.pts, 3), col = { dirt: 0x9c7d57, caliche: 0xe3d9c0, gravel: 0xb5b0a5, paved: 0x4b4f53 }[r.surface] || 0x9c7d57;
+        const mat = r.surface === 'dirt' ? new THREE.MeshStandardMaterial({ map: dirtRoadTexture(), roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+            : new THREE.MeshStandardMaterial({ color: col, roughness: r.surface === 'paved' ? 0.85 : 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        return this.ribbon(S, r.w, (i, x, z) => getTerrainHeight(x, z) + 0.14, mat, 8, r.surface === 'dirt' ? r.w * 1.1 : 6);
+    },
+    // is this spot part of the build (the LOD clearing takes its trees)? Roads, cable routes, pads, LBDs, the substation
+    // and the fence lines. Trees standing in the arrays wait for the tree-marking job.
+    work(x, z) {
+        const S = ISITE, C = Plan.get();
+        if (S.roadD(x, z) < 10 || subRectDist(x, z) < 16) return true;
+        if (C.invs.some(I => Math.abs(x - I.x) < I.padW / 2 + 10 && Math.abs(z - I.z) < I.padD / 2 + 10) || C.lbds.some(l => Math.hypot(x - l.x, z - l.z) < 12)) return true;
+        if (C.acs.some(r => polylineDist(r, x, z) < 8) || C.dc.some(r => polylineDist(r, x, z) < 8)) return true;
+        return S.lods.some(l => polyEdgeDist(l.pts, x, z) < 8) || S.silts.some(l => polyEdgeDist(l.pts, x, z) < 8);
+    },
+    // the map: coast, creeks, ponds and old roads
+    drawMap(focus, sc) {
+        const S = ISITE, P = p => [(p.x - focus.x) * sc, (p.z - focus.z) * sc];
+        const path = (pts, close) => { rCtx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); if (i) rCtx.lineTo(x, y); else rCtx.moveTo(x, y); }); if (close) rCtx.closePath(); };
+        rCtx.save(); rCtx.lineCap = 'round'; rCtx.lineJoin = 'round';
+        if (S.coast.length > 2) { path(S.coast, true); rCtx.strokeStyle = 'rgba(125,200,240,0.6)'; rCtx.lineWidth = 2; rCtx.stroke(); }
+        S.ponds.forEach(p => { path(p.pts, true); rCtx.fillStyle = 'rgba(70,140,200,0.6)'; rCtx.fill(); });
+        S.rivers.forEach(r => { path(r.pts, false); rCtx.strokeStyle = 'rgba(70,140,200,0.7)'; rCtx.lineWidth = Math.max(2, r.w * sc); rCtx.stroke(); });
+        S.roads.filter(r => r.existing).forEach(r => { path(r.pts, false); rCtx.strokeStyle = 'rgba(160,150,135,0.5)'; rCtx.lineWidth = Math.max(2, r.w * sc); rCtx.stroke(); });
+        rCtx.restore();
+    },
+};
+// trees from the site's tree painting (0-4 per 20 ft cell), its species mix matched to the game's tree models;
+// bushes, rocks, stumps and logs scattered over the land around them
+function siteFoliage(group, buckets) {
+    const S = ISITE, C = CONFIG.counts, n = S.n, cell = S.cell, org = S.org;
+    let mix = Object.entries((S.vegetation && S.vegetation.mix) || {}).filter(([, w]) => w > 0).map(([k, w]) => [SITE_TREES[k.toLowerCase()] || (buckets[k] ? [k, 1] : ['oak', 1]), w]);
+    if (!mix.length) mix = [[['loblolly', 1], 3], [['oak', 1], 2], [['sweetgum', 1], 2], [['cedar', 1], 1]];
+    const treeMix = mix.filter(([m]) => m[0] !== 'bush'), bushMix = mix.filter(([m]) => m[0] === 'bush');
+    const bushShare = bushMix.reduce((s, [, w]) => s + w, 0) / mix.reduce((s, [, w]) => s + w, 0);
+    const treeCells = [], bushSpots = [];
+    let placed = 0;
+    for (let k = 0; k < n; k++) for (let i = 0; i < n; i++) {
+        const v = S.trees[k * n + i]; if (!v) continue;
+        treeCells.push([i, k]);
+        const e = v / 255 * 4, m = Math.floor(e) + (rand() < e - Math.floor(e) ? 1 : 0);
+        for (let q = 0; q < m && placed < 7000; q++) {
+            const p = S.fwd(org + i * cell + rr(-cell / 2, cell / 2), org + k * cell + rr(-cell / 2, cell / 2));
+            if (bushMix.length && (!treeMix.length || rand() < bushShare)) { bushSpots.push({ x: p.x, z: p.z, s: weightedPick(bushMix)[1] }); continue; }
+            const sp = weightedPick(treeMix); if (placeTree(buckets, sp[0], p.x, p.z, rr(0.85, 1.2) * sp[1])) placed++;
+        }
+    }
+    for (const sp in buckets) buckets[sp].forEach(v => Forest.add(group, v.geo, v.lo, LEAF_MAT, v.items, 30, { mid: v.mid }));
+    const ok = (x, z, m) => shoreDist(x, z) > 45 && S.roadD(x, z) > m && S.waterD(x, z) > m && !inSite(x, z, 8) && Math.hypot(x, z) > CONFIG.world.clearRadius;
+    const land = () => { for (let t = 0; t < 40; t++) { const a = rand() * 6.283, d = Math.sqrt(rand()) * S.shoreMax, x = S.centre.x + Math.cos(a) * d, z = S.centre.z + Math.sin(a) * d; if (ok(x, z, 4)) return { x, z }; } return null; };
+    const nearTrees = () => { if (!treeCells.length) return land(); const [i, k] = treeCells[Math.floor(rand() * treeCells.length)], p = S.fwd(org + i * cell + rr(-cell, cell), org + k * cell + rr(-cell, cell)); return ok(p.x, p.z, 3) ? p : null; };
+    // bushes: the painted ones (yucca, cholla…) + thickets round the trees + a few out in the open
+    const bushVariants = [0, 1, 2, 3].map(v => { const { r, lo, mid } = withLod(() => bushGeo(v)); return { geo: r, lo, mid, items: [] }; });
+    const want = Math.round(clamp(S.vegetation.bushes ?? 0.5, 0, 1) * 700);
+    const spots = bushSpots.slice(0, 2500);
+    for (let t = 0; t < want * 3 && spots.length < bushSpots.length + want; t++) { const p = rand() < 0.65 ? nearTrees() : land(); if (p) spots.push({ x: p.x, z: p.z, s: 1 }); }
+    spots.forEach(p => {
+        const s = rr(0.8, 1.5) * (p.s || 1);
+        if (!ok(p.x, p.z, 2) || !Colliders.isFree(p.x, p.z, 1.6 * s)) return;
+        const bit = { x: p.x, y: getTerrainHeight(p.x, p.z) - 0.15, z: p.z, ry: rand() * 6.28, s, kind: 'bush' }, bv = bushVariants[Math.floor(rand() * 4)];
+        bit.col = Colliders.add(p.x, p.z, 1.5 * s, 2.6 * s, { tag: 'bush', ghost: true });
+        bv.items.push(bit); FOLIAGE.push(bit);
+    });
+    bushVariants.forEach(v => Forest.add(group, v.geo, v.lo, LEAF_MAT, v.items, 6, { mid: v.mid }));
+    // rocks (snakes live round these), stumps + logs near the trees
+    const rockVariants = [0, 1, 2, 3].map(v => ({ geo: rockGeo(v), items: [] }));
+    for (let t = 0, placedR = 0; t < C.rocks * 60 && placedR < C.rocks * 2; t++) {
+        const p = land(); if (!p) continue;
+        const s = rand() < 0.75 ? rr(0.5, 1.2) : rr(1.4, 2.6); if (!Colliders.isFree(p.x, p.z, s * 1.1)) continue;
+        const big = s >= 2.0, ky = big ? 1 : Math.min(1, 0.7 / (0.72 * s));
+        const rit = { x: p.x, y: getTerrainHeight(p.x, p.z) - 0.1, z: p.z, ry: rand() * 6.28, s, sy: s * ky, kind: 'rock' }, rv = rockVariants[Math.floor(rand() * 4)];
+        rit.col = Colliders.add(p.x, p.z, s * 1.05, big ? s * 0.75 : clamp(0.72 * s * ky - 0.1, 0.15, 0.6), { walk: true, tag: big ? 'boulder' : 'rock' });
+        rit.spot = { x: p.x, z: p.z, s }; ROCK_SPOTS.push(rit.spot);
+        rv.items.push(rit); FOLIAGE.push(rit); placedR++;
+    }
+    rockVariants.forEach(v => Forest.add(group, v.geo, null, MAT.veg, v.items, 6));
+    const stumpV = [stumpGeo(), stumpGeo()].map(v => ({ ...v, items: [] }));
+    for (let t = 0, k = 0; t < C.stumps * 40 && k < C.stumps; t++) {
+        const p = nearTrees(), v = stumpV[Math.floor(rand() * 2)]; if (!p || !Colliders.isFree(p.x, p.z, v.r + 0.5)) continue;
+        const sit = { x: p.x, y: getTerrainHeight(p.x, p.z) - 0.1, z: p.z, ry: rand() * 6.28, s: 1, kind: 'stump' };
+        sit.col = Colliders.add(p.x, p.z, v.r, 1.3, { walk: true, tag: 'stump' }); v.items.push(sit); FOLIAGE.push(sit); k++;
+    }
+    stumpV.forEach(v => Forest.add(group, v.geo, null, MAT.veg, v.items, 3));
+    const logV = [logGeo(), logGeo()].map(v => ({ ...v, items: [] }));
+    for (let t = 0, k = 0; t < C.logs * 40 && k < C.logs; t++) {
+        const p = nearTrees(), v = logV[Math.floor(rand() * 2)], ry = rand() * Math.PI; if (!p || !Colliders.isFree(p.x, p.z, v.len / 2 + 1) || !ok(p.x, p.z, v.len / 2 + 2)) continue;
+        const lit = { x: p.x, y: getTerrainHeight(p.x, p.z) - 0.1, z: p.z, ry, s: 1, kind: 'log', cols: [] }; v.items.push(lit); FOLIAGE.push(lit);
+        const steps = Math.ceil(v.len / (v.rad * 1.4));
+        for (let i = 0; i <= steps; i++) { const tt = (i / steps - 0.5) * (v.len - v.rad); lit.cols.push(Colliders.add(p.x + Math.cos(ry) * tt, p.z - Math.sin(ry) * tt, v.rad, v.rad * 1.7, { walk: true, tag: 'log' })); }
+        k++;
+    }
+    logV.forEach(v => Forest.add(group, v.geo, null, MAT.veg, v.items, 8));
+}
+
+// =====================================================================
 // [WORLD]  build everything
 // =====================================================================
 scene.add(buildTerrain());
-scene.add(buildRoad());
-scene.add(buildPond());
+if (!ISITE) { scene.add(buildRoad()); scene.add(buildPond()); }
+else SiteWorld.build();
 // the sea all the way round (a ring, so it never shows through low spots on the island)
 const SEA_MESH = (() => {
-    const m = new THREE.Mesh(new THREE.RingGeometry(CONFIG.world.shore - 140, 9000, 96, 1),
+    const m = new THREE.Mesh(new THREE.RingGeometry(ISITE ? Math.max(60, ISITE.shoreMin - 140) : CONFIG.world.shore - 140, 9000, 96, 1),
         new THREE.MeshStandardMaterial({ color: 0x2f6f8a, roughness: 0.15, metalness: 0.25 }));
-    m.rotation.x = -Math.PI / 2; m.position.y = CONFIG.world.sea; m.receiveShadow = true; scene.add(m); return m;
+    m.rotation.x = -Math.PI / 2; m.position.y = CONFIG.world.sea;
+    if (ISITE) m.position.set(ISITE.centre.x, CONFIG.world.sea, ISITE.centre.z); m.receiveShadow = true; scene.add(m); return m;
 })();
 
 const baseStationPos = new THREE.Vector3(40, getTerrainHeight(40, -2), -2);
@@ -4307,7 +4630,7 @@ buildFoliage(vegGroup);
 const grassGroup = new THREE.Group(); scene.add(grassGroup);
 GrassField.build(grassGroup);
 const SITE = buildSite();
-scene.add(buildSpur());
+if (SPUR.pts.length) scene.add(buildSpur());
 paint.rng = mulberry32(5062);                      // the substation's colour jitter has its own stream, so the rest of the world's random sequence is untouched
 const SUBSTATION = buildSubstation();
 paint.rng = null;
@@ -4682,7 +5005,7 @@ const Rejoin = {
     },
 };
 const Save = {
-    KEY: 'surveySim.save.v1', ready: false, dirty: false, lastLocal: 0, lastAuto: 0, lastDb: 0,
+    KEY: 'surveySim.save.v1' + (ISITE ? '.' + ISITE.id : ''), ready: false, dirty: false, lastLocal: 0, lastAuto: 0, lastDb: 0,
     db: null, uid: null, dbBusy: false, pendingDb: null, wipeArmed: 0,
     touch() { this.dirty = true; },
     snapshot() {
@@ -6836,7 +7159,8 @@ function drawSiteOnRadar(focus, sc) {
         if (stroke) { rCtx.strokeStyle = stroke; rCtx.lineWidth = 1; rCtx.strokeRect(-hx * sc, -hz * sc, hx * 2 * sc, hz * 2 * sc); }
         rCtx.restore();
     };
-    {   // collection substation: pad + spur road
+    if (ISITE) SiteWorld.drawMap(focus, sc);
+    if (!SUB.none) {   // collection substation: pad + spur road
         rCtx.save(); rCtx.strokeStyle = 'rgba(160,150,135,0.45)'; rCtx.lineWidth = Math.max(2, SPUR.hw * 2 * sc); rCtx.beginPath();
         SPUR.pts.forEach((p, i) => { const x = (p.x - focus.x) * sc, y = (p.z - focus.z) * sc; if (i) rCtx.lineTo(x, y); else rCtx.moveTo(x, y); });
         rCtx.stroke(); rCtx.restore();
@@ -7375,7 +7699,7 @@ function setItemM(it, tilt, sink) {
 }
 const Dozer = {
     zones: new Map(),                                 // key -> flat [x, z, x, z, ...] of every cleared polygon
-    keep(x, z) { return pondDist(x, z) < LODCLEAR.keepPond || siteRectDist(x, z) < LODCLEAR.keepYard; },
+    keep(x, z) { return pondDist(x, z) < LODCLEAR.keepPond || siteRectDist(x, z) < LODCLEAR.keepYard || (!!ISITE && !SiteWorld.work(x, z)); },
     inside(poly, x, z) {
         let c = false;
         for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -7422,7 +7746,7 @@ const Dozer = {
             it.dir = Math.random() < 0.5 ? 1 : -1; it.state = 0;
         });
         const P = playerGroup.position; let thudAt = 0;
-        showToast('🚜 LOD staked — clearing everything inside it (the pond keeps its trees).');
+        showToast(ISITE ? '🚜 LOD staked — clearing the roads, cable routes, pads and fence lines.' : '🚜 LOD staked — clearing everything inside it (the pond keeps its trees).');
         Anims.push({
             age: 0, dur: LODCLEAR.dur + FALL + 0.6,
             step(t) {
@@ -7721,6 +8045,7 @@ const Plan = {
     c: null,
     get() { if (!this.c) this.c = this.make(); return this.c; },
     make() {
+        if (ISITE) return this.makeSite();
         const zB0 = Math.round(roadCenterZ(-110) + ROAD.halfWidth + 4), farm = (x0, x1) => { const o = []; for (let x = x0; x <= x1 + 0.1; x += 8) o.push({ x, z: roadCenterZ(x) }); return o; };
         const s0 = SPUR.pts[0], pad = CONFIG.site.pad, drv = CONFIG.site.drive;
         const roads = [
@@ -7749,7 +8074,38 @@ const Plan = {
             const ox = x + ((Math.round(z / 70) & 1) ? 35 : 0);
             if (Dozer.inside(DESIGN_POLY, ox, z) && polyEdgeDist(DESIGN_POLY, ox, z) > 14 && !inSite(ox, z, 12) && pondDist(ox, z) > POND.radius + 8 && subRectDist(ox, z) > 12 && roadDist(ox, z) > ROAD.halfWidth + 4) topo.push({ x: ox, z });
         }
-        return { roads, layout, inv, ac, dc, lbds, lbdPiles, invPiles, topo, rack: null };
+        return { roads, layout, inv, invs: [inv], ac, acs: [ac], dc, lbds, lbdPiles, invPiles, topo, rack: null };
+    },
+    // an imported site: everything from the file (roads that aren't there yet, cable, LBDs, inverters, racking rows)
+    makeSite() {
+        const S = ISITE;
+        const roads = S.roads.filter(r => !r.existing).map((r, k) => ({ id: 'R' + (k + 1), name: r.name, pts: r.pts, w: r.w, ends: r.ends }));
+        const invs = S.objs('inverterpad').map(o => { const turned = Math.abs(Math.sin(o.yaw || 0)) > 0.7;
+            return { x: o.x, z: o.z, yaw: turned ? Math.PI / 2 : 0, padW: turned ? (o.d || 60) : (o.w || 44), padD: turned ? (o.w || 44) : (o.d || 60) }; });
+        const lbds = S.objs('lbd').map(o => ({ x: o.x, z: o.z, yaw: o.yaw || 0 }));
+        const lbdPiles = [], invPiles = [];
+        lbds.forEach(l => [-2.2, 2.2].forEach(o => lbdPiles.push({ x: l.x + Math.cos(l.yaw) * o, z: l.z - Math.sin(l.yaw) * o })));
+        const NS = [0, 5.167, 8.917, 14.417, 19.167], ES = [0, 7.63];                  // the same 10-pile stakeout, turned with the pad
+        S.objs('inverterpad').forEach(o => { const c = Math.cos(o.yaw || 0), s = Math.sin(o.yaw || 0);
+            ES.forEach((e, k) => (k ? NS.slice().reverse() : NS).forEach(nn => { const lx = -3.815 + e, lz = 9.5835 - nn; invPiles.push({ x: o.x + lx * c + lz * s, z: o.z - lx * s + lz * c }); })); });
+        // topo: a staggered grid over the arrays (spaced out on a big job so it stays a drive, not a week)
+        const arr = S.arrays.filter(a => a.pts.length > 2), lod = S.lods[0] ? S.lods[0].pts : null, topo = [];
+        if (arr.length) {
+            const tot = arr.reduce((s2, a) => s2 + Math.abs(a.pts.reduce((q, p, i) => { const r = a.pts[(i + 1) % a.pts.length]; return q + p.x * r.z - r.x * p.z; }, 0) / 2), 0);
+            const sp = Math.max(70, Math.round(Math.sqrt(tot / 70))), all = arr.flatMap(a => a.pts);
+            const x0 = Math.min(...all.map(p => p.x)), x1 = Math.max(...all.map(p => p.x)), z0 = Math.min(...all.map(p => p.z)), z1 = Math.max(...all.map(p => p.z));
+            for (let z = z0 + sp / 2, r = 0; z <= z1; z += sp, r++) {
+                const row = [];
+                for (let x = x0 + (r & 1 ? sp : sp / 2); x <= x1; x += sp) {
+                    if (!arr.some(a => S.inPoly(a.pts, x, z) && polyEdgeDist(a.pts, x, z) > 14)) continue;
+                    if (lod && !S.inPoly(lod, x, z)) continue;
+                    if (S.roadD(x, z) < 4 || S.waterD(x, z) < 6 || shoreDist(x, z) < 40) continue;
+                    row.push({ x, z });
+                }
+                topo.push(...(r & 1 ? row.reverse() : row));                                 // back and forth, row by row
+            }
+        }
+        return { roads, layout: null, inv: invs[0] || null, invs, ac: S.ac[0] || [], acs: S.ac, dc: S.dc, lbds, lbdPiles, invPiles, topo, rack: null, site: true };
     },
     // the edge-of-road layout lines (staked in T6): both edges of EVERY gravel road, following the same smoothed
     // centreline the gravel is laid on, broken wherever an edge runs into another road, the farm road or the yard
@@ -7773,13 +8129,19 @@ const Plan = {
     blocked(x, z, m = 10) {
         const C = this.get();
         if (C.roads.some(r => polylineDist(r.pts, x, z) < r.w / 2 + m)) return true;
-        if ([C.ac, ...C.dc].some(c => polylineDist(c, x, z) < m)) return true;
-        if (Math.abs(x - C.inv.x) < C.inv.padW / 2 + m && Math.abs(z - C.inv.z) < C.inv.padD / 2 + m) return true;
+        if ([...C.acs, ...C.dc].some(c => polylineDist(c, x, z) < m)) return true;
+        if (C.invs.some(I => Math.abs(x - I.x) < I.padW / 2 + m && Math.abs(z - I.z) < I.padD / 2 + m)) return true;
         return C.lbds.some(l => Math.hypot(x - l.x, z - l.z) < m + 4);
     },
     // racking piles: N-S tracker rows, every RACK.pitch east-west and RACK.step along the row, wherever nothing else is
     rack() {
         const C = this.get(); if (C.rack) return C.rack;
+        if (C.site) {                                                 // an imported site: the builder's racking rows, as drawn
+            const piles = [], rows = [];
+            ISITE.arrays.forEach(a => a.rows.forEach(r => { const row = r.map(p => piles.push({ x: p.x, z: p.z, row: rows.length }) - 1); if (row.length >= 2) rows.push(row); }));
+            piles.forEach((p, i) => { p.y = getTerrainHeight(p.x, p.z); p.i = i; });
+            C.rack = { piles, rows, skip: {} }; return C.rack;
+        }
         const cables = [C.ac, ...C.dc], cps = (typeof ControlPoints === 'object' ? ControlPoints.list : []);
         const L = TaskManager.get('T1'), lod = L && L.points.length > 2 ? L.points : null;
         const fences = ['T3', 'T4', 'T5'].map(id => TaskManager.get(id)).filter(t => t && t.points.length > 2).map(t => t.points);
@@ -7890,7 +8252,7 @@ const Build = {
         const t = TaskManager.get(tid), C = Plan.get();
         if (t && t.vis && t.status === 'completed') TaskManager.dropVisuals(t);
         const rc = { road: 'EOR', ac: 'AC', dc: 'DC', lbd: 'LBD', invp: 'INV' }[id], ci = (TaskManager.RULES.find(r => r.code === rc) || {}).colorIdx;
-        const lines = id === 'road' ? Plan.roadEdges() : id === 'ac' ? [C.ac] : id === 'dc' ? C.dc : null;
+        const lines = id === 'road' ? Plan.roadEdges() : id === 'ac' ? C.acs : id === 'dc' ? C.dc : null;
         const pts = id === 'lbd' ? C.lbdPiles : id === 'invp' ? C.invPiles : null;
         let n = 0;
         [...stakes].forEach(st => {
@@ -7963,9 +8325,24 @@ const Build = {
     },
     b_road(anim) {
         const all = [];
-        Plan.get().roads.forEach((r, k) => { all.push(this.roadStrip(r.pts, r.w, 0.32 + k * 0.025)); });
+        Plan.get().roads.forEach((r, k) => { all.push(this.roadStrip(r.pts, r.w, 0.32 + k * 0.025));
+            (r.ends || []).forEach((R, e) => { if (R > 0) all.push(this.turnaround(e ? r.pts[r.pts.length - 1] : r.pts[0], R, 0.3 + k * 0.025)); }); });
         Plan.get().roads.forEach(r => this.clearGrass(r.pts, r.w / 2 + 1));
         if (anim) { this.reveal(all, 6, 0x9b978c); if (TaskManager.toastBuild) showToast('🚧 Gravel going down on your road edges…'); }
+    },
+    // a gravel turnaround circle at a dead end (imported sites: roads that stop short of the coast)
+    turnaround(c, R, lift) {
+        const seg = 28, ring = 3, pos = [], uv = [], idx = [];
+        for (let k = 0; k <= ring; k++) for (let i = 0; i <= seg; i++) {
+            const a = i / seg * Math.PI * 2, r = R * k / ring, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r;
+            pos.push(x, getTerrainHeight(x, z) + lift * (k === ring ? 0.55 : 1), z); uv.push(x / 6, z / 6);
+        }
+        for (let k = 0; k < ring; k++) for (let i = 0; i < seg; i++) { const a = k * (seg + 1) + i, b = a + seg + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+        if (g.attributes.normal.getY(0) < 0) { idx.length = 0; for (let k = 0; k < ring; k++) for (let i = 0; i < seg; i++) { const a = k * (seg + 1) + i, b = a + seg + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); } g.setIndex(idx); g.computeVertexNormals(); }
+        const m = new THREE.Mesh(g, this.mats.road); m.receiveShadow = true; m.renderOrder = 1; this.group.add(m);
+        this.clearGrass([c], R + 1);
+        return m;
     },
     // no grass poking through what's built along a path
     clearGrass(pts, R) {
@@ -7977,7 +8354,14 @@ const Build = {
         const ms = [...this.strip(pts, 2.6, 0.05, this.mats.trench), ...this.strip(pts, 1.1, 0.16, this.mats.berm)];
         if (anim) this.reveal(ms, 7, 0x6b4f35);
     },
-    b_ac(anim) { this.trench(Plan.get().ac, anim); },
+    b_ac(anim) {
+        Plan.get().acs.forEach(r => this.trench(r, anim));
+        if (ISITE) ISITE.scabs.forEach(q => {                          // green SCAB junction boxes where the AC runs join
+            const y = getTerrainHeight(q.x, q.z), m = new THREE.Mesh(new THREE.BoxGeometry(6, 5, 3.5), new THREE.MeshStandardMaterial({ color: 0x2f7d3a, roughness: 0.6 }));
+            m.position.set(q.x, y + 2.5, q.z); m.rotation.y = q.yaw || 0; m.castShadow = true; this.group.add(m);
+            Boxes.add({ cx: q.x, cz: q.z, yaw: q.yaw || 0, hx: 3, hz: 1.75, y0: y - 1, y1: y + 5, player: true, vehicle: true, tag: 'scab' });
+        });
+    },
     b_dc(anim) { Plan.get().dc.forEach(r => this.trench(r, anim)); },
     pile(x, z, mat, h, w, d) {
         const y = getTerrainHeight(x, z), m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -8010,14 +8394,16 @@ const Build = {
         Plan.get().invPiles.forEach((p, i) => { const { g, y } = this.pile(p.x, p.z, this.mats.steel, 3.2, 0.55, 0.38); if (anim) this.rise(g, y, 4, 0.3 + i * 0.3, 0.6, true); });
     },
     // the inverter skid: open white frame on a black base, transformer + cabinets inside, sat on its 10 piles; gravel pad around it
-    b_inv(anim) {
-        const C = Plan.get(), I = C.inv, y = getTerrainHeight(I.x, I.z);
+    b_inv(anim) { Plan.get().invs.forEach((I, k) => this.invUnit(I, anim && k === 0, anim)); },
+    invUnit(I, toast, anim) {
+        const y = getTerrainHeight(I.x, I.z);
         // gravel pad built up as a mound: wide at the ground, flat top right under the skid (so it isn't sitting on sticks)
-        const pad = new THREE.Mesh(padMound(I.padW, I.padD, 14, 27, 3.2, 2.0), this.mats.padGravel); pad.position.set(I.x, y, I.z);
+        const tw = I.yaw ? 27 : 14, td = I.yaw ? 14 : 27;
+        const pad = new THREE.Mesh(padMound(I.padW, I.padD, tw, td, 3.2, 2.0), this.mats.padGravel); pad.position.set(I.x, y, I.z);
         pad.receiveShadow = true; pad.castShadow = false; this.group.add(pad);
         try { GrassField.clearWhere((x, z) => Math.abs(x - I.x) < I.padW / 2 + 1 && Math.abs(z - I.z) < I.padD / 2 + 1, { x0: I.x - I.padW, x1: I.x + I.padW, z0: I.z - I.padD, z1: I.z + I.padD }); } catch (err) { console.warn('grass', err); }
-        PAD = { x: I.x, z: I.z, y, bw: I.padW, bd: I.padD, tw: 14, td: 27, h: 3.2 };                      // walk / drive up it
-        const g = new THREE.Group(); g.position.set(I.x, y + 3.2, I.z); this.group.add(g);
+        PADS.push({ x: I.x, z: I.z, y, bw: I.padW, bd: I.padD, tw, td, h: 3.2 });                      // walk / drive up it
+        const g = new THREE.Group(); g.position.set(I.x, y + 3.2, I.z); g.rotation.y = I.yaw || 0; this.group.add(g);
         const add = (w, h, d, mat, x, yy, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, yy, z); m.castShadow = true; g.add(m); return m; };
         const W = 9, Lz = 22, H = 9.6;
         add(W, 0.9, Lz, this.mats.dark, 0, 0.45, 0);                                           // black base
@@ -8030,12 +8416,12 @@ const Build = {
         add(W - 2, 8.0, 5.6, this.mats.cab, 0, 4.9, 6.9);                                         // inverter cabinet
         add(0.04, 0.8, 0.8, this.mats.warn, W / 2 - 0.98, 6.2, 6.9); add(0.04, 0.8, 0.8, this.mats.warn, -W / 2 + 0.98, 5.4, 0.8);
         [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => add(0.9, 0.12, 0.9, this.mats.warn, a * (W / 2 - 0.5), H + 1.12, b * (Lz / 2 - 0.5)));
-        Boxes.add({ cx: I.x, cz: I.z, yaw: 0, hx: W / 2, hz: Lz / 2, y0: y - 1, y1: y + 14, player: true, vehicle: true, tag: 'inverter' });
+        Boxes.add({ cx: I.x, cz: I.z, yaw: I.yaw || 0, hx: W / 2, hz: Lz / 2, y0: y - 1, y1: y + 14, player: true, vehicle: true, tag: 'inverter' });
         if (anim) {                                                                               // craned down onto its piles
             const y1 = y + 3.2; g.position.y = y1 + 16; pad.scale.set(1, 0.001, 1);
             Anims.push({ age: 0, dur: 3.2, step: t => { const k = clamp(t / 1.0, 0, 1); pad.scale.set(1, Math.max(0.001, k), 1); const u = clamp((t - 0.9) / 2.2, 0, 1); g.position.y = y1 + 16 * (1 - (1 - Math.pow(1 - u, 2))); },
                 done: () => { g.position.y = y1; pad.scale.set(1, 1, 1); Shake.add(0.2); for (let i = 0; i < 12; i++) Smoke.emit(V(I.x + rr(-5, 5), y + 0.5, I.z + rr(-11, 11)), V(rr(-2, 2), rr(0.5, 1.5), rr(-2, 2)), 0x9b978c, 0.5, 1.4); } });
-            showToast('🏗️ Inverter skid going down on its piles…');
+            if (toast) showToast(Plan.get().invs.length > 1 ? `🏗️ Inverter skids going down on their piles (${Plan.get().invs.length} pads)…` : '🏗️ Inverter skid going down on its piles…');
         }
     },
     // racking piles across the array: instanced, rising row by row (PD-10 pounding them in comes later: RACK.pd10)
@@ -8130,17 +8516,18 @@ const Build = {
             rCtx.globalAlpha = 1;
         }
         if (this.done.has('road')) C.roads.forEach(r => { line(r.pts, Math.max(3, r.w * sc), '#7d7a70'); line(r.pts, Math.max(1.5, (r.w - 3) * sc), '#a8a49a'); });
-        if (this.done.has('ac')) line(C.ac, Math.max(1.6, sc * 2.4), '#ff007f');
+        if (this.done.has('ac')) C.acs.forEach(r => line(r, Math.max(1.6, sc * 2.4), '#ff007f'));
         if (this.done.has('dc')) C.dc.forEach(r => line(r, Math.max(1.6, sc * 2.4), '#ff2222'));
-        if (this.done.has('inv') || this.done.has('invp')) {
-            const I = C.inv, [x, y] = P(I);
+        if (this.done.has('inv') || this.done.has('invp')) C.invs.forEach(I => {
+            const [x, y] = P(I), turned = !!I.yaw;
             if (this.done.has('inv')) {
                 rCtx.fillStyle = 'rgba(155,151,140,0.85)'; rCtx.fillRect(x - I.padW / 2 * sc, y - I.padD / 2 * sc, I.padW * sc, I.padD * sc);
-                rCtx.fillStyle = '#f97316'; rCtx.fillRect(x - 4.5 * sc, y - 11 * sc, 9 * sc, 22 * sc);
-                rCtx.strokeStyle = '#7c2d12'; rCtx.lineWidth = 1; rCtx.strokeRect(x - 4.5 * sc, y - 11 * sc, 9 * sc, 22 * sc);
+                const sw = (turned ? 22 : 9) * sc, sd = (turned ? 9 : 22) * sc;
+                rCtx.fillStyle = '#f97316'; rCtx.fillRect(x - sw / 2, y - sd / 2, sw, sd);
+                rCtx.strokeStyle = '#7c2d12'; rCtx.lineWidth = 1; rCtx.strokeRect(x - sw / 2, y - sd / 2, sw, sd);
                 if (big) { rCtx.fillStyle = '#fdba74'; rCtx.font = 'bold 11px sans-serif'; rCtx.textAlign = 'center'; rCtx.fillText('INV', x, y - I.padD / 2 * sc - 4); }
             } else { rCtx.fillStyle = '#f97316'; C.invPiles.forEach(p => { const [a, b] = P(p); rCtx.fillRect(a - 1.5, b - 1.5, 3, 3); }); }
-        }
+        });
         if (this.done.has('lbd') && MapLayers.piles !== false) C.lbds.forEach(l => { const [x, y] = P(l), w = Math.max(4, 5 * sc), h = Math.max(2.5, 2 * sc); rCtx.fillStyle = '#1e3a8a'; rCtx.strokeStyle = '#93c5fd'; rCtx.lineWidth = 1; rCtx.save(); rCtx.translate(x, y); rCtx.rotate(-l.yaw); rCtx.fillRect(-w / 2, -h / 2, w, h); rCtx.strokeRect(-w / 2, -h / 2, w, h); rCtx.restore(); });
         rCtx.restore();
     },
@@ -8181,6 +8568,7 @@ const TaskManager = {
     init() {
         this.group = new THREE.Group(); scene.add(this.group);
         const R = code => this.RULES.find(r => r.code === code);
+        if (ISITE) { this.siteChain(R); this.refresh(); this.updateHud(); return; }
         // the story chain — finishing one unlocks the next (handed out when you report back to Justin)
         //  M1: LOD all the way around the job site (big loop — take the UTV)
         //  M2: primary silt fence just inside the LOD
@@ -8216,8 +8604,81 @@ const TaskManager = {
         this.refresh();
         this.updateHud();
     },
+    // an imported site: the usual job, from the site's own LOD / silt fence loops, roads, cable, LBDs and inverters
+    siteChain(R) {
+        const S = ISITE, C = Plan.get(), ft = v => Math.round(v).toLocaleString('en-US');
+        const len = l => { const P = l.pts; let L = 0; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; L += Math.hypot(b.x - a.x, b.z - a.z); } return L; };
+        let lods = S.lods.slice(), silts = S.silts.slice();
+        if (!lods.length) { const h = this.siteHull(); if (h) lods = [{ pts: h, runs: null, name: 'LOD' }]; }
+        if (!silts.length && lods.length) { const q = this.offsetIn(lods[0].pts, 10); if (q) silts = [{ pts: q, runs: null, name: 'Silt fence' }]; }
+        let prev = null, sn = 0;
+        const chain = (t, loop) => { if (loop) t.loop = loop; prev = t.id; return t; };
+        lods.forEach((l, k) => chain(this.add(k ? { id: 'S' + (++sn), title: 'Stake the LOD' + (l.name ? ' — ' + l.name : ' #' + (k + 1)), rule: R('LOD'), count: 0, gen: 'loop', prerequisites: [prev],
+                brief: "There's another piece of this job with its own limits. Stake that LOD loop too — same deal, white ribbon, paint LOD." }
+            : { id: 'T1', title: 'Stake the site LOD perimeter', rule: R('LOD'), count: 0, gen: 'loop',
+                brief: `Before anybody moves dirt we need the job limits staked. Run the LOD all the way around the work — it's about ${ft(len(l))} ft on this site, so take the UTV.` + (l.runs ? ' Leave it open where the roads come through.' : '') }), l));
+        silts.forEach((l, k) => chain(this.add(k ? { id: 'S' + (++sn), title: 'Silt fence' + (l.name ? ' — ' + l.name : ' #' + (k + 1)), rule: R('SILT'), count: 0, gen: 'loop', prerequisites: [prev],
+                brief: 'One more silt fence loop on this job. Same ribbon, paint SILT FENCE.' }
+            : { id: 'T2', title: 'Lay out the primary silt fence', rule: R('SILT'), count: 0, gen: 'loop', prerequisites: prev ? [prev] : [],
+                brief: 'LOD looks good. Now the primary silt fence — it follows your LOD, just inside it.' }), l));
+        const nR = C.roads.length, nI = C.invs.length, nL = C.lbds.length, nA = C.acs.length, nD = C.dc.length;
+        const add = (o, need) => { if (need) chain(this.add({ ...o, prerequisites: prev ? [prev] : [] })); };
+        add({ id: 'T6', title: 'Lay out the edge of road', rule: R('EOR'), count: 0, gen: 'road',
+              brief: `Fence is in. Now the access roads — stake both edges of every new gravel road (${nR} on this job). Green ribbon, paint EOR. Once it's staked the road crew lays gravel.` }, nR);
+        add({ id: 'T8', title: 'Buggy topo of the array', rule: R('TOPO'), count: 0, gen: 'topo',
+              brief: "Engineering needs ground shots for the pile heights. Put the rod back on the UTV mount (G), make sure the base is on, and drive the buggy over every topo point on your map — it shoots them as you roll through." }, C.topo.length);
+        add({ id: 'T9', title: 'Lay out the LBD piles', rule: R('LBD'), count: 0, gen: 'lbd',
+              brief: `Now the LBD piles — two piles per LBD, ${nL} LBDs. Nails & tassel only (job box behind the break room), blue tassel. Zero the rod out on every point. Pile crew drives them, then the LBD racks go on.` }, nL);
+        add({ id: 'T10', title: 'Lay out the inverter piles', rule: R('INV'), count: 0, gen: 'invp',
+              brief: `Inverter piles next — ten on each pad${nI > 1 ? `, ${nI} pads` : ''}. Nails & tassel, orange tassel. Zero out on every one.` }, nI);
+        add({ id: 'T7', title: 'Lay out the AC collection run' + (nA > 1 ? 's' : ''), rule: R('AC'), count: 0, gen: 'acrun',
+              brief: `Now the AC collection — ${nA > 1 ? `${nA} runs` : 'the run'} out to the substation. Pink ribbon, paint AC. The trencher buries it once you're done.` }, nA);
+        add({ id: 'T11', title: 'Lay out the DC cable runs', rule: R('DC'), count: 0, gen: 'dcrun',
+              brief: `Now the DC runs from the inverters out to the LBDs — ${nD} of them. Orange ribbon, paint DC. When they're in we set the inverter${nI > 1 ? 's' : ''} and the racking piles start going up.` }, nD);
+        add({ id: 'T12', title: 'Locate the AC cable', rule: R('LOC'), count: 0, gen: 'locate',
+              brief: "With piles going in everywhere, we can't have anybody hitting cable. Walk the AC routes and flag them with red pin flags — just the flags, no line. Skip where they cross the roads." }, nA);
+        add({ id: 'T13', title: 'Locate the DC cables', rule: R('LOC'), count: 0, gen: 'locatedc',
+              brief: "AC's flagged. Same thing for the DC runs, inverters out to the LBDs — red pin flags, no line, skip the road crossings. Then the racking crew can pound away without hitting anything." }, nD);
+        add({ id: 'T14', title: 'Mark the trees in the panel rows', rule: R('MARK'), count: 0, gen: 'trees',
+              brief: "Hey, I was looking at my drone pictures and I think some trees might be in the way of some panels. Grab red spray paint from the job box behind the break room and go put a red X on every one of them — your rod will beep you to the right trees. Once they're all marked the tree crew cuts 'em down." }, ISITE.arrays.length);
+        add({ id: 'T15', title: "Help Becky with the delivery", rule: R('DELIV'), count: 0, gen: 'delivery',
+              brief: "Last one for now — Becky, our warehouse manager, is having an issue with a delivery. She's at the storage conex out behind the break room. Go see what she needs." }, ISITE.arrays.length);
+    },
+    // no LOD drawn on the site: a loop round all the work, 40 ft out
+    siteHull() {
+        const C = Plan.get(), pts = [...C.roads.flatMap(r => r.pts), ...C.acs.flat(), ...C.dc.flat(), ...ISITE.arrays.flatMap(a => a.pts), ...C.invs, ...C.lbds];
+        if (pts.length < 3) return null;
+        const P = pts.map(p => ({ x: p.x, z: p.z })).sort((a, b) => a.x - b.x || a.z - b.z), cr = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x), lo = [], up = [];
+        P.forEach(q => { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+        P.slice().reverse().forEach(q => { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); });
+        const h = lo.slice(0, -1).concat(up.slice(0, -1));
+        return h.length > 2 ? this.offsetIn(h, -40) : null;
+    },
+    // a site loop as stake points: corners kept (simplified to ~4 ft), long sides split so no shot is more than ~120 ft from the
+    // next; when roads cut through it, the pieces run back to back and the joins (incl. the closing side) are left open
+    genLoop(t) {
+        const L = t.loop; if (!L) return null;
+        const simp = (pts, tol) => {                           // Douglas-Peucker
+            if (pts.length < 3) return pts.slice();
+            const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+            const st = [[0, pts.length - 1]];
+            while (st.length) { const [a, b] = st.pop(); let md = 0, mi = -1;
+                for (let i = a + 1; i < b; i++) { const d = polylineDist([pts[a], pts[b]], pts[i].x, pts[i].z); if (d > md) { md = d; mi = i; } }
+                if (md > tol) { keep[mi] = 1; st.push([a, mi], [mi, b]); } }
+            return pts.filter((_, i) => keep[i]);
+        };
+        const split = pts => { const out = []; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], m = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 150)); for (let k = 0; k < m; k++) out.push({ x: a.x + (b.x - a.x) * k / m, z: a.z + (b.z - a.z) * k / m }); } out.push(pts[pts.length - 1]); return out; };
+        if (L.runs) {
+            const pts = [], breaks = [];
+            L.runs.forEach(r => { const q = split(simp(r, 7)); if (q.length < 2) return; pts.push(...q); breaks.push(pts.length - 1); });
+            if (pts.length < 3) return null;
+            t.breaks = breaks; return pts;
+        }
+        const ring = split(simp([...L.pts, L.pts[0]], 7)); ring.pop();
+        t.breaks = []; return ring.length > 2 ? ring : null;
+    },
     add({ id, title, rule, count, prerequisites = [], gen = 'random', from = null, brief = '' }) {
-        const closed = gen === 'perimeter' || gen === 'inset' || gen === 'pond' || gen === 'low';
+        const closed = gen === 'perimeter' || gen === 'inset' || gen === 'pond' || gen === 'low' || gen === 'loop';
         const t = { id, title, type: closed ? 'boundary' : (rule.type), requiredText: rule.text, requiredColorIdx: rule.colorIdx, rule, count,
                     gen, from, brief, prerequisites, status: 'locked', points: [], stakedFlags: [], vertexStakes: [], center: null, vis: null };
         this.tasks.push(t);
@@ -8290,7 +8751,7 @@ const TaskManager = {
         return true;
     },
     generateLayout(t) {
-        const gen = { perimeter: this.genPerimeter, inset: this.genInset, pond: this.genPond, low: this.genLowSpot,
+        const gen = { loop: this.genLoop, perimeter: this.genPerimeter, inset: this.genInset, pond: this.genPond, low: this.genLowSpot,
                       road: this.genRoad, acrun: this.genAC, locate: this.genLocate, locatedc: this.genLocateDC, delivery: () => Storage.slots.map(q => ({ ...q })), trees: () => { const a = Trees.targets(); return a.length ? a : null; }, topo: this.genTopo, lbd: this.genLBD, invp: this.genInvP, dcrun: this.genDC }[t.gen];
         const pts = gen ? gen.call(this, t) : null;
         if (gen) { if (!pts) return false; this.setPoints(t, pts); return true; }
@@ -8313,6 +8774,7 @@ const TaskManager = {
         return true;
     },
     spotOk(x, z) {
+        if (ISITE && (shoreDist(x, z) < 25 || ISITE.waterD(x, z) < 4)) return false;
         return !inSite(x, z, 10) && this.lodOk(x, z) && pondDist(x, z) > POND.radius + 6 && roadDist(x, z) > ROAD.halfWidth + 2.5 &&
                Math.hypot(x, z) < forestEdge(Math.atan2(z, x)) - 8 && Colliders.isFree(x, z, 2.4);
     },
@@ -8331,23 +8793,25 @@ const TaskManager = {
         lines.forEach((l, k) => { if (k) breaks.push(pts.length - 1); pts.push(...l); });
         t.breaks = breaks; return pts;
     },
-    genRoad(t) { return this.joinLines(t, Plan.roadEdges().map(l => resampleRun(l, 32))); },
-    genAC(t) { t.breaks = []; return alongPolyline(Plan.get().ac, 34); },
+    genRoad(t) { const E = Plan.roadEdges(), L = E.reduce((s2, l) => s2 + runLength(l), 0), step = clamp(L / 160, 32, 50); return this.joinLines(t, E.map(l => resampleRun(l, step))); },     // (a big site: stakes a bit further apart)
+    // stakes along a cable route: corners kept on a straight-run route, evenly spaced along a drawn curve (dense points)
+    stakeAlong(r, step) { if (r.length > 3 && runLength(r) / (r.length - 1) < step / 3) return resampleRun(r, step); return alongPolyline(r, step); },
+    genAC(t) { return this.joinLines(t, Plan.get().acs.map(r => this.stakeAlong(r, 34))); },
     // red pin flags along every buried cable, skipping where it runs under a road (and the pad / LBD ends)
-    genLocate(t) { return this.locateAlong(t, [Plan.get().ac]); },
+    genLocate(t) { return this.locateAlong(t, Plan.get().acs); },
     genLocateDC(t) { return this.locateAlong(t, Plan.get().dc); },
     locateAlong(t, routes) {
         t.breaks = []; const C = Plan.get(), out = [];
-        routes.forEach(r => alongPolyline(r, 36).forEach(p => {
+        routes.forEach(r => this.stakeAlong(r, 36).forEach(p => {
             if (C.roads.some(q => polylineDist(q.pts, p.x, p.z) < q.w / 2 + 3)) return;
-            if (Math.abs(p.x - C.inv.x) < C.inv.padW / 2 + 2 && Math.abs(p.z - C.inv.z) < C.inv.padD / 2 + 2) return;
+            if (C.invs.some(I => Math.abs(p.x - I.x) < I.padW / 2 + 2 && Math.abs(p.z - I.z) < I.padD / 2 + 2)) return;
             if (C.lbds.some(l => Math.hypot(p.x - l.x, p.z - l.z) < 5)) return;
             if (subRectDist(p.x, p.z) < 3 || out.some(o => Math.hypot(o.x - p.x, o.z - p.z) < 12)) return;
             out.push(p);
         }));
         return out;
     },
-    genDC(t) { return this.joinLines(t, Plan.get().dc.map(r => alongPolyline(r, 30))); },
+    genDC(t) { return this.joinLines(t, Plan.get().dc.map(r => this.stakeAlong(r, 30))); },
     genTopo(t) { t.breaks = []; return Plan.get().topo.map(p => ({ ...p })); },
     genLBD(t) { t.breaks = []; return Plan.get().lbdPiles.map(p => ({ ...p })); },
     genInvP(t) { t.breaks = []; return Plan.get().invPiles.map(p => ({ ...p })); },
@@ -10244,6 +10708,10 @@ const BubbleLevel = {
 const ControlPoints = {
     list: [],
     init() {
+        if (ISITE) {                                                         // an imported site: its own control points
+            ISITE.objs('controlpoint').forEach((o, k) => { this.list.push(this.build(k + 1, o.x, o.z)); Colliders.add(o.x, o.z, 3, 0.3, { tag: 'cp', ghost: true }); });
+            if (this.list.length) return;
+        }
         [0.8, 2.35, 3.95, 5.5].forEach((a0, k) => {
             for (let i = 0; i < 80; i++) {
                 const a = a0 + rr(-0.4, 0.4), r = rr(70, 140), x = Math.cos(a) * r, z = Math.sin(a) * r;
@@ -12523,7 +12991,7 @@ const Inspector = {
         let seed = 9173;
         const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
         const C = { x: 45, z: 70 }, RX = 205, RZ = 255, N = 11, pts = [];
-        const okPt = (x, z) => pondDist(x, z) > POND.radius + 14 && roadDist(x, z) > ROAD.halfWidth + 6 && Colliders.isFree(x, z, 3) &&
+        const okPt = (x, z) => pondDist(x, z) > POND.radius + 14 && roadDist(x, z) > ROAD.halfWidth + 6 && Colliders.isFree(x, z, 3) && (!ISITE || (shoreDist(x, z) > 40 && ISITE.waterD(x, z) > 6)) &&
             !(x > PPE.ZONE.x0 - 14 && x < PPE.ZONE.x1 + 14 && z > PPE.ZONE.z0 - 14 && z < PPE.ZONE.z1 + 14);
         for (let k = 0; k < N; k++) {
             let best = null;
@@ -14076,17 +14544,20 @@ function animate() {
 //          whose presence carries the same `rc` code (Net.reconcile filters on it).
 // =====================================================================================================
 const Title = {
-    active: false, el: null, cur: null, stack: [], map: 'memphis', mapChosen: false, afterMap: 'mode',
+    active: false, el: null, cur: null, stack: [], map: ISITE ? ISITE.id : 'memphis', mapChosen: false, afterMap: 'mode',
     code: null, t0: 0, optTab: 'audio', moved: [], joinTimer: 0, hostTimer: 0,
     MAPS: [
-        { id: 'memphis', name: 'MEMPHIS, TN', sub: 'Mid-South solar site', ready: true, art: 'memphis' },
-        { id: 'amarillo', name: 'AMARILLO, TX', sub: 'High Plains · coming soon', ready: false, art: 'plains' },
-        { id: 'more', name: 'MORE SITES', sub: 'From the Site Builder', ready: false, art: 'more' },
+        ...SITE_LIST.map(m => ({ ...m, ready: true })),
+        (() => { let nm = null; try { const j = JSON.parse(localStorage.getItem(SITE_CUSTOM_KEY) || 'null'); nm = j && j.meta && j.meta.name; } catch (e) { /* none */ }
+            return nm ? { id: 'custom', name: String(nm).toUpperCase().slice(0, 22), sub: 'Your Site Builder map', ready: true, art: 'more' } : { id: 'more', name: 'MY SITE', sub: 'Load a Site Builder file', ready: true, art: 'more', load: true }; })(),
     ],
     init() {
         if (navigator.webdriver && !window.__TITLE) { Net.rc = 'TEST'; Net.init(); return; }      // automated tests: straight in
         const rj = Rejoin.take();
         this.build();
+        let next = null; try { next = sessionStorage.getItem('surveySim.siteNext'); sessionStorage.removeItem('surveySim.siteNext'); } catch (e) { /* no storage */ }
+        if (next && !rj) setTimeout(() => { if (!this.active) return; this.mapChosen = true; this.afterMap = next; this.go('maps'); setTimeout(() => this.go(next), 260); }, 300);   // just switched site: pick up where you were
+        if (window.__siteError) setTimeout(() => showToast("⚠️ Couldn't load that site — back to Memphis."), 1200);
         this.active = true; S.title = true; this.t0 = performance.now(); this.camWas = { yaw: cam.yaw, pitch: cam.pitch };
         this.stage();
         document.body.classList.add('title-on');
@@ -14158,7 +14629,7 @@ const Title = {
             <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
             ${B('BACK TO MENU', 'back', 2)}
         </section>
-        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.56.1</span></div>`;
+        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.57.0</span></div>`;
         document.body.appendChild(el); this.el = el;
         el.addEventListener('click', e => {
             const card = e.target.closest('.tm-card');
@@ -14230,8 +14701,29 @@ const Title = {
                 else if (a.startsWith('j:')) { LOOK.set({ j: +a.slice(2) }); this.lookUI(); }
         }
     },
+    // a Site Builder file from this device (kept here, only you have it — solo, or a crew that loads the same file)
+    loadSiteFile() {
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+        inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return;
+            f.text().then(txt => {
+                let j = null; try { j = JSON.parse(txt); } catch (e) { /* bad */ }
+                if (!j || j.format !== 'survey-sim-site') { showToast('⚠️ That isn\'t a Site Builder file (.site.json).'); return; }
+                try { localStorage.setItem(SITE_CUSTOM_KEY, txt); } catch (e) { showToast('⚠️ That site is too big to keep on this device.'); return; }
+                this.switchSite('custom');
+            });
+        };
+        inp.click();
+    },
+    // another site: remember it and reload into it (the whole world is built from the site at load), back on this screen
+    switchSite(id) {
+        try { localStorage.setItem(SITE_KEY, id); sessionStorage.setItem('surveySim.siteNext', this.afterMap || 'mode'); } catch (e) { /* no storage */ }
+        showToast('🚚 Heading to the new site…');
+        const u = new URL(location.href); u.searchParams.delete('site'); setTimeout(() => location.replace(u.toString()), 350);
+    },
     pickMap(card) {
         const m = this.MAPS.find(x => x.id === card.dataset.map);
+        if (m && m.load) { this.press(card); this.loadSiteFile(); return; }
+        if (m && m.ready && m.id !== (ISITE ? ISITE.id : 'memphis')) { this.press(card); this.switchSite(m.id); return; }
         if (!m || !m.ready) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); this.sfx(false); showToast(`🔒 ${m ? m.name : 'That site'} isn't built yet — coming soon.`); return; }
         this.press(card); this.map = m.id; this.mapChosen = true;
         this.el.querySelectorAll('.tm-card').forEach(c => c.classList.toggle('picked', c === card));
@@ -14353,10 +14845,18 @@ const Title = {
             if (inRoom >= 4) { setText('tm-join-status', `Room ${code} is full (4/4).`); return; }
         } catch (e) { /* can't count: let them try */ }
         Net.rc = code; Net.host = false; Net.force = true; Net.lastPeers = null;
+        const mine = ISITE ? ISITE.id : 'memphis';
+        const roomSite = () => { try { const q = Net.room.peers().find(p => !p.sameTab && p.presence && p.presence.rc === code && p.presence.mp); return q ? q.presence.mp : null; } catch (e) { return null; } };
+        const hop = mp => {                                                           // the crew's on another site: go there, straight back into the room
+            if (!mp || mp === mine || mp === 'more') return false;
+            if (!SITE_LIST.some(q => q.id === mp)) { setText('tm-join-status', `Room ${code} is on the host's own site file — load the same file (MY SITE) first.`); return true; }
+            Rejoin.set(code, false); this.afterMap = 'join'; this.switchSite(mp); return true;
+        };
+        if (hop(roomSite())) return;
         if (force) { this.pending = 'online'; this.go('look'); return; }
         const t0 = performance.now(); clearInterval(this.joinTimer);
         this.joinTimer = setInterval(() => {
-            if (Net.remotes.size) { clearInterval(this.joinTimer); this.pending = 'online'; this.go('look'); return; }
+            if (Net.remotes.size) { clearInterval(this.joinTimer); if (hop(roomSite())) return; this.pending = 'online'; this.go('look'); return; }
             if (performance.now() - t0 > 6000) {
                 clearInterval(this.joinTimer);
                 setText('tm-join-status', `Nobody's in room ${code} yet. Check the code, or join anyway and wait for them.`);
@@ -14562,7 +15062,12 @@ const Becky = {
 //             Forklift them into the storage conex (box k goes to slot k = task point k). All 4 in → mission done,
 //             Becky thanks you, panels go up on the racking piles, the conex racks fill up.
 // =====================================================================================================
-const WRECK = { x: 312, yaw: 0 };
+const WRECK = (() => {                                     // (an imported site: wherever its wreck is drawn, else out on a road)
+    if (!ISITE) return { x: 312, yaw: 0 };
+    const w = ISITE.objs('wreck')[0]; if (w) return { x: w.x, z: w.z, yaw: 0 };
+    const r = ISITE.roads.find(q => q.pts.length > 4); if (r) { const p = r.pts[Math.floor(r.pts.length / 2)]; return { x: p.x + r.w, z: p.z, yaw: 0 }; }
+    return { x: 120, z: 60, yaw: 0 };
+})();
 const Delivery = {
     wreck: null, boxes: [], forklifts: [], BW: 4.2, BD: 3.0, BH: 3.0,
     task() { return TaskManager.get('T15'); },
@@ -14570,7 +15075,7 @@ const Delivery = {
     cur() { const m = TaskManager.mirror; return m && m.rule.deliver ? m : this.task(); },
     init() {
         // the wreck: tractor on the road shoulder, its flatbed tipped onto its side, 4 crates spilled toward the road
-        const zc = roadCenterZ(WRECK.x), g = new THREE.Group(); scene.add(g); this.wreck = g; g.visible = false;
+        const zc = WRECK.z ?? roadCenterZ(WRECK.x), g = new THREE.Group(); scene.add(g); this.wreck = g; g.visible = false;
         Dozer.preclear((x, z) => x > WRECK.x - 52 && x < WRECK.x + 40 && z > zc - 22 && z < zc + 30);           // clear the trees there
         const L = (c, r = 0.6, m = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
         const red = L(0xb91c1c, 0.4, 0.3), blk = L(0x1a1b1d, 0.8), chrome = L(0xd7dbdf, 0.25, 0.9), glass = L(0x1e293b, 0.15, 0.4), deck = L(0x6b4a2f, 0.9), steel = L(0x2f3237, 0.6, 0.5), tire = L(0x111214, 0.95);
@@ -14981,7 +15486,7 @@ const PowerHum = {
         if (!on && !this.srcs) return;
         const ctx = SFX.ctx(); if (!ctx) return;
         if (!this.srcs) this.srcs = { inv: this.voice(ctx, 120, 120), sub: this.voice(ctx, 60, 180) };     // inverter: higher whine · substation: deep transformer hum
-        const P = S.vehicle ? S.vehicle.group.position : playerGroup.position, I = Plan.get().inv;      // (in a buggy your body's position is seat-local)
+        const P = S.vehicle ? S.vehicle.group.position : playerGroup.position, I = Plan.get().invs.reduce((b, q) => !b || Math.hypot(q.x - P.x, q.z - P.z) < Math.hypot(b.x - P.x, b.z - P.z) ? q : b, null);      // (in a buggy your body's position is seat-local)
         const k = d => { const u = clamp(1 - (d - this.NEAR) / (this.FAR - this.NEAR), 0, 1); return u * u; };
         const dInv = I ? Math.hypot(Math.max(Math.abs(P.x - I.x) - I.padW / 2, 0), Math.max(Math.abs(P.z - I.z) - I.padD / 2, 0)) : 1e9;
         const amb = Ambience.volume / 14;
@@ -15132,7 +15637,7 @@ window.addEventListener('orientationchange', () => { refit(); setTimeout(refit, 
 if (STANDALONE) setInterval(() => { const [w, h] = viewWH(), c = renderer.domElement; if (Math.abs(c.clientWidth - w) > 2 || Math.abs(c.clientHeight - h) > 2) refit(); }, 1000);
 
 // Debug handle for the browser console
-window.GAME = { Batch, Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
+window.GAME = { ISITE, SiteWorld, Batch, Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
                 getTerrainHeight, handleVehicleToggle, toggleDevMenu, baseStationPos, baseStationGroup, powerOnBase, powerOffBase, updateEquipmentUI,
                 continueLineFromStake, setActiveColor, nearestStake, breakLine, Anims,
                 Justin, JustinDialog, Mod, Greg, crashLine, Gun, GUN, Fists, Combat, Crosshair, Deer, DEER, Pow, DECK, TaskManager, Vitals, Boars, BOAR, Bears, BEAR, Coyotes, COYOTE, Wild, FOLIAGE, Dozer, SiltFence, Fx, Mantle, Bump, Slide, SLIDE, SUB, SPUR, SUBZONE, zoneDist, hopInPassenger, nearestRide, Roll, ROLL, Aim, SUBSTATION, spurDist, BigMap, MapLayers, Goof, DeathScreen, FIST_MOVES, PVP, RodMelee,
