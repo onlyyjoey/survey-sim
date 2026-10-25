@@ -266,7 +266,7 @@ textarea { height: auto; min-height: 84px; padding: 9px 10px; resize: vertical; 
 //  Survey Site Builder v2 — makes a `survey-sim-site` project for Survey Site Sim.
 //  Coordinates are the game's: world feet, +x east, +z south (N = 5000 − z, E = 5000 + x, Elev = 100 + h).
 // =====================================================================================
-const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.25-a';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
+const FORMAT = 'survey-sim-site', VERSION = 2, BUILD = '2026.10.25-b';      // BUILD: bump on every deploy (the hosted copy checks version.json against it)
 const GROUND = [
   { id: 'grass', label: 'Grass', c: [104, 138, 60] }, { id: 'dry', label: 'Dry grass', c: [178, 160, 102] },
   { id: 'dirt', label: 'Dirt', c: [138, 106, 70] }, { id: 'red', label: 'Red dirt', c: [160, 84, 56] },
@@ -1461,7 +1461,7 @@ function drawObject(o, sel) {
   else { const ww = Math.max(mn, w), dd = Math.max(mn * .6, d); ctx.fillRect(-ww / 2, -dd / 2, ww, dd); ctx.strokeRect(-ww / 2, -dd / 2, ww, dd);
     if (['truck', 'utv', 'forklift'].includes(o.type)) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(-ww / 2 + 1, -dd / 2 + 1, ww - 2, Math.max(2, dd * .12)); }
     if (o.type === 'lbd') { ctx.fillStyle = '#facc15'; ctx.fillRect(-ww / 2 + 1, dd / 2 - Math.max(1.5, dd * .3), ww - 2, Math.max(1.5, dd * .3)); }     // yellow = the front (faces the DC cable)
-    if (o.type === 'storage') { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ww / 2 - 2, -dd / 2 + 1, 2, dd - 2); } }
+    if (o.type === 'storage') { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-ww / 2, -dd / 2 + 1, 2, dd - 2); } }
   ctx.restore();
 }
 function objLabel(o, sel) {
