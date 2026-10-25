@@ -51,7 +51,7 @@ import * as THREE from 'three';
 //          LOD / silt fence, AC / DC, LBDs, inverters, the substation, control points and the racking rows.
 //          The chosen site is kept in localStorage (or ?site=<id>); picking another one on the title screen reloads.
 // =====================================================================
-const GAME_VERSION = '1.57.3';                     // bump on every deploy: the hosted copy checks version.json against it
+const GAME_VERSION = '1.58.0';                     // bump on every deploy: the hosted copy checks version.json against it
 const SITE_LIST = [
     { id: 'memphis', name: 'MEMPHIS, TN', sub: 'Mid-South solar site', art: 'memphis' },
     { id: 'amarillo', name: 'AMARILLO, TX', sub: 'High Plains solar site', art: 'plains', file: 'sites/amarillo.site.json' },
@@ -5676,7 +5676,7 @@ const Net = {
                 tp.needsUpdate = true; R.tracers.visible = true; R.tracerT = 0.08;
                 for (let i = 0; i < 5; i++) Smoke.emit(m, V(rr(-0.6, 0.6), rr(0.4, 1.2), rr(-0.6, 0.6)), 0xbdbdbd, 0.25, 1.4);
                 SFX.far(near(flatDist(m, P)), () => (a[4] === 'p' ? SFX.pistol() : SFX.shotgun()));
-                Deer.hearShot(m);
+                Deer.hearShot(m); Critters.hearShot(m);
                 break;
             }
             case 'hit': {
@@ -7440,6 +7440,7 @@ function renderMap(w, h, focus, sc, big) {
     Bears.drawRadar(focus, sc, rim - 4);
     Snakes.drawRadar(focus, sc, rim - 4);
     Deer.drawRadar(focus, sc, rim - 4);
+    Critters.drawRadar(focus, sc, rim - 4);
     Coyotes.drawRadar(focus, sc, rim - 4);
     ControlPoints.drawRadar(focus, sc, rim - 8);
     if (big) drawPPEZone(focus, sc);
@@ -9654,7 +9655,7 @@ const Vitals = {
         S.lathOut = false; S.rodSlung = false; Hands.reset(); if (S.miniGame) MiniGame.close();
         Gun.lose();
         S.health = 0;
-        Boars.calm(); Snakes.calm(); Bears.calm();
+        Boars.calm(); Snakes.calm(); Bears.calm(); Critters.calm();
         const src = killer ? 'player' : (S.hurtBy || 'wild');
         S.dead = { t0: performance.now(), killer, src, fall: 0, ready: false, camT: cam.target };
         if (cam.target < 3) cam.target = 14;                             // first person: pull back so you can watch yourself go down
@@ -9724,6 +9725,11 @@ const DEATH_LINES = {
     bear: ['Mauled by a bear. In Memphis.', 'The bear says hi. Then bye.', 'You poked the bear. Literally.'],
     snake: ['A copperhead got you.', 'Snake bite. Watch the rocks next time.'],
     coyote: ['Chewed up by a coyote. A COYOTE.', 'Small dog energy, big dog consequences.'],
+    pronghorn: ['Trampled by a pronghorn. You made it mad somehow.', 'Head-butted into next week by an antelope.'],
+    jackrabbit: ['Taken out by a jackrabbit. Your ancestors are embarrassed.', 'Death by bunny. Greg will never let this go.'],
+    prairiedog: ['A prairie dog got you. The whole town saw.', 'Nibbled to death. Respect the burrow.'],
+    tarantula: ['Bitten by a HUGE tarantula. Nope. Nope nope nope.', 'The spider won. It was the size of a dog.', 'Eight legs beat two. Math checks out.'],
+    rattlesnake: ['Rattlesnake bite. It literally warned you.', 'You heard the rattle and kept walking. Bold.', 'Struck by a diamondback. Watch the brush.'],
     player: ['A crewmate got you.'],
     wild: ['You went down in the field.', 'Lights out.'],
     water: ['You went for a swim. Surveyors sink.', 'The island ends there, chief.', 'Glub glub. Back to the yard.'],
@@ -9764,8 +9770,12 @@ const WILD = { max: 14, range: 420, forget: 10000 };
 const Wild = {
     puppets: new Map(), gone: new Map(), seq: 0, snapAt: 0, snapCache: null,
     newId() { return ++this.seq; },
-    mod(k) { return k === 'b' ? Boars : k === 'r' ? Bears : k === 'd' ? Deer : Coyotes; },
-    lists() { return [['b', Boars.list], ['r', Bears.list], ['d', Deer.list], ['c', Coyotes.list]]; },
+    mod(k) { return CRIT_BY_K[k] ? Critters : k === 'b' ? Boars : k === 'r' ? Bears : k === 'd' ? Deer : Coyotes; },
+    lists() {
+        const L = [['b', Boars.list], ['r', Bears.list], ['d', Deer.list], ['c', Coyotes.list]];
+        if (typeof Critters === 'object') Object.values(CRIT).forEach(c => L.push([c.k, Critters.list.filter(a => a.kind === c.k)]));
+        return L;
+    },
     crew() { return Net.on && !Net.helping() && Net.remotes.size > 0; },        // I'm the one simulating for a crew
     paused() { return menusOpen() && !this.crew(); },
     // who an animal can go after: you and crewmates on foot (nearest wins)
@@ -9821,13 +9831,13 @@ const Wild = {
         (Array.isArray(list) ? list : []).slice(0, WILD.max + 4).forEach(e => {
             if (!Array.isArray(e) || e.length < 8) return;
             const k = String(e[0]), id = e[1] | 0, key = k + id;
-            if (!'brdc'.includes(k) || !id) return;
+            if (!('brdc'.includes(k) || CRIT_BY_K[k]) || !id) return;
             seen.add(key);
             const until = this.gone.get(key); if (until && until > now) return;
             let a = this.puppets.get(key);
             if (!a) {
                 const x = +e[2] || 0, z = +e[3] || 0;
-                a = k === 'b' ? Boars.spawnAt(x, z) : k === 'r' ? Bears.spawnAt(x, z) : k === 'd' ? Deer.spawnAt(x, z, !!e[8]) : Coyotes.spawnAt(x, z);
+                a = CRIT_BY_K[k] ? Critters.spawnAt(CRIT_BY_K[k].name, x, z, !!e[8]) : k === 'b' ? Boars.spawnAt(x, z) : k === 'r' ? Bears.spawnAt(x, z) : k === 'd' ? Deer.spawnAt(x, z, !!e[8]) : Coyotes.spawnAt(x, z);
                 if (!a) return;
                 a.puppet = true; a.wid = id; a.wkey = key; a.kind = k; a.seen = true;
                 this.puppets.set(key, a);
@@ -9842,7 +9852,7 @@ const Wild = {
     // roles changed (someone joined / left / the lead changed): start the animals over
     reset() {
         [...this.puppets.values()].forEach(a => this.mod(a.kind).remove(a)); this.puppets.clear(); this.gone.clear();
-        Boars.clear(); Bears.clear(); Coyotes.clear(); [...Deer.list].forEach(d => Deer.remove(d));
+        Boars.clear(); Bears.clear(); Coyotes.clear(); [...Deer.list].forEach(d => Deer.remove(d)); Critters.clear();
     },
     // a puppet: glide to where the lead says it is, and run the same gait the real one would
     puppetStep(a, kind, delta, now) {
@@ -9854,6 +9864,7 @@ const Wild = {
         if (n.hp < a.hp) a.flash = 0.15;
         a.hp = n.hp; a.state = n.st; a.speed = n.sp;
         a.flash = Math.max(0, (a.flash || 0) - delta);
+        if (CRIT_BY_K[kind]) { if (a.state === 'flee' || a.state === 'walk' || a.state === 'attack' || a.state === 'pronk') a.want = a.speed; if (a.sp === 'jackrabbit' && a.speed > 0.5) a.hop = (a.hop || 0) + delta * 3; Critters.pose(a, delta, now); Critters.place(a); return; }
         const sp = Math.abs(a.speed), L = a.legs;
         if (kind === 'd') {
             const run = a.state === 'flee' && sp > 8;
@@ -9892,14 +9903,16 @@ const Wild = {
         }
     },
     // ---- bumper cars: a vehicle I'm driving rams an animal — it takes damage and gets tossed, the vehicle bounces off ----
-    BUMP: { b: { dmg: 0.9, mass: 0.35, word: 'BONK!' }, r: { dmg: 0.22, mass: 1.0, word: 'THUNK!' }, d: { dmg: 1.1, mass: 0.2, word: 'BOING!' }, c: { dmg: 1.4, mass: 0.15, word: 'YIPE!' } },
+    BUMP: { b: { dmg: 0.9, mass: 0.35, word: 'BONK!' }, r: { dmg: 0.22, mass: 1.0, word: 'THUNK!' }, d: { dmg: 1.1, mass: 0.2, word: 'BOING!' }, c: { dmg: 1.4, mass: 0.15, word: 'YIPE!' },
+            p: { dmg: 1.1, mass: 0.2, word: 'BOING!' }, j: { dmg: 3, mass: 0.04, word: 'BOINK!' }, q: { dmg: 3, mass: 0.03, word: 'SQUEAK!' }, t: { dmg: 2, mass: 0.1, word: 'SPLAT!' }, n: { dmg: 2, mass: 0.05, word: 'SQUISH!' } },
     bumpAnimals(v, delta) {
         if (Math.abs(v.speed) < 5) return;
         const o = vehicleBox(v), g = v.group, now = performance.now();
         for (const [k, list] of this.lists()) for (const a of list) {
             if (a.state === 'dead' || a.state === 'gone' || now < (a.bumpT || 0)) continue;
             const dx = a.pos.x - o.cx, dz = a.pos.z - o.cz, lx = dx * o.c - dz * o.s, lz = dx * o.s + dz * o.c;
-            const rad = k === 'r' ? BEAR.radius : k === 'b' ? BOAR.radius : k === 'c' ? COYOTE.radius : DEER.radius;
+            if (CRIT_BY_K[k] && (a.state === 'hide' || a.state === 'peek')) continue;
+            const rad = CRIT_BY_K[k] ? CRIT_BY_K[k].radius : k === 'r' ? BEAR.radius : k === 'b' ? BOAR.radius : k === 'c' ? COYOTE.radius : DEER.radius;
             if (Math.abs(lx) > o.hx + rad + 0.5 || Math.abs(lz) > o.hz + rad + 0.5 || Math.abs(a.pos.y - g.position.y) > 6) continue;
             // only count it if we're driving toward it (a parked truck doesn't hurt anything)
             const fwd = Math.sin(g.rotation.y) * Math.sign(v.speed), fwz = Math.cos(g.rotation.y) * Math.sign(v.speed), dd = Math.hypot(dx, dz) || 1;
@@ -9916,7 +9929,7 @@ const Wild = {
             v.speed = -v.speed * (0.22 + B.mass * 0.5);
             Bump.kick(v, sp / 40 * (0.5 + B.mass));
             Pow.show(V(a.pos.x, a.pos.y + 4, a.pos.z), B.word, true); SFX.bump(clamp(sp / 30, 0.4, 1)); Shake.add(clamp(sp / 45, 0.2, 0.7));
-            if (Math.random() < 0.5) showToast(k === 'r' ? "You rammed a BEAR. That's... a choice." : k === 'c' ? 'Coyote: launched.' : k === 'b' ? 'Hog bowling. Strike!' : 'Deer, meet bumper.');
+            if (Math.random() < 0.5) showToast(CRIT_BY_K[k] ? ({ p: 'Pronghorn: fastest thing on the plains, slower than a bumper.', j: 'Jackrabbit air time. 🐇', q: 'Prairie dog, meet grille.', t: 'You ran over a tarantula. It ran over your soul first.', n: 'Rattler roadkill. Watch the tires.' })[k] : k === 'r' ? "You rammed a BEAR. That's... a choice." : k === 'c' ? 'Coyote: launched.' : k === 'b' ? 'Hog bowling. Strike!' : 'Deer, meet bumper.');
         }
     },
     // spinning / hopping animals after a bump (cosmetic; runs on every animal this phone shows)
@@ -9983,7 +9996,7 @@ const Boars = {
     spawnAround(anchors, n) {
         if (Net.helping()) return;                                   // on a crew the lead's phone runs the animals
         this.clear(); this.anchors = anchors;
-        for (let i = 0; i < n; i++) this.spawnOne(this.pickAnchor());
+        if (siteAllows('boar')) for (let i = 0; i < n; i++) this.spawnOne(this.pickAnchor());
         Bears.maybeSpawn(anchors);                                   // and, now and then, a bear
         Coyotes.maybeSpawn(anchors);                                 // or a coyote or two
     },
@@ -10237,6 +10250,7 @@ const Bears = {
     earVol(b) { const P = playerGroup.position; return clamp(1 - Math.hypot(b.pos.x - P.x, b.pos.z - P.z) / 90, 0, 1); },
     // called whenever a layout opens: maybe one bear wanders in, well away from you and the yard
     maybeSpawn(anchors, force) {
+        if (!force && !siteAllows('bear')) return null;
         if (Net.helping() || !anchors || !anchors.length || this.alive().length >= BEAR.max || (!force && Math.random() > BEAR.chance)) return null;
         return this.spawnOne(anchors[Math.floor(Math.random() * anchors.length)]);
     },
@@ -10466,6 +10480,7 @@ const Coyotes = {
     calm() { this.list.forEach(c => { if (c.state !== 'dead') { c.state = 'return'; c.knock = null; } }); },
     // a layout opens: now and then a pack (1-2) slinks in well away from you and the yard
     maybeSpawn(anchors) {
+        if (!siteAllows('coyote')) return null;
         if (Net.helping() || !anchors || !anchors.length || this.alive().length >= COYOTE.max || Math.random() > COYOTE.chance) return null;
         const c = anchors[Math.floor(Math.random() * anchors.length)], n = Math.random() < 0.4 ? 2 : 1;
         let first = null;
@@ -10532,7 +10547,7 @@ const Coyotes = {
         // ambient: once in a while one drifts past out in the field (the lead decides for the whole crew)
         if (!Net.helping() && now > this.ambientAt) {
             this.ambientAt = now + COYOTE.ambient * 1000 * (0.7 + Math.random() * 0.8);
-            if (this.alive().length < COYOTE.max && Math.random() < 0.35) {
+            if (siteAllows('coyote') && this.alive().length < COYOTE.max && Math.random() < 0.35) {
                 const A = Wild.anchors(), c = A[Math.floor(Math.random() * A.length)];
                 this.spawnNear(c, 110, 190, 90);
             }
@@ -11240,7 +11255,7 @@ const Snakes = {
         // rare spawns near rocks; far-away ones slip off
         if ((this.timer -= delta) <= 0) {
             this.timer = SNAKE.every;
-            if (this.list.filter(s => s.state !== 'dead').length < SNAKE.maxAlive && Math.random() < SNAKE.chance) this.spawnNear(P);
+            if (siteAllows('copperhead') && this.list.filter(s => s.state !== 'dead').length < SNAKE.maxAlive && Math.random() < SNAKE.chance) this.spawnNear(P);
         }
         for (const s of [...this.list]) {
             if (s.state === 'dead') continue;
@@ -11349,6 +11364,7 @@ const Combat = {
         Snakes.list.forEach(s => { if (s.state !== 'dead') out.push({ kind: 'snake', o: s, c: V(s.pos.x, s.pos.y + 0.5, s.pos.z), r: 1.1 }); });
         Deer.list.forEach(d => { if (d.state !== 'gone' && d.state !== 'dead') out.push({ kind: 'deer', o: d, c: V(d.pos.x, d.pos.y + 2.6, d.pos.z), r: 1.8 }); });
         Coyotes.list.forEach(c => { if (c.state !== 'dead') out.push({ kind: 'coyote', o: c, c: V(c.pos.x, c.pos.y + 2.2, c.pos.z), r: 1.3 }); });
+        Critters.list.forEach(a => { if (a.state !== 'dead' && a.state !== 'hide') out.push({ kind: a.sp, crit: true, o: a, c: V(a.pos.x, a.pos.y + (a.sp === 'pronghorn' ? 2.4 : a.sp === 'tarantula' ? 1.4 : 0.6), a.pos.z), r: Math.max(0.9, a.C.radius * 1.3) }); });
         Net.targets(out);                                                            // crewmates with PvP on
         return out;
     },
@@ -11358,6 +11374,7 @@ const Combat = {
         if (t.kind === 'boar') { Boars.hit(t.o, dmg, kx, kz); return t.o.state === 'dead'; }
         if (t.kind === 'coyote') { Coyotes.hit(t.o, dmg, kx, kz); return t.o.state === 'dead'; }
         if (t.kind === 'snake') { Snakes.hit(t.o, dmg, kx, kz); return t.o.state === 'dead'; }
+        if (t.crit) { Critters.hit(t.o, dmg, kx, kz); return t.o.state === 'dead'; }
         Deer.hit(t.o, dmg, kx, kz); return t.o.state === 'dead';
     },
     // holding pose for the shotgun / boxing guard (applied after the walk cycle + hand animations)
@@ -11370,7 +11387,7 @@ const Combat = {
             r.armR.shoulder.rotation.set(-1.32 - k * 0.25, 0, 0); r.armR.elbow.rotation.x = -0.35;
             r.spine.rotation.y = 0;
             r.spine.rotation.x = clamp(-cam.pitch * 0.35 + 0.12, -0.25, 0.35);      // lean into the aim
-        } else if (this.handsEmpty() && !Fists.busy && (Boars.nearest(P, 16) || Coyotes.nearest(P, 16) || Snakes.nearest(P, 10) || Bears.nearest(P, 16) || Net.nearestFoe(P, 9))) {
+        } else if (this.handsEmpty() && !Fists.busy && (Boars.nearest(P, 16) || Coyotes.nearest(P, 16) || Snakes.nearest(P, 10) || Bears.nearest(P, 16) || Critters.nearest(P, 12, true) || Net.nearestFoe(P, 9))) {
             const bob = Math.sin(performance.now() * 0.012) * 0.06;                  // put 'em up
             r.armR.shoulder.rotation.set(-1.15 + bob, 0, -0.32); r.armR.elbow.rotation.x = -1.95;
             r.armL.shoulder.rotation.set(-1.25 - bob, 0, 0.32); r.armL.elbow.rotation.x = -1.95;
@@ -11400,6 +11417,11 @@ const KO_LINES = {
     bear: ['BEAR DOWN! 🐻', 'You put a bear to sleep. Permanently. Greg is in awe.', 'Smokey would be disappointed. 🔥', 'Bear necessities: acquired.', 'Legend. Absolute legend.'],
     coyote: ['Wile E. who? 🐺', 'Coyote: 0, you: 1.', 'Beep beep. 🐺💨', 'That yote got yeeted.', 'Lights out for the little dog.'],
     deer: ['Oh deer. 🦌', "That's one for the buck-et list.", 'Venison delivery for Greg 🦌', 'Bambi caught these hands.', 'DNR has entered the chat. 👀', 'Deer season opened early, huh?'],
+    pronghorn: ['Fastest land animal in America... clocked. 🦌💨', 'Pronghorn? More like gone-horn.', 'It could do 55 mph. It could not do that.', 'Home on the range: closed.', 'Antelope? Ante-NOPE.'],
+    jackrabbit: ['Jack got jacked. 🐇', 'Hare today, gone tomorrow.', 'Not so quick now, ears.', 'That rabbit had one job: hop.', "What's up, doc? You. Not anymore."],
+    prairiedog: ['Whack-a-mole: Panhandle edition. 🔨', 'The town lost its sheriff.', 'Should have stayed in the hole, lil guy.', 'Prairie dog has logged off.', 'One less lookout. The town is shook.'],
+    tarantula: ['Squashed the big boy. 🕷️❌', 'Eight legs, zero chances.', 'Nobody saw that. Burn the site.', 'You fought a HUGE spider and won. Seek help.', 'Arachnophobia: defeated (for now).', 'SPIDER DOWN. Somebody check your boots.'],
+    rattlesnake: ['Rattle: muted. 🐍🔇', 'Buzz buzz, bye bye.', "That's one less rattle in the brush.", 'Diamondback? Diamond-whacked.', 'No more maracas for you.', 'Snake got deleted 🐍❌'],
 };
 const koLine = kind => { const L = KO_LINES[kind] || KO_LINES.boar; return L[Math.floor(Math.random() * L.length)]; };
 
@@ -11680,7 +11702,7 @@ const Gun = {
         tp.needsUpdate = true; this.tracers.visible = true; this.tracerT = 0.07;
         Net.emit('sh', Math.round(muzzle.x * 10) / 10, Math.round(muzzle.y * 10) / 10, Math.round(muzzle.z * 10) / 10, ends);
         let any = false, ko = null;
-        Deer.hearShot(P);
+        Deer.hearShot(P); Critters.hearShot(P);
         dmgBy.forEach((dmg, t) => {
             any = true;
             const dx = t.o.pos.x - P.x, dz = t.o.pos.z - P.z, dd = Math.hypot(dx, dz) || 1;
@@ -11726,7 +11748,7 @@ const Gun = {
         for (let k = 0; k < GUN.pellets; k++) { tp.setXYZ(k * 2, muzzle.x, muzzle.y, muzzle.z); tp.setXYZ(k * 2 + 1, k ? muzzle.x : end.x, k ? muzzle.y : end.y, k ? muzzle.z : end.z); }
         tp.needsUpdate = true; this.tracers.visible = true; this.tracerT = 0.06;
         Net.emit('sh', Math.round(muzzle.x * 10) / 10, Math.round(muzzle.y * 10) / 10, Math.round(muzzle.z * 10) / 10, [Math.round(end.x * 10) / 10, Math.round(end.y * 10) / 10, Math.round(end.z * 10) / 10], 'p');
-        Deer.hearShot(P);
+        Deer.hearShot(P); Critters.hearShot(P);
         if (best) {
             Smoke.emit(end, V(rr(-1, 1), rr(0.5, 1.5), rr(-1, 1)), 0x7a2e22, 0.18, 0.8);
             const dist = flatDist(best.o.pos, P), dmg = PISTOL.dmg * clamp(1.1 - dist / PISTOL.falloff, 0.5, 1);
@@ -11895,7 +11917,7 @@ const Deer = {
         if (Wild.paused()) return;
         if (!Net.helping() && (this.timer -= delta) <= 0) {
             this.timer = DEER.every * (0.6 + Math.random() * 0.8);
-            if (this.list.length < DEER.max) { const A = Wild.anchors(); this.spawnNear(A[Math.floor(Math.random() * A.length)]); }
+            if (siteAllows('deer') && this.list.length < DEER.max) { const A = Wild.anchors(); this.spawnNear(A[Math.floor(Math.random() * A.length)]); }
         }
         for (const d of [...this.list]) {
             if (d.state === 'dead') continue;
@@ -11951,6 +11973,487 @@ const Deer = {
         }
     },
 };
+
+// =====================================================================
+// [CRITTERS]  Biome animals for imported sites (the site's wildlife list says which, how many, and their mood):
+//   pronghorn   — small herds; stiff-legged "pronk" bounces when spooked, then a flat-out gallop with the white rump flared
+//   jackrabbit  — freezes with the ears up, then bolts in long zig-zag leaps
+//   prairie dog — a town of burrow mounds; sentries stand up, do the jump-yip, dive down the hole, peek back out
+//   rattlesnake — coils up and rattles a warning, strikes if you stay close
+//   tarantula   — a HUGE spider: eight-legged walk, rears up its front legs to warn you, then bites
+//   Moods: passive (moves off when crowded) · skittish (flees early) · defensive (warns, then attacks if you stay) ·
+//   hostile (comes after you). Crew: the lead runs them like the other animals (Wild), helpers see puppets.
+// =====================================================================
+const CRIT = {
+    pronghorn:   { k: 'p', hp: 60, radius: 1.1, walk: 3.4, run: 46, alert: 60, flee: 32, near: [90, 220], despawn: 320, herd: [2, 4], cap: 6, mood: 'passive', bar: 4.4, damage: 10, strike: 3, cooldown: 1.2, name: 'pronghorn', label: 'Pronghorn' },
+    jackrabbit:  { k: 'j', hp: 14, radius: 0.5, walk: 2.4, run: 34, alert: 26, flee: 13, near: [40, 170], despawn: 240, herd: [1, 2], cap: 4, mood: 'skittish', bar: 2.0, damage: 4, strike: 1.6, cooldown: 0.8, name: 'jackrabbit', label: 'Jackrabbit' },
+    prairiedog:  { k: 'q', hp: 10, radius: 0.45, walk: 2.2, run: 15, alert: 36, flee: 16, near: [0, 0], despawn: 260, herd: [1, 1], cap: 20, mood: 'skittish', bar: 1.9, damage: 3, strike: 1.4, cooldown: 0.8, name: 'prairiedog', label: 'Prairie dog', town: true },
+    tarantula:   { k: 't', hp: 45, radius: 1.4, walk: 2.6, run: 12, alert: 16, warn: 7, flee: 6, near: [40, 150], despawn: 220, herd: [1, 1], cap: 2, mood: 'defensive', bar: 2.6, damage: 12, strike: 2.9, cooldown: 1.4, name: 'tarantula', label: 'Tarantula' },
+    rattlesnake: { k: 'n', hp: 55, radius: 0.8, walk: 1.6, run: 5, alert: 15, warn: 9, flee: 5, near: [30, 140], despawn: 200, herd: [1, 1], cap: 3, mood: 'defensive', bar: 2.4, damage: 20, strike: 4.0, cooldown: 1.6, name: 'rattlesnake', label: 'Rattlesnake', rocks: true },
+};
+const CRIT_BY_K = {}; Object.values(CRIT).forEach(c => { CRIT_BY_K[c.k] = c; });
+// a site's wildlife name → one of ours (or one of the game's own animals)
+function critSpecies(name) {
+    const n = String(name || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (/spider|tarantula/.test(n)) return 'tarantula';
+    if (/rattle/.test(n)) return 'rattlesnake';
+    if (/prairie/.test(n)) return 'prairiedog';
+    if (/jack|rabbit|hare/.test(n)) return 'jackrabbit';
+    if (/pronghorn|antelope/.test(n)) return 'pronghorn';
+    if (/bear/.test(n)) return 'bear';
+    if (/copper/.test(n)) return 'copperhead';
+    if (/boar|hog|pig/.test(n)) return 'boar';
+    if (/coyote/.test(n)) return 'coyote';
+    if (/deer|buck|doe/.test(n)) return 'deer';
+    return n;
+}
+// which animals live here: Memphis = the original set; an imported site = its wildlife list
+const SITE_WILD = (() => {
+    if (!ISITE) return null;
+    const m = new Map(); (ISITE.wildlife || []).forEach(w => { const sp = critSpecies(w.species); if (!m.has(sp)) m.set(sp, { count: Math.max(1, w.count | 0), mood: String(w.mood || '').toLowerCase() }); });
+    return m;
+})();
+function siteAllows(sp) { return !SITE_WILD || SITE_WILD.has(sp); }
+
+// ---------- models (feet; +z = nose) ----------
+const critMat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true });
+function critBox(p, w, h, d, m, x, y, z) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); p.add(o); return o; }
+function buildPronghorn(buck) {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    const mats = { coat: critMat(0xc4864a), white: critMat(0xf2ede2), black: critMat(0x1b1612), hoof: critMat(0x15110e) };
+    const B = (w, h, d, m, x, y, z, p = body) => critBox(p, w, h, d, m, x, y, z);
+    B(0.95, 0.95, 2.5, mats.coat, 0, 2.75, 0);                        // barrel
+    B(0.98, 0.42, 2.2, mats.white, 0, 2.38, 0);                       // white belly + sides
+    B(0.9, 0.85, 0.5, mats.white, 0, 2.8, -1.3);                      // white rump patch
+    const flare = B(1.0, 0.9, 0.2, mats.white, 0, 2.85, -1.55);       // the rump hairs flare out when it's alarmed
+    const neck = new THREE.Group(); neck.position.set(0, 3.05, 1.05); body.add(neck);
+    B(0.5, 1.25, 0.6, mats.coat, 0, 0.55, 0.12, neck).rotation.x = 0.4;
+    [0.25, 0.75].forEach(y => { B(0.52, 0.16, 0.2, mats.white, 0, y, 0.44, neck).rotation.x = 0.4; });   // throat bands
+    const head = new THREE.Group(); head.position.set(0, 1.2, 0.5); neck.add(head);
+    B(0.45, 0.5, 0.75, mats.coat, 0, 0, 0.1, head); B(0.32, 0.32, 0.5, mats.white, 0, -0.08, 0.6, head);
+    B(0.2, 0.14, 0.08, mats.black, 0, -0.04, 0.86, head);
+    [-1, 1].forEach(sd => {
+        B(0.1, 0.2, 0.25, mats.black, sd * 0.23, -0.05, 0.25, head);  // cheek patch
+        B(0.09, 0.09, 0.09, mats.black, sd * 0.24, 0.1, 0.3, head);    // eye
+        B(0.14, 0.45, 0.08, mats.coat, sd * 0.28, 0.38, -0.15, head).rotation.z = sd * -0.5;
+        const h = buck ? 0.9 : 0.35, horn = B(0.09, h, 0.12, mats.black, sd * 0.13, 0.28 + h / 2, 0.05, head); horn.rotation.x = -0.15;
+        if (buck) { B(0.07, 0.25, 0.07, mats.black, sd * 0.13, 0.62, 0.2, head).rotation.x = 0.9; B(0.08, 0.2, 0.08, mats.black, sd * 0.1, 0.78 + 0.1, -0.12, head).rotation.x = -1.0; }
+    });
+    const tail = new THREE.Group(); tail.position.set(0, 3.1, -1.6); body.add(tail); B(0.22, 0.3, 0.1, mats.white, 0, -0.1, 0, tail);
+    const legs = [];
+    [[-0.32, 0.9], [0.32, 0.9], [-0.32, -1.0], [0.32, -1.0]].forEach(([x, z]) => {
+        const hip = new THREE.Group(); hip.position.set(x, 2.35, z); body.add(hip);
+        B(0.22, 1.2, 0.26, mats.coat, 0, -0.55, 0, hip); B(0.13, 1.15, 0.15, mats.white, 0, -1.65, 0, hip); B(0.16, 0.16, 0.22, mats.hoof, 0, -2.25, 0.03, hip);
+        legs.push(hip);
+    });
+    return { group: g, body, neck, head, tail, flare, legs, mats };
+}
+function buildJackrabbit() {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    const mats = { coat: critMat(0x9a876d), white: critMat(0xe9e3d6), black: critMat(0x1d1a17), pink: critMat(0xc98f86) };
+    const B = (w, h, d, m, x, y, z, p = body) => critBox(p, w, h, d, m, x, y, z);
+    B(0.55, 0.55, 1.05, mats.coat, 0, 0.75, 0); B(0.5, 0.2, 0.9, mats.white, 0, 0.5, 0);
+    const head = new THREE.Group(); head.position.set(0, 1.0, 0.6); body.add(head);
+    B(0.36, 0.36, 0.48, mats.coat, 0, 0, 0.05, head); B(0.12, 0.08, 0.06, mats.pink, 0, -0.04, 0.3, head);
+    const ears = [-1, 1].map(sd => {
+        const e = new THREE.Group(); e.position.set(sd * 0.12, 0.16, -0.05); e.rotation.z = sd * -0.28; head.add(e);
+        B(0.2, 0.9, 0.06, mats.coat, 0, 0.45, 0, e); B(0.12, 0.7, 0.02, mats.pink, 0, 0.42, 0.035, e); B(0.2, 0.14, 0.07, mats.black, 0, 0.86, 0, e);
+        B(0.06, 0.06, 0.06, mats.black, sd * 0.07, -0.13, 0.12, head);   // eye
+        return e;
+    });
+    const tail = new THREE.Group(); tail.position.set(0, 0.85, -0.55); body.add(tail); B(0.2, 0.2, 0.14, mats.white, 0, 0, 0, tail); B(0.2, 0.08, 0.14, mats.black, 0, 0.1, 0, tail);
+    const fl = [-1, 1].map(sd => { const l = new THREE.Group(); l.position.set(sd * 0.15, 0.55, 0.38); body.add(l); B(0.1, 0.5, 0.12, mats.coat, 0, -0.25, 0, l); return l; });
+    const hl = [-1, 1].map(sd => { const l = new THREE.Group(); l.position.set(sd * 0.24, 0.7, -0.3); body.add(l);
+        B(0.16, 0.5, 0.32, mats.coat, 0, -0.2, 0.05, l); const foot = B(0.14, 0.1, 0.62, mats.coat, 0, -0.65, 0.12, l); foot.userData.foot = 1; return l; });
+    return { group: g, body, head, ears, tail, legs: [...fl, ...hl], fl, hl, mats };
+}
+function buildPrairieDog() {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);       // body pivots at the hips (standing up = rotate)
+    const mats = { coat: critMat(0xb48857), pale: critMat(0xdcc49c), black: critMat(0x1e1a16) };
+    const B = (w, h, d, m, x, y, z, p = body) => critBox(p, w, h, d, m, x, y, z);
+    B(0.42, 0.4, 0.8, mats.coat, 0, 0.25, 0.3); B(0.38, 0.16, 0.7, mats.pale, 0, 0.1, 0.3);
+    const head = new THREE.Group(); head.position.set(0, 0.32, 0.78); body.add(head);
+    B(0.3, 0.28, 0.3, mats.coat, 0, 0, 0.05, head); B(0.12, 0.08, 0.06, mats.black, 0, -0.03, 0.22, head);
+    [-1, 1].forEach(sd => { B(0.05, 0.05, 0.05, mats.black, sd * 0.11, 0.06, 0.16, head); B(0.06, 0.07, 0.04, mats.coat, sd * 0.13, 0.15, -0.02, head); });
+    const arms = [-1, 1].map(sd => { const a = new THREE.Group(); a.position.set(sd * 0.14, 0.18, 0.62); body.add(a); B(0.07, 0.28, 0.08, mats.coat, 0, -0.12, 0, a); return a; });
+    const tail = B(0.08, 0.08, 0.25, mats.black, 0, 0.18, -0.15);
+    [-1, 1].forEach(sd => B(0.1, 0.15, 0.22, mats.coat, sd * 0.15, 0.05, 0.05));       // haunches
+    return { group: g, body, head, arms, tail, legs: [], mats };
+}
+function buildTarantula() {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    const mats = { hair: critMat(0x3a2a1f), dark: critMat(0x1c1410), knee: critMat(0x9a6431), eye: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.15, metalness: 0.4 }) };
+    const ceph = new THREE.Mesh(new THREE.SphereGeometry(0.72, 8, 6), mats.hair); ceph.scale.set(1, 0.55, 1.05); ceph.position.set(0, 0.95, 0.35); body.add(ceph);
+    const abdomen = new THREE.Group(); abdomen.position.set(0, 1.05, -0.3); body.add(abdomen);
+    const ab = new THREE.Mesh(new THREE.SphereGeometry(0.95, 8, 6), mats.hair); ab.scale.set(1, 0.85, 1.15); ab.position.z = -0.85; abdomen.add(ab);
+    for (let i = 0; i < 14; i++) { const h = critBox(abdomen, 0.06, 0.32, 0.06, mats.dark, rr(-0.6, 0.6), rr(0.2, 0.6), -0.8 + rr(-0.7, 0.7)); h.rotation.set(rr(-0.6, 0.6), 0, rr(-0.6, 0.6)); }   // bristles
+    [[-0.12, 0.08], [0.12, 0.08], [-0.06, 0.12], [0.06, 0.12], [0, 0.06]].forEach(([x, y]) => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), mats.eye); e.position.set(x, 0.95 + 0.32 + y * 0.4, 0.8); body.add(e); });
+    const fangs = [-1, 1].map(sd => { const f = critBox(body, 0.12, 0.36, 0.12, mats.dark, sd * 0.13, 0.72, 1.02); f.rotation.x = 0.4; return f; });
+    const palps = [-1, 1].map(sd => { const p = new THREE.Group(); p.position.set(sd * 0.28, 0.85, 0.9); body.add(p); critBox(p, 0.18, 0.18, 0.7, mats.hair, 0, 0, 0.32); return p; });
+    const legs = [];
+    [0.55, 0.2, -0.15, -0.45].forEach((z, i) => [-1, 1].forEach(sd => {
+        const hip = new THREE.Group(); hip.position.set(sd * 0.55, 0.85, z + 0.3); body.add(hip);
+        hip.rotation.y = sd * Math.PI / 2 - sd * (1.2 - i * 0.55) * 0.55;     // front legs reach forward, back legs back
+        const fem = new THREE.Group(); hip.add(fem); fem.rotation.x = -0.55;     // thick hairy femur angled up to the knee…
+        critBox(fem, 0.27, 0.27, 1.15, mats.hair, 0, 0, 0.55);
+        const knee = new THREE.Group(); knee.position.set(0, 0, 1.1); fem.add(knee);
+        critBox(knee, 0.3, 0.3, 0.26, mats.knee, 0, 0, 0);
+        const tib = new THREE.Group(); knee.add(tib); tib.rotation.x = 1.6;       // …then the shin plants down to the dirt
+        critBox(tib, 0.22, 0.22, 1.65, mats.hair, 0, 0, 0.82); critBox(tib, 0.26, 0.12, 0.3, mats.dark, 0, -0.06, 1.62);
+        legs.push({ hip, fem, tib, sd, i, yaw0: hip.rotation.y });
+    }));
+    return { group: g, body, ceph, abdomen, fangs, palps, legs, mats, scale: 1 };
+}
+function buildRattlesnake() {
+    const g = new THREE.Group(), N = 22, segs = [];
+    const mats = { a: critMat(0xc9ad84), b: critMat(0x6e5338), c: critMat(0xeee3cc), k: critMat(0x161412), eye: critMat(0x0d0d0d), tongue: new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), rattle: critMat(0xd8c49a) };
+    for (let i = 0; i < N; i++) {
+        const r = 0.2 * (i < 2 ? 0.9 : 1 - Math.max(0, i - 12) * 0.07);
+        const tailBand = i >= N - 4, m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 5), tailBand ? (i % 2 ? mats.k : mats.c) : [mats.a, mats.b, mats.b, mats.a, mats.c][i % 5]);   // diamond blotches, then the black-and-white "coon tail"
+        m.scale.set(1.1, 0.72, 1.45); g.add(m); segs.push(m);
+    }
+    const rattle = new THREE.Group(); g.add(rattle);
+    for (let k = 0; k < 5; k++) critBox(rattle, 0.16 - k * 0.015, 0.11, 0.1, mats.rattle, 0, 0, -k * 0.1);
+    const head = new THREE.Group(); g.add(head);
+    critBox(head, 0.42, 0.17, 0.32, mats.a, 0, 0, 0.05);                 // the wide pit-viper jaw…
+    critBox(head, 0.26, 0.15, 0.24, mats.a, 0, 0, 0.3);                  // …tapering to the snout
+    critBox(head, 0.3, 0.05, 0.4, mats.b, 0, 0.09, 0.12);                // dark crown
+    [-1, 1].forEach(sd => { critBox(head, 0.06, 0.06, 0.06, mats.eye, sd * 0.18, 0.06, 0.16); critBox(head, 0.03, 0.08, 0.16, mats.c, sd * 0.19, 0.0, 0.18); });   // eyes + the pale cheek stripe
+    const tongue = critBox(head, 0.04, 0.02, 0.26, mats.tongue, 0, -0.03, 0.52);
+    return { group: g, segs, rattle, head, tongue, mats };
+}
+const CRIT_BUILD = { pronghorn: buildPronghorn, jackrabbit: buildJackrabbit, prairiedog: buildPrairieDog, tarantula: buildTarantula, rattlesnake: buildRattlesnake };
+
+const Critters = {
+    list: [], timer: 4, towns: [], built: false,
+    ok(sp) { return !!SITE_WILD && SITE_WILD.has(sp); },
+    mood(sp) { const w = SITE_WILD && SITE_WILD.get(sp), m = w && w.mood; return ['passive', 'skittish', 'defensive', 'hostile'].includes(m) ? m : CRIT[sp].mood; },
+    count(sp) { const w = SITE_WILD && SITE_WILD.get(sp); return Math.min(CRIT[sp].cap, w ? w.count : 0); },
+    alive(sp) { return this.list.filter(a => a.sp === sp && a.state !== 'dead').length; },
+    // ---- prairie dog towns: burrow mounds out in the open (away from the work, water and the yard), built once ----
+    init() {
+        if (this.built || !this.ok('prairiedog')) return; this.built = true;
+        const total = SITE_WILD.get('prairiedog').count, nTowns = clamp(Math.round(total / 7), 1, 4), rng = mulberry32(((ISITE.world.seed | 0) || 77) + 4242);
+        const S = ISITE, open = (x, z) => shoreDist(x, z) > 70 && S.waterD(x, z) > 25 && S.roadD(x, z) > 25 && siteRectDist(x, z) > 60 && !SiteWorld.work(x, z) && Colliders.isFree(x, z, 4);
+        for (let t = 0, tries = 0; t < nTowns && tries < 4000; tries++) {
+            const a = rng() * 6.283, d = Math.sqrt(rng()) * S.shoreMax, cx = S.centre.x + Math.cos(a) * d, cz = S.centre.z + Math.sin(a) * d;
+            if (!open(cx, cz) || this.towns.some(q => Math.hypot(q.x - cx, q.z - cz) < 160)) continue;
+            const holes = [], want = Math.max(4, Math.round(total / nTowns));
+            for (let k = 0; k < want * 8 && holes.length < want; k++) {
+                const x = cx + (rng() - 0.5) * 70, z = cz + (rng() - 0.5) * 70;
+                if (open(x, z) && holes.every(h => Math.hypot(h.x - x, h.z - z) > 8)) holes.push({ x, z, y: getTerrainHeight(x, z), dog: null, s: 0.8 + rng() * 0.5 });
+            }
+            if (holes.length < 3) continue;
+            const town = { x: cx, z: cz, holes, live: false }; this.towns.push(town); t++;
+            const mat = critMat(0x9b7a52), hole = new THREE.MeshBasicMaterial({ color: 0x1a120c });
+            holes.forEach(h => {
+                const m = new THREE.Mesh(new THREE.CylinderGeometry(0.9 * h.s, 2.4 * h.s, 0.75 * h.s, 10), mat); m.position.set(h.x, h.y + 0.3 * h.s, h.z); m.receiveShadow = true; scene.add(m);
+                const d2 = new THREE.Mesh(new THREE.CircleGeometry(0.5, 10), hole); d2.rotation.x = -Math.PI / 2; d2.position.set(h.x, h.y + 0.68 * h.s + 0.01, h.z); scene.add(d2);
+                h.top = h.y + 0.68 * h.s;
+                try { GrassField.clearWhere((x, z) => Math.hypot(x - h.x, z - h.z) < 2.6 * h.s, { x0: h.x - 3, x1: h.x + 3, z0: h.z - 3, z1: h.z + 3 }); } catch (e) { /* no grass yet */ }
+            });
+        }
+    },
+    // ---- life cycle ----
+    spawnAt(sp, x, z, variant) {
+        const C = CRIT[sp]; if (!C) return null;
+        const a = CRIT_BUILD[sp](!!variant);
+        Object.assign(a, { sp, C, kind: C.k, buck: variant ? 1 : 0, hp: C.hp, flash: 0, pos: V(x, getTerrainHeight(x, z), z), home: { x, z }, yaw: Math.random() * 6.283,
+                           state: 'idle', t: 1 + Math.random() * 3, speed: 0, phase: Math.random() * 6, target: null, cool: 0, struck: false, st: 0, rear: 0, up: 0, mood: this.mood(sp) });
+        if (C.town === undefined) a.bar = this.bar(a);
+        a.group.position.copy(a.pos); a.group.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(a.group);
+        this.list.push(a); return a;
+    },
+    bar(a) {
+        const bar = new THREE.Group(), bg = new THREE.Mesh(BOAR_BAR_GEO, BOAR_BAR_BG); bg.scale.set(1.8, 0.28, 1);
+        const fill = new THREE.Mesh(BOAR_BAR_GEO, new THREE.MeshBasicMaterial({ color: 0xef4444, depthWrite: false })); fill.scale.set(1.68, 0.16, 1); fill.position.z = 0.01;
+        bg.renderOrder = 5; fill.renderOrder = 6; bar.add(bg, fill); bar.visible = false; scene.add(bar); a.fill = fill; return bar;
+    },
+    remove(a) {
+        Wild.forget(a);
+        if (a.hole) a.hole.dog = null;
+        scene.remove(a.group); if (a.bar) { scene.remove(a.bar); a.fill.material.dispose(); }
+        a.group.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); Object.values(a.mats).forEach(m => m.dispose());
+        const i = this.list.indexOf(a); if (i >= 0) this.list.splice(i, 1);
+    },
+    clear() { [...this.list].forEach(a => this.remove(a)); },
+    calm() { this.list.forEach(a => { if (a.state === 'attack' || a.state === 'warn') { a.state = 'idle'; a.t = 2; } }); },
+    nearest(pos, range, threat) {
+        let best = null, bd = range;
+        for (const a of this.list) { if (a.state === 'dead' || a.state === 'hide' || (threat && a.mood !== 'hostile' && a.mood !== 'defensive')) continue; const d = flatDist(a.pos, pos); if (d < bd) { bd = d; best = a; } }
+        return best;
+    },
+    earVol(a) { return clamp(1 - flatDist(a.pos, playerGroup.position) / 60, 0, 1); },
+    hit(a, dmg, kx, kz) {
+        if (a.puppet) { Wild.sendHit(a.kind, a, dmg, kx, kz); SFX.boarHit(); return; }
+        if (a.state === 'dead') return;
+        a.hp = Math.max(0, a.hp - dmg); a.flash = 0.15;
+        const push = a.C.radius < 0.7 ? 2.2 : 1.1; a.pos.x += kx * push; a.pos.z += kz * push;
+        for (let i = 0; i < 5; i++) Smoke.emit(V(a.pos.x, a.pos.y + 1, a.pos.z), V(rr(-1.5, 1.5), rr(0.6, 1.8), rr(-1.5, 1.5)), 0x8a6d4c);
+        SFX.boarHit();
+        if (a.hp <= 0) { this.kill(a); return; }
+        if (a.mood === 'defensive' || a.mood === 'hostile') { a.state = 'attack'; a.cool = Math.min(a.cool, 0.3); a.angry = 8; }
+        else this.startle(a, playerGroup.position, true);
+    },
+    // every animal goes down its own way
+    kill(a) {
+        a.state = 'dead'; a.speed = 0; if (a.bar) a.bar.visible = false;
+        const v = this.earVol(a);
+        ({ pronghorn: () => SFX.deerSnort(v), jackrabbit: () => SFX.critSqueal(v), prairiedog: () => SFX.critSqueal(v * 0.8), tarantula: () => SFX.critHiss(v), rattlesnake: () => SFX.snakeDie(v) })[a.sp]();
+        Object.values(a.mats).forEach(m => { m.transparent = true; m.needsUpdate = true; });
+        const g = a.group, y0 = g.position.y, side = Math.random() < 0.5 ? 1 : -1, sp = a.sp;
+        Anims.push({ age: 0, dur: 2.2, step: t => {
+            if (sp === 'tarantula') {                                         // flips on its back, legs curl in
+                const e = Math.min(1, t / 0.35); g.rotation.z = side * e * Math.PI; g.position.y = y0 + Math.sin(e * Math.PI) * 1.2 + e * 1.4;
+                a.legs.forEach(L => { const c = Math.min(1, t / 0.9); L.fem.rotation.x = -0.55 - c * 0.9; L.tib.rotation.x = 1.6 + c * 0.9 + Math.sin(t * 30 + L.i) * 0.15 * Math.max(0, 1 - t); });
+            } else if (sp === 'rattlesnake') { if (t < 0.4) { g.rotation.z = (t / 0.4) * Math.PI; a.segs.forEach((m, i) => { m.position.x += Math.sin(t * 50 + i) * 0.02; }); } }
+            else if (t < 0.4) { const e = (t / 0.4) ** 2; g.rotation.z = side * e * Math.PI / 2; g.position.y = y0 + Math.sin(e * Math.PI) * (a.C.radius < 0.7 ? 0.8 : 0.4) + e * a.C.radius * 0.6; (a.legs || []).forEach((l, i) => { (l.rotation || l.hip.rotation).x = Math.sin(t * 38 + i) * 0.5 * (1 - e); }); }
+            if (t > 1.2) { const u = (t - 1.2) / 1.0; g.position.y -= u * 0.05; Object.values(a.mats).forEach(m => { m.opacity = Math.max(0, 1 - u); }); }
+        }, done: () => this.remove(a) });
+        for (let i = 0; i < 8; i++) Smoke.emit(V(a.pos.x, a.pos.y + 0.6, a.pos.z), V(rr(-2.5, 2.5), rr(0.6, 2), rr(-2.5, 2.5)), 0x8a6d4c);
+    },
+    startle(a, from, hard) {
+        if (a.state === 'dead' || a.puppet) return;
+        from = from || playerGroup.position;
+        if (a.sp === 'pronghorn') {                                           // the herd goes together: a few pronk bounces first
+            if (a.state !== 'flee' && a.state !== 'pronk') { a.state = 'pronk'; a.t = 0.9; SFX.deerSnort(this.earVol(a) * 0.8);
+                this.list.forEach(b => { if (b !== a && b.sp === 'pronghorn' && b.state !== 'dead' && flatDist(a.pos, b.pos) < 45 && b.state !== 'flee' && b.state !== 'pronk') { b.state = 'pronk'; b.t = 0.6 + Math.random() * 0.5; b.from = { x: from.x, z: from.z }; } }); }
+        } else if (a.sp === 'prairiedog') {
+            if (a.state !== 'yip' && a.state !== 'dive' && a.state !== 'hide') { a.state = 'yip'; a.t = 0.7; SFX.critChirp(this.earVol(a));
+                this.list.forEach(b => { if (b !== a && b.sp === 'prairiedog' && b.town === a.town && (b.state === 'idle' || b.state === 'walk' || b.state === 'sentry')) { b.state = 'dive'; b.t = 0.2 + Math.random() * 0.6; } }); }
+        } else { a.state = 'flee'; a.t = 5 + Math.random() * 3; if (a.sp === 'jackrabbit') a.hop = 0; }
+        a.from = { x: from.x, z: from.z }; if (hard) a.speed = a.C.run * 0.7;
+    },
+    hearShot(P) { this.list.forEach(a => { if (a.state !== 'dead' && flatDist(a.pos, P) < 150 && (a.mood === 'passive' || a.mood === 'skittish')) this.startle(a, P); }); },
+    // ---- spawning (crew lead / solo only) ----
+    spot(sp, P) {
+        const C = CRIT[sp];
+        for (let k = 0; k < 40; k++) {
+            let x, z;
+            if (C.rocks && ROCK_SPOTS.length) { const r = ROCK_SPOTS[Math.floor(Math.random() * ROCK_SPOTS.length)]; if (r.dead) continue; const a = Math.random() * 6.283; x = r.x + Math.cos(a) * (r.s * 1.3 + 1.5); z = r.z + Math.sin(a) * (r.s * 1.3 + 1.5); const d = flatDist({ x, z }, P); if (d < C.near[0] || d > C.near[1]) continue; }
+            else { const a = Math.random() * 6.283, r = C.near[0] + Math.random() * (C.near[1] - C.near[0]); x = P.x + Math.cos(a) * r; z = P.z + Math.sin(a) * r; }
+            if (inSite(x, z, 25) || shoreDist(x, z) < 45 || ISITE.waterD(x, z) < 6 || !Colliders.isFree(x, z, 2)) continue;
+            return { x, z };
+        }
+        return null;
+    },
+    spawnTick(delta) {
+        if (!SITE_WILD || Net.helping() || Wild.paused()) return;
+        if ((this.timer -= delta) > 0) return; this.timer = 9 + Math.random() * 6;
+        const A = Wild.anchors(), P = A[Math.floor(Math.random() * A.length)];
+        ['pronghorn', 'jackrabbit', 'tarantula', 'rattlesnake'].forEach(sp => {
+            if (!this.ok(sp) || this.alive(sp) >= this.count(sp) || Math.random() < 0.4) return;
+            const q = this.spot(sp, P); if (!q) return;
+            const n = Math.min(this.count(sp) - this.alive(sp), CRIT[sp].herd[0] + Math.floor(Math.random() * (CRIT[sp].herd[1] - CRIT[sp].herd[0] + 1)));
+            for (let i = 0; i < n; i++) { const a = this.spawnAt(sp, q.x + rr(-8, 8) * (i ? 1 : 0), q.z + rr(-8, 8) * (i ? 1 : 0), sp === 'pronghorn' && Math.random() < 0.4); if (a) a.home = { x: q.x, z: q.z }; }
+        });
+        // prairie dogs pop up in a town while someone's near it, and go home when everybody leaves
+        this.towns.forEach(town => {
+            const near = A.some(p => Math.hypot(p.x - town.x, p.z - town.z) < 220);
+            if (near && !town.live) { town.live = true; town.holes.forEach(h => { const a = this.spawnAt('prairiedog', h.x, h.z); if (a) { a.hole = h; h.dog = a; a.town = town; a.state = Math.random() < 0.35 ? 'sentry' : 'idle'; } }); }
+            else if (!near && town.live && A.every(p => Math.hypot(p.x - town.x, p.z - town.z) > 280)) { town.live = false; this.list.filter(a => a.town === town && !a.puppet).forEach(a => this.remove(a)); }
+        });
+    },
+    // ---- per frame ----
+    update(delta, now) {
+        if (!SITE_WILD && !this.list.length) return;
+        if (Wild.paused()) return;
+        this.spawnTick(delta);
+        for (const a of [...this.list]) {
+            if (a.state === 'dead') continue;
+            if (a.puppet) { Wild.puppetStep(a, a.kind, delta, now); continue; }
+            this.think(a, delta, now);
+            if (a.state === 'dead') continue;
+            this.move(a, delta);
+            this.pose(a, delta, now);
+            this.place(a);
+        }
+    },
+    think(a, delta, now) {
+        const C = a.C, N = Wild.nearAny(a.pos), P = N.pos, dist = flatDist(a.pos, P), T = Wild.pick(a.pos), tdist = T ? flatDist(a.pos, T.pos) : 1e9;
+        if (dist > C.despawn && !a.town) { this.remove(a); a.state = 'dead'; return; }
+        a.cool = Math.max(0, a.cool - delta); a.flash = Math.max(0, a.flash - delta); a.angry = Math.max(0, (a.angry || 0) - delta);
+        a.face = null; a.want = 0;
+        const homeD = Math.hypot(a.pos.x - a.home.x, a.pos.z - a.home.z), moodNow = a.angry > 0 ? 'hostile' : a.mood;
+        if (a.state === 'pronk') { a.t -= delta; a.want = C.walk * 2; this.away(a); if (a.t <= 0) { a.state = 'flee'; a.t = 6 + Math.random() * 3; } return; }
+        if (a.state === 'flee') { a.t -= delta; a.want = C.run; this.away(a);
+            if (a.sp === 'jackrabbit') { a.zig = (a.zig || 0) - delta; if (a.zig <= 0) { a.zig = 0.35 + Math.random() * 0.3; a.jink = (Math.random() - 0.5) * 1.6; } a.face += a.jink || 0; }
+            if (a.t <= 0) { a.state = 'idle'; a.t = 2 + Math.random() * 3; a.home = { x: a.pos.x, z: a.pos.z }; } return; }
+        // prairie dogs: sentry / yip / dive / hide / peek
+        if (a.sp === 'prairiedog') {
+            const H = a.hole;
+            if (a.state === 'yip') { a.t -= delta; a.face = Math.atan2(P.x - a.pos.x, P.z - a.pos.z); if (a.t <= 0) { a.state = 'dive'; a.t = 0.1; } return; }
+            if (a.state === 'dive') { a.t -= delta; if (a.t > 0) return; const hd = H ? Math.hypot(H.x - a.pos.x, H.z - a.pos.z) : 0;
+                if (H && hd > 0.6) { a.face = Math.atan2(H.x - a.pos.x, H.z - a.pos.z); a.want = C.run; return; }
+                a.state = 'hide'; a.t = 6 + Math.random() * 8; return; }
+            if (a.state === 'hide' || a.state === 'peek') {
+                a.t -= delta;
+                if (a.t <= 0) { if (dist > C.alert * 0.8) { a.state = a.state === 'hide' ? 'peek' : 'sentry'; a.t = a.state === 'peek' ? 2.5 : 4 + Math.random() * 4; } else a.t = 2; }
+                if (a.state === 'peek' && dist < C.flee) { a.state = 'hide'; a.t = 5 + Math.random() * 5; }
+                return;
+            }
+            if (dist < C.alert && N.foot) { this.startle(a, P); return; }
+            if (a.state === 'sentry') { a.t -= delta; if (a.t <= 0) { a.state = 'idle'; a.t = 2 + Math.random() * 3; } return; }
+            if (a.state === 'idle') { a.t -= delta; if (a.t <= 0) { const ang = Math.random() * 6.283; a.target = { x: (H ? H.x : a.home.x) + Math.cos(ang) * rr(2, 7), z: (H ? H.z : a.home.z) + Math.sin(ang) * rr(2, 7) }; a.state = Math.random() < 0.3 ? 'sentry' : 'walk'; a.t = 3 + Math.random() * 3; } return; }
+            if (a.state === 'walk') { if (!a.target || Math.hypot(a.target.x - a.pos.x, a.target.z - a.pos.z) < 0.6 || (a.t -= delta) <= 0) { a.state = 'idle'; a.t = 1.5 + Math.random() * 3; a.target = null; return; }
+                a.face = Math.atan2(a.target.x - a.pos.x, a.target.z - a.pos.z); a.want = C.walk; return; }
+        }
+        // the fighters: warn, then attack
+        if (moodNow === 'hostile' && T && tdist < C.alert * 1.6) a.state = 'attack';
+        if (moodNow === 'defensive' && T) {
+            if (a.state !== 'attack' && tdist < C.alert) { if (a.state !== 'warn') { a.state = 'warn'; a.warnAt = 0; } }
+            if (a.state === 'warn' && tdist < (C.warn || C.strike)) a.state = 'attack';
+            if ((a.state === 'warn' || a.state === 'attack') && (tdist > C.alert * 1.4 || homeD > 40) && a.angry <= 0) { a.state = 'walk'; a.target = { x: a.home.x, z: a.home.z }; }
+        }
+        if (a.state === 'warn') {
+            a.face = Math.atan2(T.pos.x - a.pos.x, T.pos.z - a.pos.z);
+            if (now > (a.warnAt || 0)) { a.warnAt = now + 1600 + Math.random() * 900; (a.sp === 'rattlesnake' ? SFX.snakeRattle : a.sp === 'tarantula' ? SFX.critHiss : SFX.deerSnort).call(SFX, this.earVol(a)); }
+            return;
+        }
+        if (a.state === 'attack' && T) {
+            a.face = Math.atan2(T.pos.x - a.pos.x, T.pos.z - a.pos.z);
+            if (a.lunge === undefined || a.lunge <= 0) {
+                if (tdist > C.strike * 0.85) a.want = moodNow === 'hostile' ? C.run : C.run * 0.6;
+                else if (a.cool <= 0) { a.lunge = 0.0001; a.struck = false; if (a.sp === 'rattlesnake') SFX.snakeStrike(this.earVol(a)); }
+            }
+            if (a.lunge > 0) {
+                a.lunge += delta;
+                if (!a.struck && a.lunge > 0.15 && tdist < C.strike + 0.6) {
+                    a.struck = true; const d = tdist || 1;
+                    Wild.hurt(T, C.damage, { x: (T.pos.x - a.pos.x) / d * 0.6, z: (T.pos.z - a.pos.z) / d * 0.6 }, a.sp, false);
+                }
+                if (a.lunge > 0.4) { a.lunge = 0; a.cool = C.cooldown; }
+            }
+            if (!T || tdist > C.alert * 2.2) { a.state = 'idle'; a.t = 2; }
+            return;
+        }
+        // grazing / wandering animals
+        if ((moodNow === 'passive' || moodNow === 'skittish') && N) {
+            const flee = moodNow === 'skittish' ? C.alert * 0.75 : C.flee * (N.foot ? 1 : 0.6);
+            if (dist < flee) { this.startle(a, P); return; }
+            if (dist < C.alert && (a.state === 'idle' || a.state === 'walk')) { a.state = 'alertd'; a.t = 1.5 + Math.random() * 2; }
+        }
+        if (a.state === 'alertd') { a.face = Math.atan2(P.x - a.pos.x, P.z - a.pos.z); a.t -= delta; if (a.t <= 0) { a.state = dist < C.alert ? 'alertd' : 'idle'; a.t = 1; } return; }
+        if (a.state === 'idle') { a.t -= delta; if (a.t <= 0) { const ang = Math.random() * 6.283, r = a.sp === 'pronghorn' ? rr(10, 30) : rr(3, 12); a.target = { x: a.home.x + Math.cos(ang) * r, z: a.home.z + Math.sin(ang) * r }; a.state = 'walk'; a.t = 8; } return; }
+        if (a.state === 'walk') {
+            if (!a.target || Math.hypot(a.target.x - a.pos.x, a.target.z - a.pos.z) < 1 || (a.t -= delta) <= 0) { a.state = 'idle'; a.t = 2 + Math.random() * 5; a.target = null; return; }
+            a.face = Math.atan2(a.target.x - a.pos.x, a.target.z - a.pos.z); a.want = a.sp === 'jackrabbit' ? C.walk * 2 : C.walk;
+        }
+    },
+    away(a) { const f = a.from || playerGroup.position; a.face = Math.atan2(a.pos.x - f.x, a.pos.z - f.z); },
+    move(a, delta) {
+        if (a.state === 'dead') return;
+        if (a.face !== null && a.face !== undefined) { const df = Math.atan2(Math.sin(a.face - a.yaw), Math.cos(a.face - a.yaw)); a.yaw += clamp(df, -4 * delta, 4 * delta); a.want *= Math.max(0.15, Math.cos(df)); }
+        if (a.sp === 'jackrabbit' && a.want > 0) {                                // jackrabbits only move while a hop is in the air
+            a.hop = (a.hop || 0) + delta * (a.state === 'flee' ? 3.2 : 2.2);
+            const inAir = (a.hop % 1) < 0.62; a.speed = inAir ? a.want : a.speed * Math.max(0, 1 - delta * 18);
+        } else a.speed += (a.want - a.speed) * Math.min(1, delta * (a.sp === 'pronghorn' ? 2.5 : 4));
+        const mx = Math.sin(a.yaw) * a.speed * delta, mz = Math.cos(a.yaw) * a.speed * delta, n = Math.max(1, Math.ceil(Math.hypot(mx, mz) / 0.5));
+        for (let k = 0; k < n; k++) {
+            const nx = a.pos.x + mx / n, nz = a.pos.z + mz / n;
+            if (ISITE && (ISITE.waterD(nx, nz) < 1 || shoreDist(nx, nz) < 25)) { a.yaw += Math.PI * 0.6; a.speed *= 0.3; break; }
+            a.pos.x = nx; a.pos.z = nz; resolvePlayerVsStatics(a.pos, a.C.radius, a.pos.y);
+        }
+        a.pos.y = getTerrainHeight(a.pos.x, a.pos.z);
+    },
+    place(a) {
+        a.group.position.copy(a.pos); a.group.rotation.y = a.yaw;
+        if (a.hole && (a.state === 'hide' || a.state === 'peek')) a.group.position.y = a.hole.top - (a.state === 'hide' ? 1.4 : 0.55 - (a.up || 0) * 0.15);
+        else if (a.hole && Math.hypot(a.pos.x - a.hole.x, a.pos.z - a.hole.z) < 2.6) a.group.position.y = Math.max(a.pos.y, a.hole.top - Math.hypot(a.pos.x - a.hole.x, a.pos.z - a.hole.z) * 0.25);
+        a.group.position.y += a.hopY || 0;
+        Object.values(a.mats)[0].emissive.setHex(a.flash > 0 ? 0x661111 : 0x000000);
+        if (!a.bar) return;
+        const ld = flatDist(a.pos, playerGroup.position);
+        a.bar.visible = ld < 55 && (a.hp < a.C.hp || a.state === 'warn' || a.state === 'attack');
+        if (a.bar.visible) { const f = clamp(a.hp / a.C.hp, 0, 1); a.bar.position.set(a.pos.x, a.pos.y + a.C.bar, a.pos.z); a.bar.quaternion.copy(camera.quaternion); a.fill.scale.x = Math.max(0.001, 1.68 * f); a.fill.position.x = -1.68 * (1 - f) / 2; }
+    },
+    // ---- animation: every species moves its own way (also drives the crew's puppets) ----
+    pose(a, delta, now) {
+        const sp = a.speed, st = a.state, k8 = Math.min(1, delta * 8);
+        a.hopY = 0;
+        if (a.sp === 'pronghorn') {
+            const L = a.legs, pronk = st === 'pronk', run = st === 'flee' && sp > 10;
+            if (pronk) {                                                      // stotting: all four legs locked straight, the whole animal bouncing
+                a.phase += delta * 11; const b = Math.abs(Math.sin(a.phase));
+                L.forEach(l => { l.rotation.x += (0 - l.rotation.x) * k8; }); a.body.position.y = b * 1.6; a.body.rotation.x = 0;
+                a.neck.rotation.x += (-0.25 - a.neck.rotation.x) * k8;
+            } else if (run) {                                                 // rotary gallop: the legs reach out and gather under, the back flexes
+                a.phase += delta * 13; const s = Math.sin(a.phase), c = Math.cos(a.phase);
+                L[0].rotation.x = -s * 0.95; L[1].rotation.x = -Math.sin(a.phase - 0.5) * 0.95; L[2].rotation.x = Math.sin(a.phase + 0.3) * 0.9; L[3].rotation.x = Math.sin(a.phase - 0.2) * 0.9;
+                a.body.position.y = Math.max(0, s) * 0.5; a.body.rotation.x = -c * 0.12; a.neck.rotation.x += (0.55 - a.neck.rotation.x) * k8;
+            } else {
+                a.phase += delta * sp * 1.7; const s = Math.sin(a.phase), m = Math.min(0.45, sp * 0.12);
+                L[0].rotation.x = s * m; L[3].rotation.x = s * m; L[1].rotation.x = -s * m; L[2].rotation.x = -s * m; a.body.position.y = 0; a.body.rotation.x = 0;
+                const grazing = st === 'idle' && Math.sin(now * 0.0007 + a.home.x) > -0.2;
+                a.neck.rotation.x += ((grazing ? 1.45 : st === 'alertd' ? -0.25 : 0.1) - a.neck.rotation.x) * Math.min(1, delta * 3);
+            }
+            const alarm = pronk || st === 'flee' || st === 'alertd' ? 1 : 0;                   // the white rump flares
+            a.flare.scale.set(1 + alarm * 0.5, 1 + alarm * 0.45, 1); a.tail.rotation.x += ((alarm ? -1.6 : 0) - a.tail.rotation.x) * k8;
+        } else if (a.sp === 'jackrabbit') {
+            const moving = a.want > 0 || sp > 0.5, u = (a.hop || 0) % 1, inAir = moving && u < 0.62, arc = inAir ? Math.sin(u / 0.62 * Math.PI) : 0;
+            a.hopY = arc * (st === 'flee' ? 1.6 : 0.6);
+            a.hl.forEach(l => { l.rotation.x = inAir ? -1.1 * Math.sin(Math.min(1, u / 0.25) * Math.PI / 2) + arc * 0.4 : 0.15; });   // big push-off, legs trailing
+            a.fl.forEach(l => { l.rotation.x = inAir ? -0.9 * arc : 0.1; });
+            a.body.rotation.x = inAir ? (u < 0.31 ? -0.25 : 0.2) * arc : 0;
+            const frozen = st === 'alertd', earUp = frozen || st === 'flee' ? 0 : 0.45 + Math.sin(now * 0.004 + a.home.z) * 0.15;
+            a.ears.forEach((e, i) => { e.rotation.x += ((st === 'flee' ? 0.9 : earUp) - e.rotation.x) * k8; e.rotation.z = (i ? -1 : 1) * (frozen ? 0.22 : 0.32) + (frozen ? Math.sin(now * 0.02 + i) * 0.05 : 0); });   // ears swivel while it listens
+            a.head.rotation.x = frozen ? -0.15 : Math.sin(now * 0.01) * 0.04;
+            a.body.position.y = frozen ? 0.08 : 0;
+        } else if (a.sp === 'prairiedog') {
+            const stand = st === 'sentry' || st === 'yip' || st === 'peek' || st === 'alertd' ? 1 : 0;
+            a.up += (stand - a.up) * Math.min(1, delta * 6);
+            a.body.rotation.x = -a.up * 1.35;                                 // sits up on its haunches
+            let armUp = a.up * 0.6;
+            if (st === 'yip') { const y = Math.sin((0.7 - a.t) / 0.7 * Math.PI); a.hopY = y * 0.7; a.body.rotation.x = -1.35 - y * 0.35; armUp = 2.4 * y; }   // the jump-yip: stretches tall, throws its arms up
+            a.arms.forEach(r => { r.rotation.x = -armUp; });
+            a.head.rotation.x = stand ? 1.2 : 0.1 + (st === 'idle' ? Math.max(0, Math.sin(now * 0.008 + a.home.x)) * 0.4 : 0);
+            if (st === 'walk' || st === 'dive') { a.phase += delta * 18; a.hopY = Math.abs(Math.sin(a.phase)) * 0.18; }
+            a.tail.rotation.x = Math.sin(now * 0.02) * (st === 'yip' ? 0.6 : 0.1);
+        } else if (a.sp === 'tarantula') {
+            const threat = st === 'warn' ? 1 : st === 'attack' && a.lunge > 0 ? 0.6 : 0;
+            a.rear += (threat - a.rear) * Math.min(1, delta * 5);
+            a.phase += delta * (2 + sp * 3.2);
+            a.legs.forEach(L => {
+                const g1 = (L.i % 2 === 0) === (L.sd < 0) ? 0 : Math.PI, w = Math.sin(a.phase + g1), lift = Math.max(0, Math.cos(a.phase + g1));   // alternating tetrapod gait
+                const moving = sp > 0.2 ? 1 : 0;
+                L.hip.rotation.y = L.yaw0 - L.sd * w * 0.32 * moving;
+                let fx = -0.55 - lift * 0.3 * moving, tx = 1.6;
+                if (L.i < 2 && a.rear > 0.05) { fx = -0.55 - a.rear * (L.i === 0 ? 0.75 : 0.45); tx = 1.6 - a.rear * (L.i === 0 ? 1.15 : 0.7) + Math.sin(now * 0.02 + L.sd) * 0.12 * a.rear; }   // front legs up and forward, fangs bared
+                L.fem.rotation.x = fx; L.tib.rotation.x = tx;
+            });
+            a.body.position.y = a.rear * 0.35; a.body.rotation.x = -a.rear * 0.35; a.abdomen.rotation.x = a.rear * 0.5;
+            const bite = a.lunge > 0 ? Math.sin(Math.min(1, a.lunge / 0.4) * Math.PI) : 0;
+            a.body.position.z = bite * 1.1;
+            a.fangs.forEach(f => { f.rotation.x = 0.4 + bite * 0.9 + a.rear * 0.4; });
+            a.palps.forEach((p, i) => { p.rotation.x = Math.sin(now * 0.01 + i * 2) * 0.25 - a.rear * 0.5; });
+            if (st === 'warn' && Math.random() < delta * 2) Smoke.emit(V(a.pos.x, a.pos.y + 1.8, a.pos.z), V(rr(-0.6, 0.6), rr(0.4, 1), rr(-0.6, 0.6)), 0x4a3828, 0.15, 0.6);   // flicked hairs
+        } else if (a.sp === 'rattlesnake') {
+            const coilW = st === 'warn' || st === 'attack' ? 1 : st === 'idle' ? 0.6 : 0;
+            a.coil = (a.coil ?? 0.6) + (coilW - (a.coil ?? 0.6)) * Math.min(1, delta * 4);
+            a.phase += delta * (2 + sp * 2.4);
+            const lungeK = a.lunge > 0 ? Math.sin(Math.min(1, a.lunge / 0.34) * Math.PI) : 0, N = a.segs.length;
+            a.segs.forEach((m, i) => {
+                const sx = Math.sin(a.phase - i * 0.55) * 0.3 * (0.3 + i / N), sz = -0.2 - i * 0.27;
+                const ca = i * 0.5 + 1.2, cr = 0.22 + i * 0.03, cx = Math.cos(ca) * cr, cz = Math.sin(ca) * cr - 0.4;   // a tight flat spiral, tail on the outside
+                m.position.set(lerp(sx, cx, a.coil), 0.14 + a.coil * Math.max(0, 4 - i) * 0.16, lerp(sz, cz, a.coil));
+            });
+            const tl = a.segs[N - 1].position, buzz = st === 'warn' ? Math.sin(now * 0.12) * 0.06 : 0;                // tail up and buzzing
+            a.rattle.position.set(tl.x + buzz, tl.y + (st === 'warn' ? 0.22 : 0.02), tl.z - 0.18); a.rattle.rotation.x = st === 'warn' ? -1.1 : 0;
+            a.head.position.set(0, 0.15 + a.coil * 0.82, lerp(0.18, 0.05, a.coil) + lungeK * 2.2);
+            a.head.rotation.x = -0.25 * a.coil + lungeK * 0.3;
+            a.tongue.visible = Math.sin(now * 0.02 + a.home.x) > 0.5;
+        }
+    },
+    drawRadar(focus, sc, R) {
+        for (const a of this.list) {
+            if (a.state === 'dead' || a.state === 'hide') continue;
+            const x = (a.pos.x - focus.x) * sc, y = (a.pos.z - focus.z) * sc; if (Math.hypot(x, y) > R) continue;
+            rCtx.fillStyle = a.mood === 'defensive' || a.mood === 'hostile' ? '#f59e0b' : '#d6b07a';
+            rCtx.beginPath(); rCtx.arc(x, y, a.C.radius < 0.7 ? 1.6 : 2.4, 0, Math.PI * 2); rCtx.fill();
+        }
+    },
+};
+Critters.init();
 
 Gun.init();
 
@@ -12208,6 +12711,12 @@ const Mod = {
         }
         switch (cmd) {
             case 'boar': { const q = p(); Boars.spawnAt(q.x, q.z); showToast('🐗 Spawned a wild hog'); break; }
+            case 'pronghorn': case 'jackrabbit': case 'prairiedog': case 'tarantula': case 'rattlesnake': {
+                if (Net.helping()) { showToast(`Only the crew lead (${Net.leadName()}) can spawn animals.`); break; }
+                const q = this.spot(cmd === 'pronghorn' ? 26 : 12), n = cmd === 'pronghorn' ? 3 : 1;
+                for (let i = 0; i < n; i++) { const a = Critters.spawnAt(cmd, q.x + (i ? rr(-6, 6) : 0), q.z + (i ? rr(-6, 6) : 0), cmd === 'pronghorn' && i === 0); if (a && cmd === 'prairiedog') a.state = 'sentry'; }
+                showToast({ pronghorn: '🦌 Spawned a pronghorn herd', jackrabbit: '🐇 Spawned a jackrabbit', prairiedog: '🐿️ Spawned a prairie dog', tarantula: '🕷️ Spawned a HUGE tarantula', rattlesnake: '🐍 Spawned a rattlesnake' }[cmd]); break;
+            }
             case 'coyote': { const q = this.spot(26); Coyotes.spawnAt(q.x, q.z); showToast('🐺 Spawned a coyote'); break; }
             case 'snake': { const q = p(); Snakes.spawnAt(q.x, q.z); showToast('🐍 Spawned a copperhead'); break; }
             case 'bear': { const q = this.spot(30); Bears.spawnAt(q.x, q.z); showToast('🐻 Spawned a bear (30 away — it will find you)'); break; }
@@ -13764,6 +14273,27 @@ const SFX = {
         this.tone(ctx, t + 0.08, { type: 'sine', from: 260, to: 720, len: 0.12, vol: 0.2 * vol });
         this.tone(ctx, t + 0.2, { type: 'sine', from: 720, to: 280, len: 0.2, vol: 0.18 * vol });
     },
+    snakeRattle(vol = 1) {                           // rattlesnake: a dry, fast buzz that swells and fades
+        const ctx = this.ctx(); if (!ctx || vol <= 0.01) return; const t = ctx.currentTime;
+        const n = ctx.createBufferSource(); n.buffer = this.noise(ctx);
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 5200; f.Q.value = 1.2;
+        const am = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.type = 'square'; lfo.frequency.value = 48; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg).connect(am.gain);
+        const env = ctx.createGain(); env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.42 * vol, t + 0.12); env.gain.setValueAtTime(0.42 * vol, t + 0.9); env.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+        n.connect(f).connect(am).connect(env).connect(this.bus); n.start(t, Math.random() * 0.2); n.stop(t + 1.45); lfo.start(t); lfo.stop(t + 1.45);
+    },
+    critChirp(vol = 1) {                             // prairie dog alarm: a sharp two-note "chirk-chirk" (the jump-yip)
+        const ctx = this.ctx(); if (!ctx || vol <= 0.02) return; const t = ctx.currentTime;
+        [0, 0.12, 0.3].forEach((d, i) => this.tone(ctx, t + d, { type: 'square', from: 2300 - i * 200, to: 3100 - i * 200, len: 0.07, vol: 0.06 * vol }));
+    },
+    critSqueal(vol = 1) {                            // small-animal squeal
+        const ctx = this.ctx(); if (!ctx || vol <= 0.02) return; const t = ctx.currentTime;
+        this.tone(ctx, t, { type: 'sawtooth', from: 1600, to: 2400, len: 0.12, vol: 0.07 * vol }); this.tone(ctx, t + 0.12, { type: 'sawtooth', from: 2300, to: 1200, len: 0.2, vol: 0.06 * vol });
+    },
+    critHiss(vol = 1) {                              // tarantula: dry clicking hiss (bristles + fangs)
+        const ctx = this.ctx(); if (!ctx || vol <= 0.02) return; const t = ctx.currentTime;
+        for (let i = 0; i < 6; i++) this.burst(ctx, t + i * 0.06, { type: 'highpass', freq: 3000 + Math.random() * 1500, len: 0.03, vol: 0.18 * vol });
+        this.burst(ctx, t + 0.38, { type: 'highpass', freq: 2600, len: 0.35, vol: 0.12 * vol });
+    },
     yip(vol = 1) {                                   // coyote bark: two quick rising yips
         const ctx = this.ctx(); if (!ctx || vol <= 0.02) return; const t = ctx.currentTime;
         [0, 0.17].forEach(d => { this.tone(ctx, t + d, { type: 'sawtooth', from: 520, to: 880, len: 0.11, vol: 0.09 * vol }); this.burst(ctx, t + d, { type: 'bandpass', freq: 1400, len: 0.1, vol: 0.12 * vol }); });
@@ -14727,6 +15257,7 @@ function animate() {
     Boars.update(delta, now);
     Bears.update(delta, now);
     Coyotes.update(delta, now);
+    Critters.update(delta, now);
     Wild.tumble(delta);
     Snakes.update(delta, now);
     MiniGame.update(delta);
@@ -15889,7 +16420,7 @@ const UpdateCheck = {
 };
 setTimeout(() => UpdateCheck.check(), 4000);
 addEventListener('visibilitychange', () => { if (!document.hidden) UpdateCheck.check(); });
-window.GAME = { GAME_VERSION, UpdateCheck, ISITE, SiteWorld, Batch, Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
+window.GAME = { GAME_VERSION, UpdateCheck, Critters, CRIT, SITE_WILD, KO_LINES, DEATH_LINES, ISITE, SiteWorld, Batch, Island, SEA_MESH, shoreDist, islandShore, Jump, TaskTip, Spray, Trees, XPaint, PowerHum, Title, LOOK, Owner, CrewUTV, Becky, Delivery, Storage, roadCenterZ, TruckDoors, Cull, Forest, Plan, Build, polylineDist, polyEdgeDist, DESIGN_POLY, inSite, roadDist, pondDist, LOOT, Drag, LOCKED, PPE, Inv, Inspector, OSHA, setRigPPE, playerGroup, Jon, JobBox, MK, PISTOL, setFlagKind, Save, Net, NET, buggy2, BUGGIES, mountHasRod, nearestBuggyZone, handleEquipmentInteraction, Look, zoomBy, Engines, Ambience, SITE, Boxes, resolvePlayerVsStatics, supportHeight, updateFuelHud, useTarget, handleUse, sitIn, standUp, fillVehicle, conexAt, siteCameraDist, CONEX, THREE, CONFIG, S, scene, camera, renderer, buggy, truck, VEHICLES, rig, SFX, Smoke, Radar, Music, stakes, loggedPoints, flagColorOptions, takeRtkShot, pullNearestStake, Colliders, ColliderDebug, GrassField, GFX, Touch, TouchUI, joy, cam, keys,
                 getTerrainHeight, handleVehicleToggle, toggleDevMenu, baseStationPos, baseStationGroup, powerOnBase, powerOffBase, updateEquipmentUI,
                 continueLineFromStake, setActiveColor, nearestStake, breakLine, Anims,
                 Justin, JustinDialog, Mod, Greg, crashLine, Gun, GUN, Fists, Combat, Crosshair, Deer, DEER, Pow, DECK, TaskManager, Vitals, Boars, BOAR, Bears, BEAR, Coyotes, COYOTE, Wild, FOLIAGE, Dozer, SiltFence, Fx, Mantle, Bump, Slide, SLIDE, SUB, SPUR, SUBZONE, zoneDist, hopInPassenger, nearestRide, Roll, ROLL, Aim, SUBSTATION, spurDist, BigMap, MapLayers, Goof, DeathScreen, FIST_MOVES, PVP, RodMelee,
