@@ -187,6 +187,14 @@ function makeSite(id, j) {
     return S;
 }
 
+// a site object as a spawn spot, and a "virtual parent" so a prop that's normally placed relative to the break room
+// (lx, lz in its frame, yaw + dyaw) lands on the builder's object instead
+function siteObj(type, k = 0) { const o = ISITE ? ISITE.objs(type)[k] : null; return o ? { x: o.x, z: o.z, yaw: o.yaw || 0 } : null; }
+function siteAnchor(type, lx, lz, dyaw) {
+    const L = ISITE ? ISITE.objs(type) : []; if (!L.length) return null;
+    const x = L.reduce((a, o) => a + o.x, 0) / L.length, z = L.reduce((a, o) => a + o.z, 0) / L.length, yaw = (L[0].yaw || 0) + dyaw, c = Math.cos(yaw), s = Math.sin(yaw);
+    return { x: x - (lx * c + lz * s), z: z - (-lx * s + lz * c), yaw };
+}
 // =====================================================================
 // [CONFIG]
 // =====================================================================
@@ -282,9 +290,19 @@ const CONFIG = {
 if (ISITE) {                                      // an imported site: its own sky + sea level, no Memphis pond
     const sky = SITE_SKY[ISITE.biome]; if (sky) { CONFIG.world.skyTop = sky[0]; CONFIG.world.skyHorizon = sky[1]; }
     CONFIG.world.sea = ISITE.sea; CONFIG.pond.x = 1e5; CONFIG.pond.z = 1e5;
-    const Y = ISITE.yardBox, P = CONFIG.site.pad, D = CONFIG.site.drive;           // the yard pad grows to cover the site's own gravel yard
-    if (Y) { P.x0 = Math.max(-180, Math.min(P.x0, Math.round(Y.x0))); P.x1 = Math.min(140, Math.max(P.x1, Math.round(Y.x1))); P.z0 = Math.max(-200, Math.min(P.z0, Math.round(Y.z0))); P.z1 = Math.min(90, Math.max(P.z1, Math.round(Y.z1))); }
-    if (P.z1 >= D.z1) D.z1 = P.z1;                                                  // (no driveway out to a farm road that isn't there)
+    const Y = ISITE.yardBox, P = CONFIG.site.pad, D = CONFIG.site.drive, C = CONFIG.site, ob = t => ISITE.objs(t)[0];
+    if (Y) { P.x0 = Math.round(Y.x0) - 3; P.x1 = Math.round(Y.x1) + 3; P.z0 = Math.round(Y.z0) - 3; P.z1 = Math.round(Y.z1) + 3; }   // the yard pad = the site's own gravel yard
+    if (Y || P.z1 >= D.z1) D.z1 = P.z1;                                            // (no driveway out to a farm road that isn't there)
+    // the yard the way it was drawn: conexes (Greg's office + balcony ride on the office), generator, fuel tank, parking, base, spawn
+    const put = (o, dx = 0) => o && { x: o.x - Math.cos(o.yaw || 0) * dx, z: o.z + Math.sin(o.yaw || 0) * dx, yaw: o.yaw || 0 };
+    if (ob('office')) C.office = put(ob('office'));
+    if (ob('breakroom')) C.breakRoom = put(ob('breakroom'));
+    if (ob('generator')) C.generator = put(ob('generator'), 1.6);
+    if (ob('fueltank')) C.fuelTank = put(ob('fueltank'));
+    ISITE.parks = ISITE.objs('utvpark').sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true })).map(o => ({ x: o.x, z: o.z, yaw: o.yaw || 0 }));
+    if (ISITE.parks[0]) CONFIG.buggy.spawn = ISITE.parks[0];
+    if (ob('truckpark')) CONFIG.truck.spawn = put(ob('truckpark'));
+    if (ob('spawn')) CONFIG.spawn = put(ob('spawn'));
 }
 
 // =====================================================================
@@ -968,7 +986,7 @@ function rawTerrainHeight(x, z) {
     if (sd < 80) h = lerp(h, CONFIG.world.sea - 12, smoothstep(80, -40, sd));               // beach slopes down into the sea
     return h;
 }
-const SITE_H = rawTerrainHeight(2, -42);          // yard grade
+const SITE_H = ISITE ? rawTerrainHeight(CONFIG.site.office.x, CONFIG.site.office.z) : rawTerrainHeight(2, -42);          // yard grade
 SUB.h = rawTerrainHeight(SUB.x, SUB.z);            // substation grade
 
 const PAL = {
@@ -1516,6 +1534,7 @@ const GrassField = {
                 for (let i = 0; i < n; i++) {
                     const x = x0 + rnd() * G.chunk, z = z0 + rnd() * G.chunk, dist = Math.hypot(x, z);
                     if ((inner ? dist > G.radius : dist <= G.radius) || shoreDist(x, z) < 30 || (ISITE && ISITE.waterD(x, z) < 1.5) || (!inner && (ISITE || dist < 560) && Build.has('road') && Plan.get().roads.some(r => polylineDist(r.pts, x, z) < r.w / 2 + 0.5)) || roadDist(x, z) < ROAD.halfWidth + 0.3 || pondDist(x, z) < POND.radius * 1.02 || inSite(x, z, 0.4) || inSub(x, z, 0.8)) continue;
+                    if (this.clears.length && this.clears.some(c => x > c.box.x0 && x < c.box.x1 && z > c.box.z0 && z < c.box.z1 && c.test(x, z))) continue;
                     const sd = Math.min(siteRectDist(x, z), driveDist(x, z));
                     if (sd < 6 && rnd() < 0.8 * (1 - sd / 6)) continue;                // thin, trampled grass around the yard
                     const edge = forestEdge(Math.atan2(z, x));
@@ -1561,7 +1580,9 @@ const GrassField = {
     },
     // pull the grass out from under something built (roads, the inverter pad, cable trenches): zero-scale those clumps
     // test(x, z) → true = remove; box = { x0, x1, z0, z1 } limits which chunks get looked at
+    clears: [],
     clearWhere(test, box) {
+        this.clears.push({ test, box });
         const M = new THREE.Matrix4(), p = new THREE.Vector3(), half = CONFIG.grass.chunk / 2 + 2;
         let n = 0;
         for (const c of this.chunks) {
@@ -4520,12 +4541,14 @@ const SiteWorld = {
     },
     // is this spot part of the build (the LOD clearing takes its trees)? Roads, cable routes, pads, LBDs, the substation
     // and the fence lines. Trees standing in the arrays wait for the tree-marking job.
+    WORK_GAP: 45,                                     // trees closer than this to any of the work come down with the LOD
     work(x, z) {
-        const S = ISITE, C = Plan.get();
-        if (S.roadD(x, z) < 10 || subRectDist(x, z) < 16) return true;
-        if (C.invs.some(I => Math.abs(x - I.x) < I.padW / 2 + 10 && Math.abs(z - I.z) < I.padD / 2 + 10) || C.lbds.some(l => Math.hypot(x - l.x, z - l.z) < 12)) return true;
-        if (C.acs.some(r => polylineDist(r, x, z) < 8) || C.dc.some(r => polylineDist(r, x, z) < 8)) return true;
-        return S.lods.some(l => polyEdgeDist(l.pts, x, z) < 8) || S.silts.some(l => polyEdgeDist(l.pts, x, z) < 8);
+        const S = ISITE, C = Plan.get(), G = this.WORK_GAP;
+        if (S.roadD(x, z) < G - 10 || subRectDist(x, z) < G || siteRectDist(x, z) < G - 15) return true;
+        if (S.arrays.some(a => S.inPoly(a.pts, x, z) || polyEdgeDist(a.pts, x, z) < G)) return true;
+        if (C.invs.some(I => Math.abs(x - I.x) < I.padW / 2 + G && Math.abs(z - I.z) < I.padD / 2 + G) || C.lbds.some(l => Math.hypot(x - l.x, z - l.z) < G - 10)) return true;
+        if (C.acs.some(r => polylineDist(r, x, z) < G - 15) || C.dc.some(r => polylineDist(r, x, z) < G - 15)) return true;
+        return S.lods.some(l => polyEdgeDist(l.pts, x, z) < 14) || S.silts.some(l => polyEdgeDist(l.pts, x, z) < 14);
     },
     // the map: coast, creeks, ponds and old roads
     drawMap(focus, sc) {
@@ -4620,7 +4643,7 @@ const SEA_MESH = (() => {
     if (ISITE) m.position.set(ISITE.centre.x, CONFIG.world.sea, ISITE.centre.z); m.receiveShadow = true; scene.add(m); return m;
 })();
 
-const baseStationPos = new THREE.Vector3(40, getTerrainHeight(40, -2), -2);
+const BSP = siteObj('basestation') || { x: 40, z: -2 }, baseStationPos = new THREE.Vector3(BSP.x, getTerrainHeight(BSP.x, BSP.z), BSP.z);
 const baseStationGroup = buildTopconBase(baseStationPos);
 scene.add(baseStationGroup);
 Colliders.add(baseStationPos.x, baseStationPos.z, 2.2, 9, { tag: 'base' });     // tripod footprint
@@ -4642,7 +4665,7 @@ const buggy2 = (() => {
     const b = buildBuggy(), blue = MAT.utvBody.clone(); blue.color.setHex(0x2f6fb5);
     b.group.traverse(o => { if (o.isMesh && o.material === MAT.utvBody) o.material = blue; });
     b.name = 'buggy2';
-    b.cfg = { ...CONFIG.buggy, label: 'Polaris Survey UTV #2', spawn: { x: -31, z: -27.9, yaw: Math.PI } };
+    b.cfg = { ...CONFIG.buggy, label: 'Polaris Survey UTV #2', spawn: (ISITE && ISITE.parks[1]) || { x: -31, z: -27.9, yaw: Math.PI } };
     return b;
 })();
 // UTVs #3 and #4 only come out for a bigger crew (3rd / 4th player); until then they're parked off the map
@@ -4652,8 +4675,8 @@ const crewBuggy = (name, color, label, spawn) => {
     b.name = name; b.cfg = { ...CONFIG.buggy, label, spawn }; b.short = label.replace('Polaris Survey ', '');
     return b;
 };
-const buggy3 = crewBuggy('buggy3', 0x3f7d3a, 'Polaris Survey UTV #3', { x: 4, z: -27.9, yaw: Math.PI });
-const buggy4 = crewBuggy('buggy4', 0xc2541c, 'Polaris Survey UTV #4', { x: 17, z: -27.9, yaw: Math.PI });
+const buggy3 = crewBuggy('buggy3', 0x3f7d3a, 'Polaris Survey UTV #3', (ISITE && ISITE.parks[2]) || { x: 4, z: -27.9, yaw: Math.PI });
+const buggy4 = crewBuggy('buggy4', 0xc2541c, 'Polaris Survey UTV #4', (ISITE && ISITE.parks[3]) || { x: 17, z: -27.9, yaw: Math.PI });
 buggy.short = 'UTV'; buggy2.short = 'UTV #2';
 const BUGGIES = [buggy, buggy2, buggy3, buggy4];
 // =====================================================================================================
@@ -4722,8 +4745,8 @@ function buildForklift(name, label, spawn, bodyHex) {
 
 const truck = buildTruck();
 // two forklifts at the storage conex (Becky's delivery job; two people can haul at once)
-const forklift1 = buildForklift('forklift1', 'Forklift #1', { x: 44, z: -59.5, yaw: -Math.PI / 2 }, 0xf2b705);
-const forklift2 = buildForklift('forklift2', 'Forklift #2', { x: 44, z: -67.5, yaw: -Math.PI / 2 }, 0xe8710a);
+const forklift1 = buildForklift('forklift1', 'Forklift #1', siteObj('forklift', 0) || { x: 44, z: -59.5, yaw: -Math.PI / 2 }, 0xf2b705);
+const forklift2 = buildForklift('forklift2', 'Forklift #2', siteObj('forklift', 1) || { x: 44, z: -67.5, yaw: -Math.PI / 2 }, 0xe8710a);
 const VEHICLES = [buggy, buggy2, buggy3, buggy4, truck, forklift1, forklift2];
 VEHICLES.forEach(v => {
     const sp = v.cfg.spawn;
@@ -7746,7 +7769,7 @@ const Dozer = {
             it.dir = Math.random() < 0.5 ? 1 : -1; it.state = 0;
         });
         const P = playerGroup.position; let thudAt = 0;
-        showToast(ISITE ? '🚜 LOD staked — clearing the roads, cable routes, pads and fence lines.' : '🚜 LOD staked — clearing everything inside it (the pond keeps its trees).');
+        showToast(ISITE ? '🚜 LOD staked — clearing the work areas (the trees out in the open stay).' : '🚜 LOD staked — clearing everything inside it (the pond keeps its trees).');
         Anims.push({
             age: 0, dur: LODCLEAR.dur + FALL + 0.6,
             step(t) {
@@ -7817,7 +7840,7 @@ const SiltFence = {
             for (let j = 0; j < k; j++) path.push({ x: a.x + (b.x - a.x) * j / k, z: a.z + (b.z - a.z) * j / k });
         }
         if (!closed) path.push({ x: pts[n - 1].x, z: pts[n - 1].z });
-        const offRoad = (x, z) => roadDist(x, z) > ROAD.halfWidth + 1.8 && spurDist(x, z) > SPUR.hw + 1.8;
+        const offRoad = (x, z) => roadDist(x, z) > ROAD.halfWidth + 1.8 && spurDist(x, z) > SPUR.hw + 1.8 && (!ISITE || ISITE.roadD(x, z) > 1.8);
         // a fence that detours out from one standing fence and comes back to it (the substation extension) replaces
         // the straight run it bypasses
         if (!closed) this.openChord(pts[0], pts[pts.length - 1]);
@@ -7986,7 +8009,33 @@ const SiltFence = {
 const DESIGN_POLY = [[237.5, 43.7], [215, 63.1], [191.3, 107.6], [185.6, 166.8], [192, 225.7], [187.7, 288.6], [171.2, 335.9], [97.5, 344.2], [-18.9, 344.2],
     [-127.7, 334], [-163.3, 319.8], [-177.5, 275.7], [-179.2, 226.7], [-166.2, 170.4], [-164.3, 122.8], [-167.8, 70.2], [-174.1, -3.3], [-175.6, -21.1],
     [-162.8, -95.3], [-113.1, -166.2], [-30.3, -196.4], [57, -189], [126.5, -137.7], [160.7, -91], [268, -91], [268, 43.7]].map(([x, z]) => ({ x, z }));
-const RACK = { pitch: 20, step: 20, edge: 10, h: 7.5, pd10: null };       // pd10: future pile-driver animation hook (pile, done) => {}
+const RACK = { pitch: 20, step: 20, edge: 10, h: 7.5, clear: 7.0, maxReveal: 11, pd10: null };   // clear: lowest tube height over the ground (panels at 55° still clear it)
+// the torque tube along a row: a straight line fitted to the ground and lifted so it never comes closer than RACK.clear;
+// if that leaves some pile sticking up more than RACK.maxReveal it follows the ground in gentle bends instead (each pile
+// gets p.top = tube height there)
+function rackProfile(R) {
+    R.rows.forEach(row => {
+        const P = row.map(i => R.piles[i]), n = P.length;
+        const mz = P.reduce((a, p) => a + p.z, 0) / n, my = P.reduce((a, p) => a + p.y, 0) / n;
+        let sxy = 0, sxx = 0; P.forEach(p => { sxy += (p.z - mz) * (p.y - my); sxx += (p.z - mz) ** 2; });
+        const k = sxx ? sxy / sxx : 0, line = z => my + k * (z - mz);
+        let lift = -Infinity; P.forEach(p => { lift = Math.max(lift, RACK.clear - (line(p.z) - p.y)); });
+        let tops = P.map(p => line(p.z) + lift);
+        if (P.some((p, i) => tops[i] - p.y > RACK.maxReveal)) {
+            const sm = P.map((_, i) => { let s2 = 0, c = 0; for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { s2 += P[j].y; c++; } return s2 / c; });
+            let up = -Infinity; P.forEach((p, i) => { up = Math.max(up, RACK.clear - (sm[i] - p.y)); });
+            tops = sm.map(v => v + up);
+        }
+        P.forEach((p, i) => { p.top = tops[i]; });
+    });
+}
+// tube height at z along a row (between / past its piles)
+function rackTop(R, row, z) {
+    const P = row.map(i => R.piles[i]), n = P.length; if (n === 1) return P[0].top;
+    let i = 0; while (i < n - 2 && z > P[i + 1].z) i++;
+    const a = P[i], b = P[i + 1], u = (z - a.z) / ((b.z - a.z) || 1);
+    return a.top + (b.top - a.top) * u;
+}       // pd10: future pile-driver animation hook (pile, done) => {}
 function polyEdgeDist(poly, x, z) {
     let best = Infinity;
     for (let i = 0; i < poly.length; i++) {
@@ -8140,7 +8189,8 @@ const Plan = {
             const piles = [], rows = [];
             ISITE.arrays.forEach(a => a.rows.forEach(r => { const row = r.map(p => piles.push({ x: p.x, z: p.z, row: rows.length }) - 1); if (row.length >= 2) rows.push(row); }));
             piles.forEach((p, i) => { p.y = getTerrainHeight(p.x, p.z); p.i = i; });
-            C.rack = { piles, rows, skip: {} }; return C.rack;
+            rows.forEach(row => row.sort((a, b) => piles[a].z - piles[b].z));
+            C.rack = { piles, rows, skip: {} }; rackProfile(C.rack); return C.rack;
         }
         const cables = [C.ac, ...C.dc], cps = (typeof ControlPoints === 'object' ? ControlPoints.list : []);
         const L = TaskManager.get('T1'), lod = L && L.points.length > 2 ? L.points : null;
@@ -8173,7 +8223,7 @@ const Plan = {
             flush();
         }
         piles.forEach((p, i) => { p.y = getTerrainHeight(p.x, p.z); p.i = i; });
-        C.rack = { piles, rows, skip };
+        C.rack = { piles, rows, skip }; rackProfile(C.rack);
         return C.rack;
     },
 };
@@ -8430,7 +8480,7 @@ const Build = {
         const geo = new THREE.BoxGeometry(0.5, RACK.h, 0.34); geo.translate(0, RACK.h / 2, 0);
         const m = new THREE.InstancedMesh(geo, this.mats.steel, n); m.castShadow = true; m.frustumCulled = false; this.group.add(m); this.rackMesh = m;
         const o = new THREE.Object3D();
-        const place = (p, dy) => { o.position.set(p.x, p.y + dy, p.z); o.rotation.set(0, 0, 0); o.updateMatrix(); m.setMatrixAt(p.i, o.matrix); };
+        const place = (p, dy) => { o.position.set(p.x, p.y + dy, p.z); o.rotation.set(0, 0, 0); o.scale.set(1, Math.max(0.2, (p.top - p.y - 0.15) / RACK.h), 1); o.updateMatrix(); m.setMatrixAt(p.i, o.matrix); };
         R.piles.forEach(p => place(p, anim ? -RACK.h - 1 : 0));
         m.instanceMatrix.needsUpdate = true;
         if (!anim) return;
@@ -8482,15 +8532,21 @@ const Build = {
             c.strokeStyle = '#c9ced3'; c.lineWidth = 3; c.strokeRect(1, 1, w - 2, h - 2); });
         const pm = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tex, roughness: 0.28, metalness: 0.35 });
         const panels = new THREE.InstancedMesh(new THREE.BoxGeometry(PW, 0.14, PL - 0.12), pm, n); panels.castShadow = true; panels.frustumCulled = false;
-        const tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.42, 1), this.mats.steel, rows.length); tubes.castShadow = true; tubes.frustumCulled = false;
+        rows.forEach(r => { r.tz0 = Math.min(r.a.z, r.b.z) - 3; r.tz1 = Math.max(r.a.z, r.b.z) + 3; r.zs = [r.tz0, ...r.row.map(i => R.piles[i].z).filter(z => z > r.tz0 && z < r.tz1), r.tz1]; });
+        let nt = 0; rows.forEach(r => { r.t0 = nt; nt += r.zs.length - 1; });
+        const tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.42, 1), this.mats.steel, nt); tubes.castShadow = true; tubes.frustumCulled = false;
         this.group.add(panels, tubes); this.panelMesh = panels;
-        const o = new THREE.Object3D(), TILT = 0.22, hAt = (r, z) => { const u = clamp((z - r.a.z) / ((r.b.z - r.a.z) || 1), 0, 1); return r.a.y + (r.b.y - r.a.y) * u + RACK.h + 0.25; };
+        const o = new THREE.Object3D(), TILT = 0.22, top = (r, z) => rackTop(R, r.row, z);
         const placeRow = (r, k01) => {
-            const z0 = Math.min(r.a.z, r.b.z) - 3, len = Math.abs(r.b.z - r.a.z) + 6;
-            o.position.set(r.a.x, (hAt(r, r.a.z) + hAt(r, r.b.z)) / 2 - 0.3, z0 + len / 2); o.rotation.set(0, 0, 0); o.scale.set(1, 1, Math.max(0.001, len * k01)); o.updateMatrix(); tubes.setMatrixAt(rows.indexOf(r), o.matrix);
+            const z0 = r.tz0, len = r.tz1 - r.tz0, zEnd = z0 + len * k01;
+            for (let q = 0; q < r.zs.length - 1; q++) {                                   // the tube, pile to pile
+                const za = r.zs[q], zb = Math.min(r.zs[q + 1], zEnd), L = zb - za, ya = top(r, za), yb = top(r, Math.max(za, zb));
+                o.position.set(r.a.x, (ya + yb) / 2, (za + zb) / 2); o.rotation.set(-Math.atan2(yb - ya, L || 1), 0, 0);
+                o.scale.set(1, 1, L > 0 ? Math.hypot(L, yb - ya) : 0.0001); o.updateMatrix(); tubes.setMatrixAt(r.t0 + q, o.matrix);
+            }
             for (let j = 0; j < r.n; j++) {
-                const z = z0 + (j + 0.5) * (len / r.n), vis = (j + 0.5) / r.n <= k01;
-                o.position.set(r.a.x, hAt(r, z), z); o.rotation.set(0, 0, TILT); o.scale.setScalar(vis ? 1 : 0.0001); o.updateMatrix(); panels.setMatrixAt(r.i0 + j, o.matrix);
+                const z = z0 + (j + 0.5) * (len / r.n), vis = (j + 0.5) / r.n <= k01, d = 0.8, sl = Math.atan2(top(r, z + d) - top(r, z - d), 2 * d);
+                o.position.set(r.a.x, top(r, z) + 0.36, z); o.rotation.set(-sl, 0, TILT); o.scale.setScalar(vis ? 1 : 0.0001); o.updateMatrix(); panels.setMatrixAt(r.i0 + j, o.matrix);
             }
         };
         rows.forEach(r => placeRow(r, anim ? 0 : 1));
@@ -8668,11 +8724,16 @@ const TaskManager = {
             return pts.filter((_, i) => keep[i]);
         };
         const split = pts => { const out = []; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], m = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 150)); for (let k = 0; k < m; k++) out.push({ x: a.x + (b.x - a.x) * k / m, z: a.z + (b.z - a.z) * k / m }); } out.push(pts[pts.length - 1]); return out; };
-        if (L.runs) {
+        // gaps wherever a road (or its turnaround) crosses the loop, worked out here from the roads as drawn
+        const D = alongPolyline([...L.pts, L.pts[0]], 2); D.pop();
+        const on = D.map(p => ISITE.roadD(p.x, p.z) < 2.5);
+        if (on.some(Boolean) && !on.every(Boolean)) {
+            const st = on.indexOf(true), runs = []; let cur = [];
+            for (let k = 1; k <= D.length; k++) { const i = (st + k) % D.length; if (!on[i]) cur.push(D[i]); else { if (cur.length > 2 && runLength(cur) > 6) runs.push(cur); cur = []; } }
+            if (cur.length > 2 && runLength(cur) > 6) runs.push(cur);
             const pts = [], breaks = [];
-            L.runs.forEach(r => { const q = split(simp(r, 7)); if (q.length < 2) return; pts.push(...q); breaks.push(pts.length - 1); });
-            if (pts.length < 3) return null;
-            t.breaks = breaks; return pts;
+            runs.forEach(r => { const q = split(simp(r, 7)); if (q.length < 2) return; pts.push(...q); breaks.push(pts.length - 1); });
+            if (pts.length >= 3) { t.breaks = breaks; return pts; }
         }
         const ring = split(simp([...L.pts, L.pts[0]], 7)); ring.pop();
         t.breaks = []; return ring.length > 2 ? ring : null;
@@ -11954,7 +12015,55 @@ const Mod = {
         document.querySelectorAll('[data-mod]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); this.run(b.dataset.mod); }));
         this.refresh();
     },
+    // the story chain in order (each task after its prerequisites)
+    chain() {
+        const T = TaskManager.tasks.filter(t => /^[TS]\d+$/.test(t.id)), out = [], seen = new Set();
+        let guard = 0;
+        while (out.length < T.length && guard++ < 100) T.forEach(t => { if (!seen.has(t.id) && t.prerequisites.every(p => seen.has(p) || !T.some(q => q.id === p))) { seen.add(t.id); out.push(t); } });
+        return out;
+    },
+    // finish every job before `id` (laid out, built, fences up, LOD cleared, locate flags in the ground) and hand it out
+    skipTo(id) {
+        const TM = TaskManager, order = this.chain(), k = order.findIndex(t => t.id === id);
+        if (k < 0) return;
+        if (Net.helping()) { showToast(`Only the crew lead (${Net.leadName()}) can skip missions.`); return; }
+        if (TM.active && !TM.active.mirror && order.indexOf(TM.active) < k) { TM.dropVisuals(TM.active); TM.active = null; }
+        let flags = 0;
+        order.slice(0, k).forEach(t => {
+            if (t.status === 'completed') return;
+            if (t.status === 'active') { TM.dropVisuals(t); if (TM.active === t) TM.active = null; }
+            if (!t.points.length && !TM.generateLayout(t)) { t.status = 'completed'; t.built = true; return; }
+            if (t.rule.code === 'LOC') flags += this.plantFlags(t);
+            t.stakedFlags = t.points.map(() => true); t.status = 'completed'; t.talked = true;
+            if (t.rule.code === 'LOD') Dozer.clear(TM.lodPoly(t), false);
+            if (t.rule.code === 'SILT') { t.built = true; SiltFence.buildTask(t); }
+            if (t.rule.deliver) { t.built = true; Build.run('panels', false); }
+            if (Build.STAGES[t.id]) { t.built = true; Build.STAGES[t.id].forEach(st => Build.run(st, false)); }
+        });
+        const tr = TM.get('T14'); if (tr && tr.status === 'completed') Build.run('trees', false);
+        TM.justCompleted = null; TM.refresh();
+        const t = TM.get(id);
+        if (t.status !== 'active') { if (TM.active && TM.active !== t) { TM.dropVisuals(TM.active); TM.active.status = 'available'; TM.active = null; } t.status = 'available'; TM.talk(); }
+        if (S.devOpen) toggleDevMenu(false);
+        TM.updateHud(); this.refresh(); Save.touch(); Net.force = true;
+        showToast(`⏭️ Skipped to "${t.title}"${flags ? ` — ${flags} red pin flags mark the buried cable` : ''}. Check your map.`);
+    },
+    // red pin flags in the ground on every point of a cable-locate job (they stay put, like the real ones)
+    plantFlags(t) {
+        const ci = t.requiredColorIdx, f = flagColorOptions[ci];
+        t.points.forEach((p, i) => {
+            const pt = V(p.x, getTerrainHeight(p.x, p.z), p.z), label = `PIN #${loggedPoints.length + 1}`;
+            const st = { pt, colorIdx: ci, label, prev: null, next: null, linkPrev: null, kind: MK.pin.kind, group: createSurveyStake(pt, f.hex, label, Math.random() * 6.28, MK.pin.kind) };
+            st.nid = Net.newId(); st.crew = false; st.taskVertex = { task: t, i };
+            stakes.push(st); loggedPoints.push({ pt, color: f.hex, label, stake: st }); t.vertexStakes[i] = st;
+            Net.stakePlaced(st);
+        });
+        updateEquipmentUI();
+        return t.points.length;
+    },
     refresh() {
+        const sel = $('mod-skip');
+        if (sel) { const order = this.chain(), cur = sel.value; sel.innerHTML = order.map(t => `<option value="${t.id}">${escHTML(t.title)}${t.status === 'completed' ? ' ✓' : t.status === 'active' ? ' (now)' : ''}</option>`).join(''); if (cur && order.some(t => t.id === cur)) sel.value = cur; }
         const t = TaskManager.active;
         setText('mod-quest', t ? `Active: ${t.title} (${TaskManager.progress(t).staked}/${TaskManager.progress(t).total})` : 'No active quest');
         setText('mod-stakes', `${stakes.length} stake${stakes.length === 1 ? '' : 's'} placed`);
@@ -11980,6 +12089,7 @@ const Mod = {
             case 'wipe-save': Save.wipe(); return;
             case 'jump': Jump.toggle(); return;
             case 'cancel-quest': this.cancelQuest(); break;
+            case 'skip': { const v = $('mod-skip') && $('mod-skip').value; if (v) this.skipTo(v); return; }
             case 'boar': case 'bear': case 'deer': case 'buck': case 'coyote':
                 if (Net.helping()) { showToast(`Only the crew lead (${Net.leadName()}) can spawn animals — they'd be invisible to everyone else.`); return; }
                 break;
@@ -12125,7 +12235,7 @@ Mod.init();
 const JobBox = {
     world: null, lid: null, lidT: 0,
     init() {
-        const br = SITE.breakRoom, p = localToWorldXZ(br.x, br.z, br.yaw, 8, -CONEX.W / 2 - 2.2), y = getTerrainHeight(p.x, p.z);
+        const br = siteAnchor('jobbox', 8, -CONEX.W / 2 - 2.2, -Math.PI) || SITE.breakRoom, p = localToWorldXZ(br.x, br.z, br.yaw, 8, -CONEX.W / 2 - 2.2), y = getTerrainHeight(p.x, p.z);
         const g = new THREE.Group(); g.position.set(p.x, y, p.z); g.rotation.y = br.yaw + Math.PI;     // front faces away from the wall
         const tan = new THREE.MeshStandardMaterial({ color: 0xc9a46c, roughness: 0.55, metalness: 0.35 });
         const dark = new THREE.MeshStandardMaterial({ color: 0x9c7c4c, roughness: 0.6, metalness: 0.35 });
@@ -12325,7 +12435,7 @@ const Jon = {
         return { g, pivot, ind, num, x, z, y, yaw, door: { x: fp.x, z: fp.z }, ang: 0, want: 0, wob: 0, occ: false, remoteOcc: false, closeAt: 0 };
     },
     init() {
-        const br = SITE.breakRoom, yaw = br.yaw;
+        const br = siteAnchor('portajohn', 16.15, CONEX.W / 2 + 6.3 - 3.0, 0) || SITE.breakRoom, yaw = br.yaw;
         const at = (lx, lz) => localToWorldXZ(br.x, br.z, yaw, lx, lz);
         // pallet deck
         const BACK = 3.0;                                                    // pulled in so the deck's back edge touches the conex wall
@@ -14629,7 +14739,7 @@ const Title = {
             <div class="tm-status" style="--i:1">Thanks for surveying. You can close this tab.</div>
             ${B('BACK TO MENU', 'back', 2)}
         </section>
-        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.57.0</span></div>`;
+        <div class="tm-foot"><span class="tm-keys">↑ ↓ select · Enter confirm · Esc back</span><span>v1.57.1</span></div>`;
         document.body.appendChild(el); this.el = el;
         el.addEventListener('click', e => {
             const card = e.target.closest('.tm-card');
@@ -14929,13 +15039,17 @@ const Title = {
 //            (tools on one side). Becky, the warehouse manager, stands out front. After her delivery job the empty
 //            racks fill with torque tubes and panels.
 // =====================================================================================================
-const STORE = { x: 22, z: -64, L: 20, W: 8, H: 8.4, t: 0.25 };
+const STORE = (() => { const o = siteObj('storage'); return { x: o ? o.x : 22, z: o ? o.z : -64, yaw: o ? Math.round(o.yaw / (Math.PI / 2)) * (Math.PI / 2) : 0, L: 20, W: 8, H: 8.4, t: 0.25 }; })();
+const storeAt = (lx, lz) => localToWorldXZ(STORE.x, STORE.z, STORE.yaw, lx, lz);
 const Storage = {
     group: null, fill: null,
     // interior (world, axis-aligned: the box faces +x)
-    inside(x, z, m = 0) { return x > STORE.x - STORE.L / 2 + 0.3 - m && x < STORE.x + STORE.L / 2 + m && Math.abs(z - STORE.z) < STORE.W / 2 - 0.3 + m; },
+    inside(x, z, m = 0) {
+        const c = Math.cos(STORE.yaw), s = Math.sin(STORE.yaw), dx = x - STORE.x, dz = z - STORE.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
+        return lx > -STORE.L / 2 + 0.3 - m && lx < STORE.L / 2 + m && Math.abs(lz) < STORE.W / 2 - 0.3 + m;
+    },
     init() {
-        const g = new THREE.Group(), y0 = getTerrainHeight(STORE.x, STORE.z); g.position.set(STORE.x, y0, STORE.z); scene.add(g); this.group = g;
+        const g = new THREE.Group(), y0 = getTerrainHeight(STORE.x, STORE.z); g.position.set(STORE.x, y0, STORE.z); g.rotation.y = STORE.yaw; scene.add(g); this.group = g;
         const { L, W, H, t } = STORE;
         const shell = new THREE.MeshStandardMaterial({ color: 0x6b7f8f, roughness: 0.6, metalness: 0.25 });
         const inner = new THREE.MeshStandardMaterial({ color: 0xd7dcdf, roughness: 0.7 });
@@ -14991,14 +15105,14 @@ const Storage = {
         for (let x = -L / 2 + 1.8; x < L / 2 - 3.4; x += 3.6) { box(3.3, 0.9, 1.1, pnl, x, 1.0 + 0.52, zr, fill); box(3.36, 0.06, 1.14, frm, x, 1.0 + 0.98, zr, fill); }
         for (let x = L / 2 - 6.6; x < L / 2 - 3.2; x += 1.7) [1.0, 3.2, 5.4].forEach(y => box(1.5, 0.7, 1.05, pnl, x, y + 0.42, zl, fill));
         // colliders: walls + racks (player) and the walls + doors (vehicles too)
-        const wb = (cx, cz, hx, hz, veh) => Boxes.add({ cx: STORE.x + cx, cz: STORE.z + cz, hx, hz, y0: y0 - 1, y1: y0 + H, player: true, vehicle: veh, tag: 'storage' });
+        const wb = (cx, cz, hx, hz, veh) => { const w = storeAt(cx, cz); Boxes.add({ cx: w.x, cz: w.z, yaw: STORE.yaw, hx, hz, y0: y0 - 1, y1: y0 + H, player: true, vehicle: veh, tag: 'storage' }); };
         wb(-L / 2, 0, t / 2 + 0.1, W / 2, true); wb(0, -W / 2, L / 2, t / 2 + 0.1, true); wb(0, W / 2, L / 2, t / 2 + 0.1, true);
         wb(-1.3, zl, (L - 3.0) / 2, RD / 2, false); wb(-1.3, zr, (L - 3.0) / 2, RD / 2, false);
         [-1, 1].forEach(s => wb(L / 2 + 0.2 + W / 4, s * (W / 2 + 0.15), W / 4, 0.2, true));                        // the open doors
         // the deck is walkable: lift the floor so you step up into it
-        Boxes.add({ cx: STORE.x, cz: STORE.z, hx: L / 2 - 0.2, hz: W / 2 - 0.3, y0: y0 - 1, y1: y0 + 0.2, player: true, walk: true, tag: 'storage-floor' });
+        Boxes.add({ cx: STORE.x, cz: STORE.z, yaw: STORE.yaw, hx: L / 2 - 0.2, hz: W / 2 - 0.3, y0: y0 - 1, y1: y0 + 0.2, player: true, walk: true, tag: 'storage-floor' });
         // where the 4 boxes end up (task points)
-        this.slots = [L / 2 - 3.2, L / 2 - 7.4, L / 2 - 11.6, L / 2 - 15.8].map(dx => ({ x: STORE.x + dx, z: STORE.z }));
+        this.slots = [L / 2 - 3.2, L / 2 - 7.4, L / 2 - 11.6, L / 2 - 15.8].map(dx => storeAt(dx, 0));
     },
     update() { if (this.fill) this.fill.visible = Build.has('panels'); },
 };
@@ -15020,8 +15134,8 @@ const Becky = {
         cm(0.9, 1.2, 0.05, 0x8b5a2b, 0, 0, 0); cm(0.78, 1.0, 0.02, 0xf8fafc, 0, -0.04, 0.035); cm(0.36, 0.1, 0.08, 0x9ca3af, 0, 0.56, 0.03);
         clip.position.set(0.05, -1.25, 0.36); clip.rotation.x = -1.2; r.armL.elbow.add(clip);
         r.armL.shoulder.rotation.set(-0.7, 0, 0.1); r.armL.elbow.rotation.x = -0.9;
-        const x = STORE.x + STORE.L / 2 + 7.5, z = STORE.z + STORE.W / 2 + 4.0, y = getTerrainHeight(x, z);
-        this.yaw = Math.PI * 0.62; r.group.position.set(x, y, z); r.group.rotation.y = this.yaw;
+        const bo = siteObj('becky'), bp = bo || storeAt(STORE.L / 2 + 7.5, STORE.W / 2 + 4.0), x = bp.x, z = bp.z, y = getTerrainHeight(x, z);
+        this.yaw = bo ? bo.yaw : Math.PI * 0.62 + STORE.yaw; r.group.position.set(x, y, z); r.group.rotation.y = this.yaw;
         scene.add(r.group); Colliders.add(x, z, 1.2, 8, { tag: 'npc' });
         this.rig = r; this.world = { x, y, z }; this.bubble = makeBubble('becky-bubble');
     },
@@ -15175,7 +15289,7 @@ const Delivery = {
     },
     slide(b, from) {
         b.state = 'stored'; const s = Storage.slots[b.k], y = getTerrainHeight(STORE.x, STORE.z) + 0.2, a = { x: from ? from.x : b.x, z: from ? from.z : b.z };
-        b.g.rotation.set(0, Math.PI / 2, 0); SFX.thud(0.5);
+        b.g.rotation.set(0, Math.PI / 2 + STORE.yaw, 0); SFX.thud(0.5);
         Anims.push({ age: 0, dur: 0.8, step: tt => { const u = clamp(tt / 0.8, 0, 1), e = 1 - Math.pow(1 - u, 3); b.g.position.set(a.x + (s.x - a.x) * e, y, a.z + (s.z - a.z) * e); }, done: () => { b.x = s.x; b.z = s.z; b.g.position.set(s.x, y, s.z); } });
     },
     markStored(t, k) {
@@ -15212,7 +15326,7 @@ const Delivery = {
             if (done && !b.parked) {
                 if (b.state === 'carried' && b.by) { b.by.forks.remove(b.g); scene.add(b.g); b.by.carry = -1; b.by = null; }
                 const sl = Storage.slots[b.k]; b.state = 'stored'; b.parked = true;
-                if (!b.sliding) { b.g.position.set(sl.x, getTerrainHeight(STORE.x, STORE.z) + 0.2, sl.z); b.g.rotation.set(0, Math.PI / 2, 0); }
+                if (!b.sliding) { b.g.position.set(sl.x, getTerrainHeight(STORE.x, STORE.z) + 0.2, sl.z); b.g.rotation.set(0, Math.PI / 2 + STORE.yaw, 0); }
             }
             if (!done) b.parked = false;
             if (!on) return;
