@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CSV Fix">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>CSV Fix</title>
+<style>
+:root{
+  --bg:#f4f2ec; --panel:#ffffff; --panel2:#ece9e1; --ink:#1c1d1f; --muted:#6b6a66; --line:#d9d5ca;
+  --accent:#e2691b; --accent-ink:#ffffff; --good:#1f8a4c; --bad:#c9372c; --earth:#b99a6e; --earth2:#a3855a;
+  --sel:#fde9da; --shadow:0 8px 30px rgba(0,0,0,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#16181a; --panel:#202326; --panel2:#2a2e32; --ink:#eceae4; --muted:#9a9890; --line:#363b40;
+    --accent:#f07a2a; --accent-ink:#ffffff; --good:#3bbf72; --bad:#ef5a4c; --earth:#6d5a40; --earth2:#5a4a34; --sel:#3d2a1c; --shadow:0 8px 30px rgba(0,0,0,.5); }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+body{overflow:hidden}
+button{font:inherit;color:inherit}
+input,select{font:inherit;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+/* screens */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+.screen.on{display:flex}
+.topbar{display:flex;align-items:center;gap:8px;padding:10px 14px;min-height:56px;border-bottom:1px solid var(--line);background:var(--bg)}
+.topbar h1{font-size:18px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{border:0;background:var(--panel2);border-radius:10px;height:38px;min-width:38px;padding:0 12px;font-weight:600;cursor:pointer}
+.iconbtn:disabled{opacity:.35}
+.scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+.wrap{max-width:560px;margin:0 auto}
+
+/* home */
+.brand{display:flex;align-items:center;gap:10px;margin:6px 0 18px}
+.brand img{width:40px;height:40px;border-radius:10px}
+.brand h1{margin:0;font-size:24px;letter-spacing:-.02em}
+.brand p{margin:0;color:var(--muted);font-size:14px}
+.drop{border:2px dashed var(--line);border-radius:18px;background:var(--panel);padding:34px 18px;text-align:center;transition:.15s}
+.drop.over{border-color:var(--accent);background:var(--sel)}
+.drop .big{font-size:18px;font-weight:600;margin:10px 0 4px}
+.drop .small{color:var(--muted);font-size:14px;margin-bottom:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;padding:13px 20px;font-weight:650;cursor:pointer;background:var(--panel2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.block{display:flex;width:100%}
+.btn.good{background:var(--good);color:#fff}
+.filecard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.filecard .ico{width:42px;height:42px;border-radius:10px;background:var(--sel);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:12px}
+.filecard .nm{font-weight:650;word-break:break-all}
+.filecard .meta{color:var(--muted);font-size:13px}
+.opts{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:14px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px 16px;cursor:pointer;width:100%}
+.opt:active{transform:scale(.99)}
+.opt .oi{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--panel2);flex:none}
+.opt .oi svg{width:24px;height:24px}
+.opt b{display:block;font-size:16px}
+.opt span{color:var(--muted);font-size:13px}
+.opt.hero{border-color:var(--accent);background:linear-gradient(0deg,var(--sel),var(--panel))}
+.opt.hero .oi{background:var(--accent);color:#fff}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:14px;cursor:pointer;width:100%}
+
+/* grid */
+.toolrow{display:flex;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--bg);flex:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 13px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.hint{font-size:12px;color:var(--muted);padding:6px 14px 0;flex:none}
+#gscroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;position:relative;background:var(--panel);overscroll-behavior:contain}
+#ginner{position:relative}
+.ghead{position:sticky;top:0;z-index:3;display:flex;background:var(--panel2);border-bottom:2px solid var(--line);height:52px}
+.gh{flex:none;border-right:1px solid var(--line);padding:5px 8px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:pan-y;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.gh .role{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.gh .role.none{color:var(--muted)}
+.gh .t{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gh.drag{opacity:.4}
+.gh.dropL{box-shadow:inset 3px 0 0 var(--accent)}
+.gh.dropR{box-shadow:inset -3px 0 0 var(--accent)}
+.gcorner,.grn{position:sticky;left:0;z-index:2;flex:none;width:52px;background:var(--panel2);border-right:1px solid var(--line);color:var(--muted);font-size:11px;display:flex;align-items:center;justify-content:center}
+.gcorner{z-index:4}
+.grow{position:absolute;left:0;display:flex;height:34px;border-bottom:1px solid var(--line)}
+.grow:nth-child(even) .gc{background:color-mix(in srgb,var(--panel2) 35%,var(--panel))}
+.gc{flex:none;border-right:1px solid var(--line);padding:0 8px;line-height:33px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:var(--panel)}
+.gc.z{color:var(--accent);font-weight:600}
+.gc.flash{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:var(--sel)}}
+#ghost{position:fixed;z-index:50;pointer-events:none;background:var(--accent);color:#fff;padding:8px 12px;border-radius:10px;font-weight:700;font-size:13px;box-shadow:var(--shadow);display:none}
+
+/* sheets */
+.veil{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:20;display:none;align-items:flex-end;justify-content:center}
+.veil.on{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:94vh;max-height:94dvh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;box-shadow:var(--shadow);animation:up .2s ease-out}
+@media (min-width:700px){.veil{align-items:center}.sheet{border-radius:20px}}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.sheet .sh{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.sheet .sh h2{margin:0;font-size:19px;flex:1}
+.sheet .sb{overflow:auto;padding:4px 16px calc(18px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.card h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.field label{font-size:12px;font-weight:650;color:var(--muted)}
+.inp{width:100%;border:1.5px solid var(--line);background:var(--panel);border-radius:10px;padding:11px 12px;font-size:18px;outline:none;min-width:0}
+.inp:focus{border-color:var(--accent)}
+.inp.shot{border-color:var(--bad)}
+.inp.act{border-color:var(--good)}
+select.inp{font-size:15px;padding:10px}
+.seg{display:flex;background:var(--panel2);border-radius:10px;padding:3px;flex:none}
+.seg button{border:0;background:none;padding:9px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px}
+.seg button.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.seg button.on.add{color:var(--good)} .seg button.on.sub{color:var(--bad)}
+.result{border-radius:12px;padding:12px 14px;font-weight:650;margin:12px 0 8px;background:var(--panel2)}
+.result .big{font-size:26px;font-weight:800;display:block}
+.result.add{background:color-mix(in srgb,var(--good) 14%,var(--panel))} .result.add .big{color:var(--good)}
+.result.sub{background:color-mix(in srgb,var(--bad) 12%,var(--panel))} .result.sub .big{color:var(--bad)}
+.result small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:2px}
+.preview{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+.preview td,.preview th{padding:5px 4px;text-align:right;border-bottom:1px solid var(--line)}
+.preview th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.preview td:first-child,.preview th:first-child{text-align:left}
+.preview .new{color:var(--accent);font-weight:700}
+#diagram{width:100%;height:auto;display:block}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:700;margin:4px 0 12px;text-transform:uppercase;letter-spacing:.08em}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+.rolegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rolegrid .chip{text-align:center}
+.mt{margin-top:12px}
+.muted{color:var(--muted);font-size:13px}
+.danger{color:var(--bad)}
+.check{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:15px}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+
+#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--bg);padding:12px 14px 12px 16px;border-radius:14px;display:flex;gap:14px;align-items:center;z-index:60;transition:transform .25s;box-shadow:var(--shadow);max-width:calc(100% - 24px);font-size:15px}
+#toast.on{transform:translateX(-50%) translateY(0)}
+#toast button{border:0;background:var(--accent);color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<section class="screen on" id="home">
+  <div class="scroll"><div class="wrap">
+    <div class="brand">
+      <img src="icon-192.png" alt="">
+      <div><h1>CSV Fix</h1><p>Point files — view, renumber, fix elevations</p></div>
+    </div>
+
+    <div id="noFile">
+      <div class="drop" id="drop">
+        <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
+        <div class="big">Drop a .csv file here</div>
+        <div class="small">or pick one from Files</div>
+        <button class="btn primary" id="pickBtn">+ Add file</button>
+      </div>
+      <p class="muted" style="text-align:center;margin-top:14px">Works with PNEZD / PENZD point files. Everything stays on your phone.</p>
+    </div>
+
+    <div id="hasFile" hidden>
+      <div class="filecard">
+        <div class="ico">CSV</div>
+        <div style="flex:1;min-width:0"><div class="nm" id="fName"></div><div class="meta" id="fMeta"></div></div>
+      </div>
+      <div class="opts">
+        <button class="opt hero" data-go="fix">
+          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v15"/><circle cx="12" cy="4" r="2"/><path d="M8 21l4-3 4 3"/><path d="M19 9v6M17 13l2 2 2-2"/></svg></div>
+          <div><b>Fix Elevations</b><span>Wrong rod height? Shift every elevation</span></div>
+        </button>
+        <button class="opt" data-go="grid">
+          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg></div>
+          <div><b>View &amp; Edit Points</b><span>Spreadsheet view — move columns, edit cells</span></div>
+        </button>
+        <button class="opt" data-go="renum">
+          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div>
+          <div><b>Renumber Points</b><span>First column 1, 2, 3… up to 9999999</span></div>
+        </button>
+        <button class="opt" data-go="export">
+          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div>
+          <div><b>Save / Share CSV</b><span>Export the fixed file</span></div>
+        </button>
+      </div>
+      <div class="row mt">
+        <button class="btn block" id="undoHome" style="flex:1">↶ Undo</button>
+        <button class="btn block" id="openOther" style="flex:1">Open another</button>
+      </div>
+      <button class="linkbtn" id="closeFile">Close file</button>
+    </div>
+  </div></div>
+</section>
+
+<!-- ============ GRID ============ -->
+<section class="screen" id="gridScreen">
+  <div class="topbar">
+    <button class="iconbtn" data-back>‹ Back</button>
+    <h1 id="gTitle">Points</h1>
+    <button class="iconbtn" id="undoGrid">↶</button>
+    <button class="iconbtn" data-go="fix" style="background:var(--accent);color:#fff">Fix Elev</button>
+  </div>
+  <div class="toolrow">
+    <button class="chip" data-order="PNEZD">Order PNEZD</button>
+    <button class="chip" data-order="PENZD">Order PENZD</button>
+    <button class="chip" data-go="renum">Renumber</button>
+    <button class="chip" id="hdrToggle">Header row</button>
+    <button class="chip" data-go="export">Save</button>
+  </div>
+  <div class="hint">Drag a column header to move it · tap a header to set what it is · tap a cell to edit</div>
+  <div id="gscroll"><div id="ginner"><div class="ghead" id="ghead"></div><div id="grows"></div></div></div>
+</section>
+
+<!-- ============ SHEETS ============ -->
+<div class="veil" id="veil"><div class="sheet" id="sheet">
+  <div class="sh"><h2 id="shTitle"></h2><button class="iconbtn" id="shClose">Done</button></div>
+  <div class="sb" id="shBody"></div>
+</div></div>
+
+<div id="ghost"></div>
+<div id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+<input type="file" id="fileIn" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel" hidden>
+
+<script>
+(function(){
+"use strict";
+var $ = function(s){ return document.querySelector(s); };
+var ls = { get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},
+           set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}},
+           del:function(k){try{localStorage.removeItem(k);}catch(e){}} };
+
+var ROLES = [['P','Point #'],['N','Northing'],['E','Easting'],['Z','Elevation'],['D','Description'],['','None']];
+var ROLE_NAME = {P:'Point #',N:'Northing',E:'Easting',Z:'Elevation',D:'Desc',' ':''};
+var MAXPT = 9999999;
+
+// file = {name, delim, header: [] | null, rows: [[...]], roles: [...]}
+var file = null, hist = [];
+
+/* ---------------- CSV parse / write ---------------- */
+function parseCSV(t, d){
+  var rows=[], row=[], f='', q=false, i, c;
+  for(i=0;i<t.length;i++){
+    c=t[i];
+    if(q){ if(c==='"'){ if(t[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"' && f===''){ q=true; }
+    else if(c===d){ row.push(f); f=''; }
+    else if(c==='\n'||c==='\r'){ if(c==='\r'&&t[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=''; }
+    else f+=c;
+  }
+  if(f!==''||row.length){ row.push(f); rows.push(row); }
+  return rows.filter(function(r){ return !(r.length===1 && r[0].trim()===''); });
+}
+function esc(v, d){ return (/[",\r\n]/.test(v) || v.indexOf(d)>=0) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function toCSV(includeHeader){
+  var d=file.delim, out=[];
+  if(includeHeader && file.header) out.push(file.header.map(function(v){return esc(v,d);}).join(d));
+  file.rows.forEach(function(r){ out.push(r.map(function(v){return esc(v,d);}).join(d)); });
+  return out.join('\r\n')+'\r\n';
+}
+var NUM = /^\s*[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?\s*$/;
+function isNum(s){ return NUM.test(s); }
+function decs(s){ var m=/\.(\d+)/.exec(String(s)); return m?m[1].length:0; }
+
+function guessRoles(header, ncol){
+  var r = new Array(ncol).fill('');
+  if(header){
+    header.forEach(function(h,i){
+      h=String(h).trim().toLowerCase();
+      if(/^(p|pt|pnt|point|pt ?#|point ?(#|no|num|number|id)|name|id)$/.test(h)) r[i]='P';
+      else if(/^(n|y|north|northing|lat|latitude)$/.test(h)) r[i]='N';
+      else if(/^(e|x|east|easting|lon|lng|longitude)$/.test(h)) r[i]='E';
+      else if(/^(z|el|elev|elevation|ht|height|h|elv)$/.test(h)) r[i]='Z';
+      else if(/^(d|desc|description|code|note|notes|feature|fc)$/.test(h)) r[i]='D';
+    });
+    if(r.indexOf('Z')>=0 || r.indexOf('P')>=0) return r;
+  }
+  var dflt=['P','N','E','Z','D'];
+  for(var i=0;i<ncol&&i<5;i++) r[i]=dflt[i];
+  return r;
+}
+
+function loadText(name, text){
+  text = text.replace(/^﻿/,'');
+  var first = text.split(/\r?\n/,1)[0]||'';
+  var delim = first.indexOf(',')>=0 ? ',' : (first.indexOf('\t')>=0 ? '\t' : (first.indexOf(';')>=0 ? ';' : ','));
+  var rows = parseCSV(text, delim);
+  if(!rows.length){ toast('That file looks empty'); return; }
+  var ncol = Math.max.apply(null, rows.map(function(r){return r.length;}));
+  rows.forEach(function(r){ while(r.length<ncol) r.push(''); });
+  var header=null;
+  if(rows.length>1){
+    var n0=rows[0].filter(isNum).length, n1=rows[1].filter(isNum).length;
+    if(n1>n0) header=rows.shift();
+  }
+  file = {name:name, delim:delim, header:header, rows:rows, roles:guessRoles(header,ncol)};
+  hist = [];
+  save(); showHome();
+}
+
+function readFile(f){
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){ loadText(f.name, String(rd.result)); };
+  rd.onerror = function(){ toast("Couldn't read that file"); };
+  rd.readAsText(f);
+}
+
+/* ---------------- state / undo ---------------- */
+function save(){
+  if(!file){ ls.del('csvfix.file'); return; }
+  ls.set('csvfix.file', JSON.stringify(file));
+}
+function snap(){ hist.push(JSON.stringify(file)); if(hist.length>30) hist.shift(); updUndo(); }
+function undo(){
+  if(!hist.length) return;
+  file = JSON.parse(hist.pop()); save(); updUndo(); refresh(); toast('Undone', true);
+}
+function updUndo(){ ['#undoHome','#undoGrid'].forEach(function(s){ $(s).disabled = !hist.length; }); }
+function col(role){ return file.roles.indexOf(role); }
+function colName(i){ var h=file.header&&file.header[i]; var r=ROLE_NAME[file.roles[i]||' ']; return (h&&String(h).trim()) || r || ('Column '+(i+1)); }
+
+/* ---------------- toast ---------------- */
+var tTimer;
+function toast(msg, noUndo){
+  $('#toastMsg').textContent = msg;
+  $('#toastUndo').style.display = (noUndo||!hist.length)?'none':'';
+  $('#toast').classList.add('on');
+  clearTimeout(tTimer); tTimer = setTimeout(function(){ $('#toast').classList.remove('on'); }, 4200);
+}
+$('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); undo(); };
+
+/* ---------------- screens ---------------- */
+function showHome(){
+  $('#gridScreen').classList.remove('on'); $('#home').classList.add('on');
+  $('#noFile').hidden = !!file; $('#hasFile').hidden = !file;
+  if(file){
+    $('#fName').textContent = file.name;
+    var zc=col('Z');
+    $('#fMeta').textContent = file.rows.length.toLocaleString()+' points · '+file.roles.length+' columns'+
+      (zc>=0?' · elevation = '+colName(zc):' · no elevation column set');
+  }
+  updUndo();
+}
+function showGrid(){
+  $('#home').classList.remove('on'); $('#gridScreen').classList.add('on');
+  $('#gTitle').textContent = file.name; layoutGrid(); updUndo();
+}
+function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); else showHome(); }
+
+function go(where){
+  if(!file && where!=='home') return;
+  if(where==='grid') showGrid();
+  else if(where==='fix') openFix();
+  else if(where==='renum') openRenum();
+  else if(where==='export') openExport();
+}
+document.addEventListener('click', function(e){
+  var g=e.target.closest('[data-go]'); if(g){ go(g.getAttribute('data-go')); return; }
+  if(e.target.closest('[data-back]')) showHome();
+  var o=e.target.closest('[data-order]'); if(o) reorder(o.getAttribute('data-order'));
+});
+$('#undoHome').onclick = undo; $('#undoGrid').onclick = undo;
+$('#pickBtn').onclick = $('#openOther').onclick = function(){ $('#fileIn').value=''; $('#fileIn').click(); };
+$('#fileIn').onchange = function(){ readFile(this.files[0]); };
+$('#closeFile').onclick = function(){ if(confirm('Close this file? Save/Share it first if you need it.')){ file=null; hist=[]; save(); showHome(); } };
+
+// drag & drop anywhere
+var drop=$('#drop'), dragDepth=0;
+window.addEventListener('dragenter', function(e){ if(e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types,'Files')>=0){ e.preventDefault(); dragDepth++; drop.classList.add('over'); } });
+window.addEventListener('dragleave', function(){ if(--dragDepth<=0){ dragDepth=0; drop.classList.remove('over'); } });
+window.addEventListener('dragover', function(e){ e.preventDefault(); });
+window.addEventListener('drop', function(e){ e.preventDefault(); dragDepth=0; drop.classList.remove('over');
+  var f=e.dataTransfer && e.dataTransfer.files[0]; if(f){ if(!file || confirm('Open '+f.name+'? (replaces the current file)')) readFile(f); } });
+
+/* ---------------- grid (virtual scroll) ---------------- */
+var RH=34, HH=52, RN=52, widths=[];
+function layoutGrid(){
+  var n=file.roles.length, sample=file.rows.slice(0,300);
+  widths=[];
+  for(var c=0;c<n;c++){
+    var m=Math.max(colName(c).length*0.8, 5);
+    sample.forEach(function(r){ m=Math.max(m, String(r[c]).length); });
+    widths[c]=Math.max(70, Math.min(260, Math.round(m*8.6+22)));
+  }
+  var total=RN+widths.reduce(function(a,b){return a+b;},0);
+  $('#ginner').style.width=total+'px';
+  $('#ginner').style.height=(HH+file.rows.length*RH)+'px';
+  var h='<div class="gcorner">#</div>';
+  for(c=0;c<n;c++){
+    var r=file.roles[c];
+    h+='<div class="gh" data-c="'+c+'" style="width:'+widths[c]+'px"><span class="role'+(r?'':' none')+'">'+(r?ROLE_NAME[r]:'tap to set')+'</span><span class="t">'+escH(colName(c))+'</span></div>';
+  }
+  $('#ghead').innerHTML=h;
+  $('#hdrToggle').classList.toggle('on', !!file.header);
+  drawRows(true);
+}
+function escH(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+var lastRange='';
+function drawRows(force){
+  var sc=$('#gscroll'), top=sc.scrollTop, vh=sc.clientHeight||600;
+  var a=Math.max(0, Math.floor((top-HH)/RH)-15), b=Math.min(file.rows.length, Math.ceil((top+vh)/RH)+15);
+  var key=a+':'+b; if(!force && key===lastRange) return; lastRange=key;
+  var zc=col('Z'), h='';
+  for(var i=a;i<b;i++){
+    var r=file.rows[i];
+    h+='<div class="grow" style="top:'+(HH+i*RH)+'px"><div class="grn">'+(i+1)+'</div>';
+    for(var c=0;c<r.length;c++) h+='<div class="gc'+(c===zc?' z num':(isNum(r[c])?' num':''))+'" data-r="'+i+'" data-c="'+c+'" style="width:'+widths[c]+'px">'+escH(r[c])+'</div>';
+    h+='</div>';
+  }
+  $('#grows').innerHTML=h;
+}
+var rafPending=false;
+$('#gscroll').addEventListener('scroll', function(){ if(rafPending) return; rafPending=true; requestAnimationFrame(function(){ rafPending=false; drawRows(); }); }, {passive:true});
+window.addEventListener('resize', function(){ if(file && $('#gridScreen').classList.contains('on')) drawRows(true); });
+
+$('#grows').addEventListener('click', function(e){
+  var c=e.target.closest('.gc'); if(!c) return;
+  openCell(+c.getAttribute('data-r'), +c.getAttribute('data-c'));
+});
+
+// header: tap = menu, drag = move column
+var hd=null;
+$('#ghead').addEventListener('pointerdown', function(e){
+  var h=e.target.closest('.gh'); if(!h) return;
+  hd={c:+h.getAttribute('data-c'), x:e.clientX, y:e.clientY, el:h, drag:false, id:e.pointerId};
+});
+window.addEventListener('pointermove', function(e){
+  if(!hd || e.pointerId!==hd.id) return;
+  if(!hd.drag){
+    if(Math.abs(e.clientX-hd.x)<10) return;
+    if(Math.abs(e.clientY-hd.y)>Math.abs(e.clientX-hd.x)){ hd=null; return; }
+    hd.drag=true; hd.el.classList.add('drag');
+    try{ hd.el.setPointerCapture(e.pointerId); }catch(x){}
+    var g=$('#ghost'); g.textContent='↔ '+colName(hd.c); g.style.display='block';
+  }
+  e.preventDefault();
+  var g2=$('#ghost'); g2.style.left=(e.clientX+12)+'px'; g2.style.top=(e.clientY-40)+'px';
+  hd.to=dropTarget(e.clientX);
+  // auto-scroll near edges
+  var sc=$('#gscroll'), rect=sc.getBoundingClientRect();
+  if(e.clientX<rect.left+40) sc.scrollLeft-=12; else if(e.clientX>rect.right-40) sc.scrollLeft+=12;
+}, {passive:false});
+function dropTarget(x){
+  var hs=document.querySelectorAll('.gh'), best=null;
+  hs.forEach(function(h){ h.classList.remove('dropL','dropR'); });
+  for(var i=0;i<hs.length;i++){
+    var r=hs[i].getBoundingClientRect();
+    if(x>=r.left && x<r.right){ var left = x < r.left+r.width/2; hs[i].classList.add(left?'dropL':'dropR'); best={c:i, left:left}; break; }
+  }
+  return best;
+}
+window.addEventListener('pointerup', function(e){
+  if(!hd || e.pointerId!==hd.id) return;
+  var h=hd; hd=null;
+  $('#ghost').style.display='none';
+  document.querySelectorAll('.gh').forEach(function(x){ x.classList.remove('dropL','dropR','drag'); });
+  if(!h.drag){ openColumn(h.c); return; }
+  if(h.to){ var to=h.to.c+(h.to.left?0:1); if(to>h.c) to--; moveCol(h.c, to); }
+});
+window.addEventListener('pointercancel', function(){ hd=null; $('#ghost').style.display='none'; });
+
+function moveCol(from, to){
+  if(to===from || to<0 || to>=file.roles.length) return;
+  snap();
+  var mv=function(a){ var v=a.splice(from,1)[0]; a.splice(to,0,v); };
+  file.rows.forEach(mv); mv(file.roles); if(file.header) mv(file.header);
+  save(); layoutGrid();
+}
+function reorder(order){
+  var want=order.split(''), idx=[];
+  want.forEach(function(r){ var i=file.roles.indexOf(r); if(i>=0) idx.push(i); });
+  if(idx.length<2){ toast('Set the column types first (tap a header)', true); return; }
+  for(var i=0;i<file.roles.length;i++) if(idx.indexOf(i)<0) idx.push(i);
+  snap();
+  var pick=function(a){ return idx.map(function(i){return a[i];}); };
+  file.rows=file.rows.map(pick); file.roles=pick(file.roles); if(file.header) file.header=pick(file.header);
+  save(); layoutGrid(); toast('Columns ordered '+order);
+}
+$('#hdrToggle').onclick = function(){
+  snap();
+  if(file.header){ file.rows.unshift(file.header); file.header=null; toast('First row is now a point row'); }
+  else { file.header=file.rows.shift(); toast('First row is now the header'); }
+  save(); layoutGrid();
+};
+
+/* ---------------- sheets ---------------- */
+var onClose=null;
+function openSheet(title, html, after){
+  $('#shTitle').textContent=title; $('#shBody').innerHTML=html; $('#shBody').scrollTop=0;
+  $('#veil').classList.add('on'); onClose=after||null;
+}
+function closeSheet(){ $('#veil').classList.remove('on'); $('#shBody').innerHTML=''; var f=onClose; onClose=null; if(f) f(); }
+$('#shClose').onclick=closeSheet;
+$('#veil').addEventListener('click', function(e){ if(e.target===this) closeSheet(); });
+
+function colOptions(sel){
+  var h=''; for(var i=0;i<file.roles.length;i++) h+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+escH(colName(i))+(file.roles[i]?' ('+ROLE_NAME[file.roles[i]]+')':'')+'</option>';
+  return h;
+}
+
+/* ----- column menu ----- */
+function openColumn(c){
+  var h='<div class="card"><h3>This column is</h3><div class="rolegrid">';
+  ROLES.forEach(function(r){ h+='<button class="chip'+(file.roles[c]===r[0]?' on':'')+'" data-role="'+r[0]+'">'+r[1]+'</button>'; });
+  h+='</div></div>'+
+    '<div class="card"><h3>Move</h3><div class="row"><button class="btn block" style="flex:1" id="mvL">◀ Left</button><button class="btn block" style="flex:1" id="mvR">Right ▶</button></div></div>'+
+    '<div class="card"><h3>Header name</h3><div class="row"><input class="inp" id="hName" value="'+escH(file.header?file.header[c]:'')+'" placeholder="'+(file.header?'':'No header row — this adds one')+'"><button class="btn" id="hSave">Save</button></div></div>'+
+    '<div class="row"><button class="btn block" style="flex:1" id="cAdd">+ Insert column after</button><button class="btn block danger" style="flex:1" id="cDel">Delete column</button></div>'+
+    '<p class="muted mt">Sample: '+file.rows.slice(0,4).map(function(r){return escH(r[c]);}).join(' · ')+'</p>';
+  openSheet(colName(c), h);
+  document.querySelectorAll('[data-role]').forEach(function(b){ b.onclick=function(){
+    var r=b.getAttribute('data-role'); snap();
+    if(r){ var o=file.roles.indexOf(r); if(o>=0 && o!==c) file.roles[o]=''; }
+    file.roles[c]=r; save(); closeSheet(); layoutGrid();
+  }; });
+  $('#mvL').onclick=function(){ closeSheet(); moveCol(c,c-1); };
+  $('#mvR').onclick=function(){ closeSheet(); moveCol(c,c+1); };
+  $('#hSave').onclick=function(){ snap(); if(!file.header) file.header=file.roles.map(function(_,i){return colName(i);}); file.header[c]=$('#hName').value; save(); closeSheet(); layoutGrid(); };
+  $('#cAdd').onclick=function(){ snap(); file.rows.forEach(function(r){r.splice(c+1,0,'');}); file.roles.splice(c+1,0,''); if(file.header) file.header.splice(c+1,0,'New'); save(); closeSheet(); layoutGrid(); };
+  $('#cDel').onclick=function(){ if(!confirm('Delete column "'+colName(c)+'" from every point?')) return; snap(); file.rows.forEach(function(r){r.splice(c,1);}); file.roles.splice(c,1); if(file.header) file.header.splice(c,1); save(); closeSheet(); layoutGrid(); toast('Column deleted'); };
+}
+
+/* ----- cell edit ----- */
+function openCell(r, c){
+  var v=file.rows[r][c];
+  openSheet('Row '+(r+1)+' · '+colName(c),
+    '<input class="inp num" id="cellIn" value="'+escH(v)+'" autocomplete="off">'+
+    '<div class="row mt"><button class="btn primary block" style="flex:2" id="cellSave">Save</button><button class="btn block danger" style="flex:1" id="rowDel">Delete row</button></div>'+
+    '<p class="muted mt">Point: '+file.rows[r].map(escH).join(', ')+'</p>');
+  var inp=$('#cellIn'); setTimeout(function(){ inp.focus(); inp.select(); },60);
+  var doSave=function(){ if(inp.value!==v){ snap(); file.rows[r][c]=inp.value; save(); } closeSheet(); drawRows(true); };
+  $('#cellSave').onclick=doSave;
+  inp.onkeydown=function(e){ if(e.key==='Enter') doSave(); };
+  $('#rowDel').onclick=function(){ snap(); file.rows.splice(r,1); save(); closeSheet(); layoutGrid(); toast('Row '+(r+1)+' deleted'); };
+}
+
+/* ----- renumber ----- */
+function openRenum(){
+  var pc=col('P'); if(pc<0) pc=0;
+  var first=parseInt(file.rows[0]&&file.rows[0][pc],10);
+  openSheet('Renumber Points',
+    '<div class="card"><div class="field"><label>Point number column</label><select class="inp" id="rnCol">'+colOptions(pc)+'</select></div>'+
+    '<div class="row mt"><div class="field"><label>Start at</label><input class="inp num" id="rnStart" inputmode="numeric" value="1"></div>'+
+    '<div class="field"><label>Count by</label><input class="inp num" id="rnStep" inputmode="numeric" value="1"></div></div></div>'+
+    '<div class="result" id="rnRes"></div>'+
+    '<button class="btn primary block mt" id="rnGo">Renumber '+file.rows.length.toLocaleString()+' points</button>'+
+    '<p class="muted mt">Numbers go top to bottom in the current row order. Allowed range 1 – 9,999,999.'+(isNaN(first)?'':' Current first point: '+first+'.')+'</p>');
+  var upd=function(){
+    var s=parseInt($('#rnStart').value,10), st=parseInt($('#rnStep').value,10), n=file.rows.length;
+    var ok=!isNaN(s)&&!isNaN(st)&&st>0&&s>=1, last=s+(n-1)*st;
+    $('#rnGo').disabled=!ok||last>MAXPT;
+    $('#rnRes').innerHTML= !ok ? 'Enter a start number ≥ 1 and a step ≥ 1' :
+      (last>MAXPT ? '<span class="danger">Last point would be '+last.toLocaleString()+' — over 9,999,999</span>' :
+      '<span class="big num">'+s+' → '+last+'</span><small>'+n.toLocaleString()+' points</small>');
+  };
+  $('#rnStart').oninput=$('#rnStep').oninput=upd; upd();
+  $('#rnGo').onclick=function(){
+    var c=+$('#rnCol').value, s=parseInt($('#rnStart').value,10), st=parseInt($('#rnStep').value,10);
+    snap(); file.rows.forEach(function(r,i){ r[c]=String(s+i*st); });
+    if(!file.roles[c] || file.roles[c]!=='P'){ var o=file.roles.indexOf('P'); if(o>=0) file.roles[o]=''; file.roles[c]='P'; }
+    save(); closeSheet(); refresh(); toast('Renumbered '+file.rows.length.toLocaleString()+' points from '+s);
+  };
+}
+
+/* ----- fix elevations ----- */
+var fixMode='add';
+function openFix(){
+  var zc=col('Z');
+  var shot=ls.get('csvfix.shot')||'2.000', act=ls.get('csvfix.act')||'';
+  openSheet('Fix Elevations',
+    '<div class="card"><h3>Quick adjust — add or subtract any value</h3>'+
+      '<div class="row"><div class="seg"><button class="add" data-m="add">+ Add</button><button class="sub" data-m="sub">− Subtract</button></div>'+
+      '<input class="inp num" id="manVal" inputmode="decimal" placeholder="0.000"></div>'+
+      '<button class="btn block mt" id="manGo">Apply to elevations</button></div>'+
+    '<div class="or">or fix a wrong rod height</div>'+
+    '<div class="card">'+
+      '<svg id="diagram" viewBox="0 0 360 250" role="img" aria-label="Rod height diagram"></svg>'+
+      '<div class="row mt"><div class="field"><label style="color:var(--bad)">Shot at (height in controller)</label><input class="inp num shot" id="shotH" inputmode="decimal" value="'+escH(shot)+'"></div>'+
+      '<div class="field"><label style="color:var(--good)">Should have been (real height)</label><input class="inp num act" id="actH" inputmode="decimal" placeholder="e.g. 1.440" value="'+escH(act)+'"></div></div>'+
+      '<div class="result" id="fixRes"></div>'+
+      '<table class="preview" id="prev"></table>'+
+    '</div>'+
+    '<div class="card"><h3>Which points</h3>'+
+      '<div class="field"><label>Elevation column</label><select class="inp" id="zCol">'+colOptions(zc<0?Math.min(3,file.roles.length-1):zc)+'</select></div>'+
+      '<label class="check"><input type="checkbox" id="useRange"> Only a range of point numbers</label>'+
+      '<div class="row" id="rangeRow" hidden><div class="field"><label>From point #</label><input class="inp num" id="rFrom" inputmode="numeric"></div><div class="field"><label>To point #</label><input class="inp num" id="rTo" inputmode="numeric"></div></div>'+
+    '</div>'+
+    '<button class="btn primary block" id="fixGo">Fix elevations</button>');
+  setSeg(fixMode);
+  document.querySelectorAll('.seg [data-m]').forEach(function(b){ b.onclick=function(){ setSeg(b.getAttribute('data-m')); }; });
+  $('#useRange').onchange=function(){ $('#rangeRow').hidden=!this.checked; updFix(); };
+  ['#shotH','#actH','#zCol','#rFrom','#rTo'].forEach(function(s){ $(s).oninput=updFix; $(s).onchange=updFix; });
+  $('#manGo').onclick=function(){
+    var v=parseFloat($('#manVal').value);
+    if(isNaN(v)||v===0){ toast('Type an amount first', true); return; }
+    var str=$('#manVal').value.trim().replace(/^[-+]/,'');
+    doShift((fixMode==='sub'?'-':'')+str);
+  };
+  $('#fixGo').onclick=function(){
+    var s=$('#shotH').value.trim(), a=$('#actH').value.trim();
+    if(!isNum(s)||!isNum(a)){ toast('Enter both heights', true); return; }
+    var d=parseFloat(s)-parseFloat(a);
+    if(Math.abs(d)<1e-9){ toast('Same height — nothing to fix', true); return; }
+    ls.set('csvfix.shot', s); ls.set('csvfix.act', a);
+    var dp=Math.max(decs(s),decs(a),3);
+    doShift((d<0?'-':'')+Math.abs(d).toFixed(dp));
+  };
+  updFix();
+}
+function setSeg(m){ fixMode=m; document.querySelectorAll('.seg [data-m]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-m')===m); }); }
+
+function targetRows(){
+  var pc=col('P'); if(pc<0) pc=0;
+  if(!$('#useRange') || !$('#useRange').checked) return file.rows.map(function(_,i){return i;});
+  var f=parseFloat($('#rFrom').value), t=parseFloat($('#rTo').value), out=[];
+  if(isNaN(f)) f=-Infinity; if(isNaN(t)) t=Infinity;
+  file.rows.forEach(function(r,i){ var p=parseFloat(r[pc]); if(!isNaN(p)&&p>=f&&p<=t) out.push(i); });
+  return out;
+}
+function shiftVal(cell, dStr){
+  if(!isNum(cell)) return cell;
+  var dp=Math.max(decs(cell), decs(dStr));
+  var v=(parseFloat(cell)+parseFloat(dStr)).toFixed(dp);
+  if(/^-0(\.0*)?$/.test(v)) v=v.slice(1);
+  return v;
+}
+function doShift(dStr){
+  var zc=+$('#zCol').value, rows=targetRows(), n=0;
+  if(!rows.length){ toast('No points in that range', true); return; }
+  snap();
+  rows.forEach(function(i){ var c=file.rows[i][zc], nv=shiftVal(c,dStr); if(nv!==c){ file.rows[i][zc]=nv; n++; } });
+  if(file.roles[zc]!=='Z'){ var o=file.roles.indexOf('Z'); if(o>=0) file.roles[o]=''; file.roles[zc]='Z'; }
+  save(); closeSheet(); refresh();
+  var sign=dStr.charAt(0)==='-'?'−':'+';
+  toast('Fixed '+n.toLocaleString()+' elevations ('+sign+dStr.replace(/^-/,'')+')');
+}
+
+function updFix(){
+  var s=parseFloat($('#shotH').value), a=parseFloat($('#actH').value);
+  drawDiagram(isNaN(s)?2:s, isNaN(a)?null:a);
+  var res=$('#fixRes'), rows=targetRows(), zc=+$('#zCol').value;
+  var go=$('#fixGo');
+  if(isNaN(s)||isNaN(a)){ res.className='result'; res.innerHTML='Enter the height you <b>should</b> have had'; $('#prev').innerHTML=''; go.disabled=true; return; }
+  var d=s-a, dp=Math.max(decs($('#shotH').value),decs($('#actH').value),3), ds=(d<0?'-':'')+Math.abs(d).toFixed(dp);
+  if(Math.abs(d)<1e-9){ res.className='result'; res.innerHTML='Heights match — nothing to fix'; $('#prev').innerHTML=''; go.disabled=true; return; }
+  var add=d>0;
+  res.className='result '+(add?'add':'sub');
+  res.innerHTML='<span class="big num">'+(add?'+':'−')+Math.abs(d).toFixed(dp)+'</span>'+
+    'Your elevations came out '+Math.abs(d).toFixed(dp)+' too '+(add?'LOW':'HIGH')+', so this will '+(add?'ADD':'SUBTRACT')+' it.'+
+    '<small>'+rows.length.toLocaleString()+' point'+(rows.length===1?'':'s')+' will change</small>';
+  go.disabled=!rows.length;
+  go.textContent='Fix '+rows.length.toLocaleString()+' elevations ('+(add?'+':'−')+Math.abs(d).toFixed(dp)+')';
+  var pc=col('P'); if(pc<0) pc=0;
+  var h='<tr><th>Point</th><th>Now</th><th>Fixed</th></tr>';
+  rows.slice(0,3).forEach(function(i){ var r=file.rows[i]; h+='<tr><td class="num">'+escH(r[pc])+'</td><td class="num">'+escH(r[zc])+'</td><td class="num new">'+escH(shiftVal(r[zc],ds))+'</td></tr>'; });
+  $('#prev').innerHTML=h;
+}
+
+function drawDiagram(shot, act){
+  var svg=$('#diagram'); if(!svg) return;
+  var top=36, maxPx=168, mx=Math.max(shot, act==null?shot:act, 0.3), k=maxPx/mx;
+  var ya = act==null ? top+shot*k : top+act*k;    // real ground
+  var ys = top+shot*k;                              // where the controller put the ground
+  var rx=176, f=function(n){ return (Math.round(n*1000)/1000).toFixed(3); };
+  var h='<defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="var(--earth)"/><line x1="0" y1="0" x2="0" y2="8" stroke="var(--earth2)" stroke-width="3"/></pattern>'+
+    '<marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>';
+  // ground
+  h+='<rect x="0" y="'+ya+'" width="360" height="'+(250-ya)+'" fill="url(#hatch)" opacity=".9"/>';
+  h+='<line x1="0" y1="'+ya+'" x2="360" y2="'+ya+'" stroke="var(--ink)" stroke-width="2"/>';
+  h+='<text x="8" y="'+(ya-6)+'" font-size="11" fill="var(--muted)" font-weight="700">GROUND</text>';
+  // base (tripod/bipod legs + foot plate)
+  h+='<path d="M'+(rx-24)+' '+ya+' L'+rx+' '+(ya-40)+' L'+(rx+24)+' '+ya+'" fill="none" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>';
+  h+='<rect x="'+(rx-12)+'" y="'+(ya-4)+'" width="24" height="4" rx="1" fill="var(--ink)"/>';
+  // rod
+  h+='<rect x="'+(rx-4)+'" y="'+(top+6)+'" width="8" height="'+(ya-top-6)+'" rx="2" fill="#f5c518" stroke="var(--ink)" stroke-width="1.2"/>';
+  for(var t=0.5;t<(act==null?shot:act);t+=0.5){ var yy=top+t*k; if(yy<ya-4) h+='<line x1="'+(rx-4)+'" x2="'+(rx+4)+'" y1="'+yy+'" y2="'+yy+'" stroke="var(--ink)" stroke-width="1.5"/>'; }
+  // antenna
+  h+='<ellipse cx="'+rx+'" cy="'+(top+2)+'" rx="20" ry="7" fill="var(--ink)"/><rect x="'+(rx-14)+'" y="'+(top-10)+'" width="28" height="11" rx="5" fill="var(--ink)"/>';
+  h+='<text x="'+rx+'" y="'+(top-15)+'" text-anchor="middle" font-size="10" font-weight="700" fill="var(--muted)">ANTENNA / PRISM</text>';
+  // shot-at dimension (right, red dashed)
+  var sx=250;
+  h+='<line x1="'+(rx+22)+'" x2="'+(sx+8)+'" y1="'+top+'" y2="'+top+'" stroke="var(--muted)" stroke-dasharray="2 3"/>';
+  h+='<line x1="'+sx+'" x2="'+sx+'" y1="'+(top+2)+'" y2="'+(ys-2)+'" stroke="var(--bad)" stroke-width="2.2" stroke-dasharray="6 4" marker-start="url(#ar)" marker-end="url(#ar)"/>';
+  h+='<text x="'+(sx+8)+'" y="'+(top+(ys-top)/2-4)+'" font-size="12" font-weight="800" fill="var(--bad)">SHOT AT</text>';
+  h+='<text x="'+(sx+8)+'" y="'+(top+(ys-top)/2+12)+'" font-size="14" font-weight="800" fill="var(--bad)" class="num">'+f(shot)+'</text>';
+  if(act!=null && Math.abs(ys-ya)>0.5){
+    h+='<line x1="'+(rx-60)+'" x2="'+(sx+40)+'" y1="'+ys+'" y2="'+ys+'" stroke="var(--bad)" stroke-width="2" stroke-dasharray="5 4"/>';
+    h+='<text x="'+(rx-62)+'" y="'+(ys+(ys>ya?14:-6))+'" text-anchor="end" font-size="10" font-weight="700" fill="var(--bad)">POINTS LANDED</text>';
+  }
+  // actual dimension (left, green solid)
+  if(act!=null){
+    var axx=110;
+    h+='<line x1="'+axx+'" x2="'+(rx-22)+'" y1="'+top+'" y2="'+top+'" stroke="var(--muted)" stroke-dasharray="2 3"/>';
+    h+='<line x1="'+axx+'" x2="'+axx+'" y1="'+(top+2)+'" y2="'+(ya-2)+'" stroke="var(--good)" stroke-width="2.4" marker-start="url(#ar)" marker-end="url(#ar)"/>';
+    h+='<text x="'+(axx-8)+'" y="'+(top+(ya-top)/2-4)+'" text-anchor="end" font-size="12" font-weight="800" fill="var(--good)">REAL</text>';
+    h+='<text x="'+(axx-8)+'" y="'+(top+(ya-top)/2+12)+'" text-anchor="end" font-size="14" font-weight="800" fill="var(--good)">'+f(act)+'</text>';
+    // gap bracket
+    if(Math.abs(ys-ya)>3){
+      var gx=335, d=shot-act;
+      h+='<line x1="'+gx+'" x2="'+gx+'" y1="'+Math.min(ya,ys)+'" y2="'+Math.max(ya,ys)+'" stroke="var(--accent)" stroke-width="3"/>';
+      h+='<rect x="'+(gx-46)+'" y="'+((ya+ys)/2-11)+'" width="44" height="20" rx="5" fill="var(--accent)"/>';
+      h+='<text x="'+(gx-24)+'" y="'+((ya+ys)/2+3)+'" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">'+(d>0?'+':'−')+f(Math.abs(d))+'</text>';
+    }
+  }
+  svg.innerHTML=h;
+}
+
+/* ----- export ----- */
+function openExport(){
+  var base=file.name.replace(/\.(csv|txt)$/i,''), nm=/_fixed$/.test(base)?base:base+'_fixed';
+  openSheet('Save / Share CSV',
+    '<div class="card"><div class="field"><label>File name</label><input class="inp" id="exName" value="'+escH(nm)+'"></div>'+
+    (file.header?'<label class="check"><input type="checkbox" id="exHdr" checked> Include header row</label>':'')+
+    '<p class="muted" style="margin:8px 0 0">'+file.rows.length.toLocaleString()+' points · '+file.roles.length+' columns · '+(file.delim===','?'comma':file.delim==='\t'?'tab':'semicolon')+' separated</p></div>'+
+    '<button class="btn primary block" id="exShare">Share / Save to Files</button>'+
+    '<button class="btn block mt" id="exDl">Download</button>'+
+    '<p class="muted mt">Original file is never changed — this makes a new copy.</p>');
+  var make=function(){
+    var n=($('#exName').value.trim()||'points').replace(/[\\/:*?"<>|]/g,'-')+'.csv';
+    var txt=toCSV(!$('#exHdr')||$('#exHdr').checked);
+    return {n:n, blob:new Blob([txt],{type:'text/csv'})};
+  };
+  $('#exShare').onclick=function(){
+    var m=make(), f;
+    try{ f=new File([m.blob], m.n, {type:'text/csv'}); }catch(e){ f=null; }
+    if(f && navigator.canShare && navigator.canShare({files:[f]})){
+      navigator.share({files:[f]}).catch(function(err){ if(err && err.name!=='AbortError') dl(m); });
+    } else dl(m);
+  };
+  $('#exDl').onclick=function(){ dl(make()); };
+}
+function dl(m){
+  var a=document.createElement('a'); a.href=URL.createObjectURL(m.blob); a.download=m.n;
+  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast('Saved '+m.n, true);
+}
+
+/* ---------------- boot ---------------- */
+try{ var s=ls.get('csvfix.file'); if(s) file=JSON.parse(s); }catch(e){ file=null; }
+showHome();
+window.CSVFix={ loadText:loadText, get file(){return file;} }; // for testing
+if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>
+</body>
+</html>
