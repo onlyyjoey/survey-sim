@@ -2092,7 +2092,7 @@ async function pvLoadPage(n){
   pvStatus('Finding linework…', true); await new Promise(function(r){ setTimeout(r,20); });
   pvExtract(await page.getOperatorList(), vp.transform);
   pvLegend(); pvBuildSnap(); pvFindArea();
-  pvAutoGeo();
+  pvAutoGeo(); pvExactGeo();
   try{ var sv=JSON.parse(ls.get(pvKey())||'null'); if(sv&&sv.ctrl){ PV.ctrl=sv.ctrl; PV.useAuto=sv.useAuto!==false; PV.lockScale=sv.lockScale; } }catch(e){}
   pvFit(); pvFitView(); pvDrawOverlay(); pvMarks(); pvUpdateStatus(); pvInfoIdle();
 }
@@ -2240,6 +2240,42 @@ function pvAutoGeo(){
   if(PV.auto.length<2) PV.auto=best;
   PV.autoInfo.used=PV.auto.length;
 }
+/* Exact fit: N/E labels point at real corners of the linework. At the plan scale, find the one rotation + shift
+   that puts the most labels exactly (±0.15 ft) on a line end / corner, then fit to those. */
+function pvExactGeo(){
+  var calls=PV.calls, nC=calls.length; PV.autoExact=null; if(nC<3) return false;
+  var S0=PV.planScale?PV.planScale/72:(PV.auto.length>=2?geoFit(PV.auto).scale:null); if(!S0) return false;
+  var R=160, G=40, vg=new Map();
+  PV.snapGrid.forEach(function(b){ for(var i=0;i<b.length;i+=2){ var k=Math.floor(b[i]/G)+','+Math.floor(b[i+1]/G), a=vg.get(k); if(!a){ a=[]; vg.set(k,a); } a.push(b[i],b[i+1]); } });
+  var cand=calls.map(function(c){ var px=(c.box[0]+c.box[2])/2, py=(c.box[1]+c.box[3])/2, out=[];
+    for(var gx=Math.floor((px-R)/G);gx<=Math.floor((px+R)/G);gx++) for(var gy=Math.floor((py-R)/G);gy<=Math.floor((py+R)/G);gy++){ var a=vg.get(gx+','+gy); if(!a) continue;
+      for(var i=0;i<a.length;i+=2) if(Math.hypot(a[i]-px,a[i+1]-py)<=R) out.push(a[i],a[i+1]); }
+    return out; });
+  var tol=0.15;
+  var score=function(rot, sc){ var th=rot*Math.PI/180, ar=sc*Math.cos(th), ai=sc*Math.sin(th), cells=new Map();
+    calls.forEach(function(c,ci){ var E=+c.E, N=+c.N, v=cand[ci];
+      for(var i=0;i<v.length;i+=2){ var x=v[i], y=v[i+1], bE=E-ar*x-ai*y, bN=N+ar*y-ai*x, k=Math.floor(bE/tol)+','+Math.floor(bN/tol), a=cells.get(k); if(!a){ a=[]; cells.set(k,a); } a.push(ci,bE,bN); } });
+    var best={n:0};
+    cells.forEach(function(a,k){ if(a.length/3+8<best.n) return; var kk=k.split(','), kx=+kk[0], ky=+kk[1], ids=new Set(), sE=0, sN=0, m=0;
+      for(var dx=-1;dx<=1;dx++) for(var dy=-1;dy<=1;dy++){ var b=cells.get((kx+dx)+','+(ky+dy)); if(!b) continue; for(var j=0;j<b.length;j+=3){ ids.add(b[j]); } }
+      if(ids.size>best.n){ for(var j=0;j<a.length;j+=3){ sE+=a[j+1]; sN+=a[j+2]; m++; } best={n:ids.size, bE:sE/m, bN:sN/m}; } });
+    best.rot=rot; best.sc=sc; return best; };
+  var rots=[]; for(var r=-2;r<=2.001;r+=0.25) rots.push(Math.round(r*100)/100);
+  if(PV.auto.length>=2){ var ar0=geoFit(PV.auto,S0).rot; for(var r2=-1;r2<=1.001;r2+=0.25) rots.push(Math.round((ar0+r2)*100)/100); }
+  var scs=PV.planScale?[S0]:[0.99,0.995,1,1.005,1.01].map(function(f){ return S0*f; });
+  var top={n:0};
+  scs.forEach(function(sc){ rots.forEach(function(r){ var b=score(r,sc); if(b.n>top.n || (b.n===top.n && Math.abs(r)<Math.abs(top.rot))) top=b; }); });
+  if(!top.n) return false;
+  for(var r3=top.rot-0.24;r3<=top.rot+0.241;r3+=0.02){ var b2=score(Math.round(r3*100)/100, top.sc); if(b2.n>top.n || (b2.n===top.n && Math.abs(b2.rot)<Math.abs(top.rot))) top=b2; }
+  if(top.n<3 || top.n<nC*0.3) return false;
+  // the labels that agree, each tied to its exact corner
+  var th=top.rot*Math.PI/180, ar=top.sc*Math.cos(th), ai=top.sc*Math.sin(th), pairs=[];
+  calls.forEach(function(c,ci){ var v=cand[ci], bestD=tol*2, bx=null; for(var i=0;i<v.length;i+=2){ var x=v[i], y=v[i+1], dE=(+c.E-ar*x-ai*y)-top.bE, dN=(+c.N+ar*y-ai*x)-top.bN, d=Math.hypot(dE,dN); if(d<bestD){ bestD=d; bx=[x,y]; } }
+    if(bx) pairs.push({x:bx[0], y:bx[1], N:+c.N, E:+c.E, label:c.desc||('N '+c.N), src:'auto', exact:true}); });
+  if(pairs.length<3) return false;
+  PV.auto=pairs; PV.autoExact={n:pairs.length, of:nC}; PV.autoInfo.used=pairs.length;
+  return true;
+}
 function pvActive(){
   var man=PV.ctrl.filter(function(c){ return c.on!==false; });
   if(man.length>=2 || !PV.useAuto) return man;
@@ -2263,7 +2299,8 @@ function fmt(v,d){ return (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(
 function pvUpdateStatus(){
   var T=PV.T, man=PV.ctrl.filter(function(c){ return c.on!==false; }).length, usingAuto=pvActive().some(function(p){ return p.src==='auto'; });
   if(!T){ pvStatus('Not georeferenced yet — use <b>🎯 Known point</b> on 2 spots you know the coordinates of'+(PV.calls.length?' (the '+PV.calls.length+' N/E labels on this sheet are listed for you)':'')+'.'); return; }
-  var acc = usingAuto ? 'from '+pvActive().length+' callout leaders · typical error ±'+fmt(PV.err||0,1)+' ft — add known points for better accuracy'
+  var acc = usingAuto ? (PV.autoExact ? 'exactly — '+PV.autoExact.n+' of '+PV.autoExact.of+' N/E labels sit on line corners · fit ±'+fmt(PV.err||0,2)+' ft'
+                                      : 'from '+pvActive().length+' callout leaders · typical error ±'+fmt(PV.err||0,1)+' ft — add known points for better accuracy')
           : man+' known point'+(man===1?'':'s')+(PV.err!=null?' · fit ±'+fmt(PV.err,2)+' ft':'');
   pvStatus('✓ Georeferenced '+acc+' · 1"='+fmt(T.scale*72,1)+'\' · rotated '+fmt(T.rot,2)+'°'+(PV.planScale?' (plan says 1"='+PV.planScale+'\')':''));
 }
@@ -2349,8 +2386,8 @@ function pvOpenKnown(){
   pvFit();
   var man=PV.ctrl, act=pvActive(), h='';
   h+='<div class="card"><h3>Your known points</h3>'+(man.length?man.map(function(c,i){ return '<div class="mk'+(c.on===false?' off':'')+'"><input type="checkbox" data-kon="'+i+'"'+(c.on!==false?' checked':'')+'><div class="mn"><b class="num">N '+fmt(c.N,2)+' · E '+fmt(c.E,2)+'</b><span>'+escH(c.label||'tapped point')+(c.res!=null&&act.indexOf(c)>=0?' · off by '+fmt(c.res,c.res<1?3:2)+' ft':'')+'</span></div><button class="ud" data-kdel="'+i+'">✕</button></div>'; }).join(''):'<p class="muted" style="margin:0">None yet. Tap <b>🎯 Known point</b>, then tap an exact spot on the plan (zoom in — it snaps to line ends and corners).</p>')+'</div>';
-  h+='<div class="card"><h3>Automatic (from the N/E labels’ leader lines)</h3>'+
-     (PV.auto.length?'<label class="check"><input type="checkbox" id="kAuto"'+(PV.useAuto?' checked':'')+'> Use '+PV.auto.length+' labels'+(man.filter(function(c){return c.on!==false;}).length>=2?' <span class="muted">(ignored while you have 2+ known points)</span>':'')+'</label><p class="muted" style="margin:4px 0 0">Leaders are drawn by hand, so these are only good to a few feet. Known points you tap are exact.</p>'
+  h+='<div class="card"><h3>Automatic (from the N/E labels on the plan)</h3>'+
+     (PV.auto.length?'<label class="check"><input type="checkbox" id="kAuto"'+(PV.useAuto?' checked':'')+'> Use '+PV.auto.length+' labels'+(man.filter(function(c){return c.on!==false;}).length>=2?' <span class="muted">(ignored while you have 2+ known points)</span>':'')+'</label>'+(PV.autoExact?'<p class="muted" style="margin:4px 0 0">✓ Exact: '+PV.autoExact.n+' of '+PV.autoExact.of+' labels land right on a line corner at the plan scale. Labels that don’t (like PIs, which aren’t on a drawn line) are left out.</p>':'<p class="muted" style="margin:4px 0 0">Only rough: these come from where the leader lines end, good to a few feet. Add known points you tap for exact.</p>')
        :'<p class="muted" style="margin:0">'+(PV.calls.length?'Found '+PV.calls.length+' N/E labels but couldn’t follow enough of their leader lines.':'No N/E labels on this sheet.')+'</p>')+'</div>';
   if(PV.planScale) h+='<label class="check"><input type="checkbox" id="kLock"'+(PV.lockScale!==false?' checked':'')+'> Hold the plan scale (1"='+PV.planScale+'\' from the sheet)</label><p class="muted" style="margin:0 0 10px">With the scale held, 1 known point is enough if the plan is drawn north-up.</p>';
   if(PV.T) h+='<div class="result"><span class="big num">1"='+fmt(PV.T.scale*72,2)+'\'</span>rotation '+fmt(PV.T.rot,3)+'°'+(PV.err!=null?' · typical error ±'+fmt(PV.err,PV.err<1?3:2)+' ft · worst '+fmt(PV.maxErr,2)+' ft':'')+'</div>';
