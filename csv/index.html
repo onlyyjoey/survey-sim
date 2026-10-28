@@ -92,6 +92,21 @@ input,select{font:inherit;color:var(--ink)}
 .grow:nth-child(even) .gc{background:color-mix(in srgb,var(--panel2) 35%,var(--panel))}
 .gc{flex:none;border-right:1px solid var(--line);padding:0 8px;line-height:33px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:var(--panel)}
 .gc.z{color:var(--accent);font-weight:600}
+.grow.dupf .gc{background:color-mix(in srgb,#e8b21b 18%,var(--panel))!important}
+.grow.dupx .gc{background:color-mix(in srgb,var(--bad) 16%,var(--panel))!important}
+.grow.dupf .grn,.grow.dupx .grn{color:var(--ink);font-weight:800}
+.dgrp{border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:10px;overflow:hidden}
+.dgrp .dh{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel2);font-weight:750;font-size:14px}
+.dgrp .dh span{flex:1}
+.drow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}
+.drow input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.drow .dv{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow .dv b{font-size:14px}
+.drow .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;flex:none}
+.drow .lbl.keep{color:#b88a0a} .drow .lbl.dup{color:var(--bad)}
+.drow .ed{flex:none;border:0;background:var(--panel2);border-radius:8px;padding:7px 10px;font-weight:700;font-size:13px;cursor:pointer}
+.act{display:grid;gap:8px}
+.sticky{position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom));background:var(--bg);padding:10px 0 4px;margin-top:6px}
 .gc.flash{animation:flash 1.2s ease-out}
 @keyframes flash{from{background:var(--sel)}}
 #ghost{position:fixed;z-index:50;pointer-events:none;background:var(--accent);color:#fff;padding:8px 12px;border-radius:10px;font-weight:700;font-size:13px;box-shadow:var(--shadow);display:none}
@@ -204,6 +219,10 @@ select.inp{font-size:15px;padding:10px}
           <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M4 12h7M4 18h12"/><path d="M18 4v6M15 7h6"/></svg></div>
           <div><b>Format / Presets</b><span>Keep only the columns you need, in your order</span></div>
         </button>
+        <button class="opt" data-go="dups">
+          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div>
+          <div><b>Find Duplicates</b><span>Same point #, same spot, or copied rows</span></div>
+        </button>
         <button class="opt" data-go="renum">
           <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div>
           <div><b>Renumber Points</b><span>First column 1, 2, 3… up to 9999999</span></div>
@@ -232,6 +251,8 @@ select.inp{font-size:15px;padding:10px}
   </div>
   <div class="toolrow">
     <button class="chip" data-go="format" style="background:var(--accent);color:#fff;border-color:var(--accent)">⚙ Format / Presets</button>
+    <button class="chip" id="dupChip">⧉ Duplicates</button>
+    <button class="chip" data-go="dups">Fix duplicates</button>
     <button class="chip" data-go="renum">Renumber</button>
     <button class="chip" id="hdrToggle">Header row</button>
     <button class="chip" data-go="export">Save</button>
@@ -382,6 +403,7 @@ function go(where){
   else if(where==='fix') openFix();
   else if(where==='renum') openRenum();
   else if(where==='format') openFormat();
+  else if(where==='dups') openDups();
   else if(where==='export') openExport();
 }
 document.addEventListener('click', function(e){
@@ -414,7 +436,14 @@ function layoutGrid(){
   }
   var total=RN+widths.reduce(function(a,b){return a+b;},0);
   $('#ginner').style.width=total+'px';
-  $('#ginner').style.height=(HH+file.rows.length*RH)+'px';
+  gridView=null; dupMark={};
+  if(dupOnly){
+    var D=findDups(dupMode); gridView=[];
+    D.groups.forEach(function(g){ g.forEach(function(i,k){ gridView.push(i); dupMark[i]=k?'x':'f'; }); });
+  }
+  $('#dupChip').classList.toggle('on', dupOnly);
+  $('#dupChip').textContent = dupOnly ? '⧉ Duplicates: '+gridView.length+' — tap to show all' : '⧉ Duplicates';
+  $('#ginner').style.height=(HH+(gridView?gridView.length:file.rows.length)*RH)+'px';
   var h='<div class="gcorner">#</div>';
   for(c=0;c<n;c++){
     var r=file.roles[c];
@@ -425,15 +454,17 @@ function layoutGrid(){
   drawRows(true);
 }
 function escH(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-var lastRange='';
+var lastRange='', gridView=null, dupMark={}, dupOnly=false, dupMode='P';
 function drawRows(force){
   var sc=$('#gscroll'), top=sc.scrollTop, vh=sc.clientHeight||600;
-  var a=Math.max(0, Math.floor((top-HH)/RH)-15), b=Math.min(file.rows.length, Math.ceil((top+vh)/RH)+15);
+  var N=gridView?gridView.length:file.rows.length;
+  var a=Math.max(0, Math.floor((top-HH)/RH)-15), b=Math.min(N, Math.ceil((top+vh)/RH)+15);
   var key=a+':'+b; if(!force && key===lastRange) return; lastRange=key;
   var zc=col('Z'), h='';
-  for(var i=a;i<b;i++){
-    var r=file.rows[i];
-    h+='<div class="grow" style="top:'+(HH+i*RH)+'px"><div class="grn">'+(i+1)+'</div>';
+  if(gridView && !N) h='<div class="grow" style="top:'+HH+'px;padding:0 16px;line-height:34px;color:var(--muted)">No duplicates found 🎉</div>';
+  for(var v=a;v<b;v++){
+    var i=gridView?gridView[v]:v, r=file.rows[i], dm=gridView?dupMark[i]:'';
+    h+='<div class="grow'+(dm==='x'?' dupx':dm==='f'?' dupf':'')+'" style="top:'+(HH+v*RH)+'px"><div class="grn">'+(i+1)+'</div>';
     for(var c=0;c<r.length;c++) h+='<div class="gc'+(c===zc?' z num':(isNum(r[c])?' num':''))+'" data-r="'+i+'" data-c="'+c+'" style="width:'+widths[c]+'px">'+escH(r[c])+'</div>';
     h+='</div>';
   }
@@ -654,13 +685,154 @@ function openMaker(){
   };
 }
 
+/* ---------------- duplicates ---------------- */
+var DUP_MODES=[['P','Point #'],['NE','Same spot (N,E)'],['ROW','Whole row']];
+function dupKey(r, mode){
+  if(mode==='P'){ var pc=col('P'); if(pc<0) pc=0; var v=String(r[pc]).trim(); if(v==='') return null; return isNum(v)?String(parseFloat(v)):v.toLowerCase(); }
+  if(mode==='NE'){ var n=col('N'), e=col('E'); if(n<0||e<0||!isNum(r[n])||!isNum(r[e])) return null; return (+r[n]).toFixed(3)+','+(+r[e]).toFixed(3); }
+  return r.map(function(x){ return String(x).trim(); }).join('\u0001');
+}
+function findDups(mode){
+  var m=new Map();
+  file.rows.forEach(function(r,i){ var k=dupKey(r,mode); if(k==null) return; var g=m.get(k); if(!g){ g=[]; m.set(k,g); } g.push(i); });
+  var groups=[]; m.forEach(function(g){ if(g.length>1) groups.push(g); });
+  groups.sort(function(a,b){ return a[0]-b[0]; });
+  return {groups:groups};
+}
+function maxPoint(){
+  var pc=col('P'); if(pc<0) pc=0; var mx=0;
+  file.rows.forEach(function(r){ var v=parseFloat(r[pc]); if(!isNaN(v)&&v>mx) mx=v; });
+  return Math.floor(mx);
+}
+var dupSel=null, dupPick='extras';
+function defaultSel(D, pick){
+  var s=new Set();
+  D.groups.forEach(function(g){ g.forEach(function(i,k){ if(pick==='all' || (pick==='extras' && k>0)) s.add(i); }); });
+  return s;
+}
+function openDups(keepSel){
+  var D=findDups(dupMode);
+  if(!keepSel || !dupSel) dupSel=defaultSel(D, dupPick);
+  var pc=col('P'); if(pc<0) pc=0;
+  var total=D.groups.reduce(function(a,g){ return a+g.length; },0);
+  var noNE = dupMode==='NE' && (col('N')<0 || col('E')<0);
+  var h='<div class="card"><h3>Find duplicates by</h3><div class="seg" style="display:flex">'+
+    DUP_MODES.map(function(m){ return '<button style="flex:1" data-dm="'+m[0]+'"'+(m[0]===dupMode?' class="on"':'')+'>'+m[1]+'</button>'; }).join('')+'</div>'+
+    '<label class="check mt"><input type="checkbox" id="dupOnlyCb"'+(dupOnly?' checked':'')+'> Show only duplicates in the spreadsheet</label></div>';
+  if(noNE) h+='<div class="result sub">Set which columns are Northing and Easting first (tap their headers in View &amp; Edit).</div>';
+  else if(!D.groups.length){ h+='<div class="result add"><span class="big">No duplicates</span>Every '+(dupMode==='P'?'point number':dupMode==='NE'?'location':'row')+' is unique.</div>'; }
+  else {
+    h+='<div class="result sub"><span class="big num">'+D.groups.length.toLocaleString()+'</span>'+
+       'duplicate '+(dupMode==='P'?'point numbers':dupMode==='NE'?'locations':'rows')+' — '+total.toLocaleString()+' points involved</div>'+
+       '<div class="row" style="margin:4px 0 10px"><span class="muted" style="flex:none">Select</span><div class="seg" style="flex:1;display:flex">'+
+       [['extras','Extras (keep 1st)'],['all','All copies'],['none','None']].map(function(m){ return '<button style="flex:1;font-size:13px" data-pick="'+m[0]+'"'+(m[0]===dupPick?' class="on"':'')+'>'+m[1]+'</button>'; }).join('')+'</div></div>';
+    var shown=D.groups.slice(0,150);
+    shown.forEach(function(g){
+      var r0=file.rows[g[0]];
+      h+='<div class="dgrp"><div class="dh"><span>'+(dupMode==='P'?'Point '+escH(r0[pc]):dupMode==='NE'?'N '+escH(r0[col('N')])+' · E '+escH(r0[col('E')]):'Row copy')+'</span>×'+g.length+'</div>';
+      g.forEach(function(i,k){
+        var r=file.rows[i];
+        h+='<div class="drow"><input type="checkbox" data-i="'+i+'"'+(dupSel.has(i)?' checked':'')+'>'+
+          '<span class="lbl '+(k?'dup':'keep')+'">'+(k?'Dup':'1st')+'</span>'+
+          '<div class="dv"><span class="muted">row '+(i+1)+'</span> <b class="num">'+escH(r[pc])+'</b> · '+r.filter(function(_,c){return c!==pc;}).map(escH).join(' · ')+'</div>'+
+          '<button class="ed" data-ed="'+i+'">Edit</button></div>';
+      });
+      h+='</div>';
+    });
+    if(D.groups.length>shown.length) h+='<p class="muted">+ '+(D.groups.length-shown.length)+' more groups (bulk actions still cover them when selected with the buttons above).</p>';
+
+    var mx=maxPoint();
+    h+='<div class="card mt"><h3>Do this to the <span id="selN">'+dupSel.size+'</span> selected</h3><div class="act">'+
+      '<div><b>Renumber them</b><div class="row mt"><div class="field"><label>Start at (your highest is '+mx.toLocaleString()+')</label><input class="inp num" id="dRnStart" inputmode="numeric" value="'+(mx+1)+'"></div>'+
+      '<div class="field" style="flex:.6"><label>Count by</label><input class="inp num" id="dRnStep" inputmode="numeric" value="1"></div></div>'+
+      '<label class="check"><input type="checkbox" id="dRnMove"> Move them to the bottom of the list</label>'+
+      '<button class="btn primary block" id="dRnGo">Renumber selected</button></div>'+
+      '<div class="or" style="margin:10px 0 4px">or change a column</div>'+
+      '<div class="row"><div class="field"><label>Column</label><select class="inp" id="dCol">'+colOptions(col('D')>=0?col('D'):pc)+'</select></div>'+
+      '<div class="field"><label>Action</label><select class="inp" id="dAct"><option value="set">Set to</option><option value="pre">Add text before</option><option value="suf">Add text after</option><option value="add">Add number (+/−)</option></select></div></div>'+
+      '<div class="row mt"><input class="inp" id="dVal" placeholder="e.g. DUP"><button class="btn" id="dChGo">Apply</button></div>'+
+      '<div class="or" style="margin:14px 0 4px">or</div>'+
+      '<button class="btn block danger" id="dDel">Delete selected rows</button>'+
+    '</div></div>';
+  }
+  openSheet('Find Duplicates', h);
+
+  document.querySelectorAll('[data-dm]').forEach(function(b){ b.onclick=function(){ dupMode=b.getAttribute('data-dm'); dupSel=null; openDups(); syncGrid(); }; });
+  $('#dupOnlyCb').onchange=function(){ dupOnly=this.checked; closeSheet(); if(dupOnly) showGrid(); else syncGrid(); };
+  if(!D.groups.length || noNE) return;
+  document.querySelectorAll('[data-pick]').forEach(function(b){ b.onclick=function(){ dupPick=b.getAttribute('data-pick'); dupSel=defaultSel(D,dupPick); openDupsKeepScroll(); }; });
+  $('#shBody').onchange=function(e){
+    var cb=e.target.closest('input[data-i]'); if(!cb) return;
+    var i=+cb.getAttribute('data-i'); if(cb.checked) dupSel.add(i); else dupSel.delete(i);
+    $('#selN').textContent=dupSel.size;
+  };
+  document.querySelectorAll('[data-ed]').forEach(function(b){ b.onclick=function(){ openRowEdit(+b.getAttribute('data-ed'), function(){ openDups(true); }); }; });
+  var need=function(){ if(!dupSel.size){ toast('Select some points first', true); return false; } return true; };
+  var selRows=function(){ return Array.from(dupSel).sort(function(a,b){return a-b;}); };
+
+  $('#dRnGo').onclick=function(){
+    if(!need()) return;
+    var s=parseInt($('#dRnStart').value,10), st=parseInt($('#dRnStep').value,10), sel=selRows();
+    if(isNaN(s)||isNaN(st)||st<1||s<1){ toast('Enter a start number and step', true); return; }
+    if(s+(sel.length-1)*st>MAXPT){ toast('That would go over 9,999,999', true); return; }
+    var mv=$('#dRnMove').checked;
+    snap();
+    sel.forEach(function(i,k){ file.rows[i][pc]=String(s+k*st); });
+    if(mv){
+      var moved=sel.map(function(i){ return file.rows[i]; }), set=new Set(sel);
+      file.rows=file.rows.filter(function(_,i){ return !set.has(i); }).concat(moved);
+    }
+    save(); dupSel=null; refresh(); openDups();
+    toast('Renumbered '+sel.length+' points '+s+'–'+(s+(sel.length-1)*st)+(mv?', moved to bottom':''));
+  };
+  $('#dChGo').onclick=function(){
+    if(!need()) return;
+    var c=+$('#dCol').value, a=$('#dAct').value, v=$('#dVal').value, sel=selRows();
+    if(a==='add' && !isNum(v)){ toast('Enter a number like 0.5 or -0.5', true); return; }
+    if(a!=='set' && v===''){ toast('Type something to add', true); return; }
+    snap();
+    sel.forEach(function(i){
+      var cur=file.rows[i][c];
+      file.rows[i][c] = a==='set'?v : a==='pre'?v+cur : a==='suf'?cur+v : shiftVal(cur, v.trim().replace(/^\+/,''));
+    });
+    save(); refresh(); openDups(true);
+    toast('Changed '+colName(c)+' on '+sel.length+' points');
+  };
+  $('#dDel').onclick=function(){
+    if(!need()) return;
+    if(!confirm('Delete '+dupSel.size+' rows?')) return;
+    snap(); var set=new Set(dupSel), n=set.size;
+    file.rows=file.rows.filter(function(_,i){ return !set.has(i); });
+    save(); dupSel=null; refresh(); openDups();
+    toast('Deleted '+n+' rows');
+  };
+}
+function openDupsKeepScroll(){ var t=$('#shBody').scrollTop; openDups(true); $('#shBody').scrollTop=t; }
+function syncGrid(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); }
+$('#dupChip').onclick=function(){ dupOnly=!dupOnly; $('#gscroll').scrollTop=0; layoutGrid(); if(dupOnly) toast('Showing duplicate '+(DUP_MODES.filter(function(m){return m[0]===dupMode;})[0][1]).toLowerCase()+' only — red = extra copies', true); };
+
+function openRowEdit(i, back){
+  var r=file.rows[i], h='';
+  r.forEach(function(v,c){ h+='<div class="field" style="margin-bottom:10px"><label>'+escH(colName(c))+'</label><input class="inp num" data-c="'+c+'" value="'+escH(v)+'"></div>'; });
+  openSheet('Row '+(i+1), '<div class="card">'+h+'</div>'+
+    '<button class="btn primary block" id="reSave">Save</button>'+
+    '<div class="row mt"><button class="btn block" style="flex:1" id="reBack">‹ Back</button><button class="btn block danger" style="flex:1" id="reDel">Delete row</button></div>');
+  $('#reSave').onclick=function(){
+    var nv=Array.prototype.map.call(document.querySelectorAll('#shBody input[data-c]'), function(x){ return x.value; });
+    if(nv.join('\u0001')!==r.join('\u0001')){ snap(); file.rows[i]=nv; save(); refresh(); }
+    back();
+  };
+  $('#reBack').onclick=back;
+  $('#reDel').onclick=function(){ snap(); file.rows.splice(i,1); save(); refresh(); dupSel=null; back(); toast('Row '+(i+1)+' deleted'); };
+}
+
 /* ---------------- sheets ---------------- */
 var onClose=null;
 function openSheet(title, html, after){
   $('#shTitle').textContent=title; $('#shBody').innerHTML=html; $('#shBody').scrollTop=0;
   $('#veil').classList.add('on'); onClose=after||null; $('#toast').classList.remove('on');
 }
-function closeSheet(){ $('#veil').classList.remove('on'); $('#shBody').innerHTML=''; var f=onClose; onClose=null; if(f) f(); }
+function closeSheet(){ $('#shBody').onchange=null; $('#veil').classList.remove('on'); $('#shBody').innerHTML=''; var f=onClose; onClose=null; if(f) f(); }
 $('#shClose').onclick=closeSheet;
 $('#veil').addEventListener('click', function(e){ if(e.target===this) closeSheet(); });
 

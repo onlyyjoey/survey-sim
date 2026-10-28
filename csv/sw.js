@@ -1,5 +1,5 @@
 // CSV Fix offline cache: network first, falls back to the saved copy when there is no signal in the field.
-var V = 'csvfix-v2';
+var V = 'csvfix-v3';
 var FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(V).then(function (c) { return c.addAll(FILES); })); self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
