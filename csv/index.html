@@ -11,7 +11,8 @@
 <meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>CSV Fix</title>
 <script>
 // apply the saved color theme before anything draws (no orange flash)
@@ -2762,7 +2763,7 @@ function applyTheme(t){
   d.classList.toggle('rm', !!t.rm);
   ls.set('csvfix.theme', JSON.stringify(t)); themeIcon(c);
 }
-function themeIcon(c){ // home-screen icon in your color (used next time you “Add to Home Screen”)
+function themeIcon(c){ return; // your own logo is used everywhere now — theme colors don't change it
   try{ var S=180*2, cv=document.createElement('canvas'); cv.width=cv.height=S; var x=cv.getContext('2d'), s=S;
     x.fillStyle=c; x.fillRect(0,0,s,s);
     var m=s*.14, top=s*.34, bot=s-s*.12; x.fillStyle='#fff7ef'; x.beginPath(); if(x.roundRect) x.roundRect(m,top,s-2*m,bot-top,s*.05); else x.rect(m,top,s-2*m,bot-top); x.fill();
@@ -2785,7 +2786,7 @@ function openSettings(){
       '<p class="muted" style="margin:8px 0 0">Auto follows your phone’s light / dark setting.</p></div>'+
     '<div class="card"><h3>Motion</h3><label class="check"><input type="checkbox" id="rmCb"'+(t.rm?' checked':'')+'> Reduce motion (no animations)</label>'+
       '<p class="muted" style="margin:4px 0 0">Animations are light — they only move and fade things, so the battery cost is tiny. Turn them off if you prefer.</p></div>'+
-    '<div class="card"><h3>Home Screen icon</h3><p class="muted" style="margin:0">The icon on your Home Screen updates to your color next time you add the app (Safari → Share → Add to Home Screen).</p></div>'+
+
     '<button class="btn block" id="thReset">Reset to blue</button>');
   var save=function(ch){ var nt=getTheme(); Object.keys(ch).forEach(function(k){ nt[k]=ch[k]; }); applyTheme(nt); };
   document.querySelectorAll('[data-sw]').forEach(function(b){ b.onclick=function(){ save({color:b.getAttribute('data-sw')}); document.querySelectorAll('.sw').forEach(function(x){ x.classList.toggle('on', x===b); }); $('#swPick').parentNode.style.background=''; }; });
