@@ -233,7 +233,7 @@ select.inp{font-size:15px;padding:10px}
       <button class="mainbtn" data-go="grid">
         <div class="mtop"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg></div><div style="flex:1"><b>View &amp; Edit Points</b><span>Your main workspace</span></div><div class="go">›</div></div>
         <div class="mprev" id="mPrev"></div>
-        <div class="mfeat">Edit cells · move columns · fix elevations · duplicates · format · renumber · save — all inside</div>
+        <div class="mfeat">Edit cells · move columns · fix elevations · bulk edit · duplicates · format · renumber · save — all inside</div>
       </button>
       <div class="qlabel">Quick tools</div>
       <div class="quick">
@@ -241,7 +241,8 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt" data-go="format"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M4 12h7M4 18h12"/><path d="M18 4v6M15 7h6"/></svg></div><b>Format / Presets</b><span>Keep only what you need</span></button>
         <button class="qt" data-go="dups"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div><b>Find Duplicates</b><span>Renumber or fix copies</span></button>
         <button class="qt" data-go="renum"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div><b>Renumber</b><span>1, 2, 3… to 9999999</span></button>
-        <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
+        <button class="qt" data-go="bulk"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><b>Bulk Edit</b><span>Overwrite, Pile 1, 2, 3…</span></button>
+        <button class="qt" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
       </div>
       <div class="row mt">
         <button class="btn block" id="undoHome" style="flex:1">↶ Undo</button>
@@ -263,6 +264,7 @@ select.inp{font-size:15px;padding:10px}
   <div class="toolrow">
     <button class="chip" data-go="format" style="background:var(--accent);color:#fff;border-color:var(--accent)">⚙ Format / Presets</button>
     <button class="chip" id="dupChip">⧉ Duplicates</button>
+    <button class="chip" data-go="bulk">Bulk edit</button>
     <button class="chip" data-go="dups">Fix duplicates</button>
     <button class="chip" data-go="renum">Renumber</button>
     <button class="chip" id="hdrToggle">Header row</button>
@@ -420,6 +422,7 @@ function go(where){
   else if(where==='renum') openRenum();
   else if(where==='format') openFormat();
   else if(where==='dups') openDups();
+  else if(where==='bulk') openBulk();
   else if(where==='export') openExport();
 }
 document.addEventListener('click', function(e){
@@ -764,9 +767,7 @@ function openDups(keepSel){
       '<label class="check"><input type="checkbox" id="dRnMove"> Move them to the bottom of the list</label>'+
       '<button class="btn primary block" id="dRnGo">Renumber selected</button></div>'+
       '<div class="or" style="margin:10px 0 4px">or change a column</div>'+
-      '<div class="row"><div class="field"><label>Column</label><select class="inp" id="dCol">'+colOptions(col('D')>=0?col('D'):pc)+'</select></div>'+
-      '<div class="field"><label>Action</label><select class="inp" id="dAct"><option value="set">Set to</option><option value="pre">Add text before</option><option value="suf">Add text after</option><option value="add">Add number (+/−)</option></select></div></div>'+
-      '<div class="row mt"><input class="inp" id="dVal" placeholder="e.g. DUP"><button class="btn" id="dChGo">Apply</button></div>'+
+      bulkFormHTML(col('D')>=0?col('D'):pc)+
       '<div class="or" style="margin:14px 0 4px">or</div>'+
       '<button class="btn block danger" id="dDel">Delete selected rows</button>'+
     '</div></div>';
@@ -801,19 +802,7 @@ function openDups(keepSel){
     save(); dupSel=null; refresh(); openDups();
     toast('Renumbered '+sel.length+' points '+s+'–'+(s+(sel.length-1)*st)+(mv?', moved to bottom':''));
   };
-  $('#dChGo').onclick=function(){
-    if(!need()) return;
-    var c=+$('#dCol').value, a=$('#dAct').value, v=$('#dVal').value, sel=selRows();
-    if(a==='add' && !isNum(v)){ toast('Enter a number like 0.5 or -0.5', true); return; }
-    if(a!=='set' && v===''){ toast('Type something to add', true); return; }
-    snap();
-    sel.forEach(function(i){
-      var cur=file.rows[i][c];
-      file.rows[i][c] = a==='set'?v : a==='pre'?v+cur : a==='suf'?cur+v : shiftVal(cur, v.trim().replace(/^\+/,''));
-    });
-    save(); refresh(); openDups(true);
-    toast('Changed '+colName(c)+' on '+sel.length+' points');
-  };
+  bindBulk(selRows, function(){ openDups(true); });
   $('#dDel').onclick=function(){
     if(!need()) return;
     if(!confirm('Delete '+dupSel.size+' rows?')) return;
@@ -823,6 +812,96 @@ function openDups(keepSel){
     toast('Deleted '+n+' rows');
   };
 }
+/* ---------------- bulk edit (shared) ---------------- */
+function bulkFormHTML(defCol){
+  return '<div class="row"><div class="field"><label>Column</label><select class="inp" id="bkCol">'+colOptions(defCol)+'</select></div>'+
+    '<div class="field"><label>Action</label><select class="inp" id="bkAct"><option value="set">Overwrite with</option><option value="suf">Add text after</option><option value="pre">Add text before</option><option value="add">Add number (+/−)</option></select></div></div>'+
+    '<input class="inp mt" id="bkVal" placeholder="e.g. Pile" autocomplete="off">'+
+    '<div id="bkNumWrap"><label class="check"><input type="checkbox" id="bkNum"> Number them (Pile 1, Pile 2, Pile 3…)</label>'+
+    '<div class="row" id="bkNumRow" hidden><div class="field"><label>Start at</label><input class="inp num" id="bkStart" inputmode="numeric" value="1"></div>'+
+    '<div class="field"><label>Count by</label><input class="inp num" id="bkStep" inputmode="numeric" value="1"></div>'+
+    '<div class="field"><label>Between</label><select class="inp" id="bkSep"><option value=" ">space</option><option value="">nothing</option><option value="-">dash -</option><option value="_">underscore _</option></select></div></div></div>'+
+    '<div class="result" id="bkPrev" style="font-weight:600"></div>'+
+    '<button class="btn primary block" id="bkGo">Apply</button>';
+}
+function bulkValue(cur, a, v, k, num){
+  var tag = num ? num.sep+(num.start+k*num.step) : '';
+  if(a==='set') return v+tag;
+  if(a==='suf') return cur+v+tag;
+  if(a==='pre') return v+cur;
+  return shiftVal(cur, v.trim().replace(/^\+/,''));
+}
+function bindBulk(getRows, after){
+  var numOpt=function(){
+    var a=$('#bkAct').value; if(!(a==='set'||a==='suf') || !$('#bkNum').checked) return null;
+    var st=parseInt($('#bkStart').value,10), sp=parseInt($('#bkStep').value,10);
+    return {start:isNaN(st)?1:st, step:isNaN(sp)||sp<1?1:sp, sep:$('#bkSep').value};
+  };
+  var upd=function(){
+    var a=$('#bkAct').value, rows=getRows(), c=+$('#bkCol').value, v=$('#bkVal').value;
+    $('#bkNumWrap').hidden = !(a==='set'||a==='suf');
+    $('#bkNumRow').hidden = !$('#bkNum').checked;
+    $('#bkVal').placeholder = a==='add' ? 'e.g. 0.5 or -0.5' : a==='set' ? 'e.g. Pile' : 'e.g. _DUP';
+    var num=numOpt(), ex=[];
+    if(rows.length && (v!=='' || a==='set')){
+      [0,1,2].forEach(function(k){ if(k<rows.length) ex.push(bulkValue(file.rows[rows[k]][c],a,v,k,num)); });
+      if(rows.length>3) ex.push('…', bulkValue(file.rows[rows[rows.length-1]][c],a,v,rows.length-1,num));
+    }
+    $('#bkPrev').innerHTML = !rows.length ? 'No points selected' :
+      (ex.length ? '<small style="margin:0 0 2px">'+escH(colName(c))+' will become</small>'+ex.map(function(x){return '<span class="num">'+escH(x===''?'(blank)':x)+'</span>';}).join(' · ') : 'Type what to '+(a==='add'?'add':'write')+' above');
+    $('#bkGo').textContent='Apply to '+rows.length.toLocaleString()+' point'+(rows.length===1?'':'s');
+    $('#bkGo').disabled=!rows.length;
+  };
+  ['#bkCol','#bkAct','#bkVal','#bkNum','#bkStart','#bkStep','#bkSep'].forEach(function(id){ $(id).addEventListener('input',upd); $(id).addEventListener('change',upd); });
+  upd();
+  $('#bkGo').onclick=function(){
+    var rows=getRows(), c=+$('#bkCol').value, a=$('#bkAct').value, v=$('#bkVal').value, num=numOpt();
+    if(!rows.length){ toast('Select some points first', true); return; }
+    if(a==='add' && !isNum(v)){ toast('Enter a number like 0.5 or -0.5', true); return; }
+    if((a==='pre'||a==='suf') && v==='' && !num){ toast('Type something to add', true); return; }
+    snap();
+    rows.forEach(function(i,k){ file.rows[i][c]=bulkValue(file.rows[i][c],a,v,k,num); });
+    save(); refresh(); after();
+    toast('Changed '+colName(c)+' on '+rows.length.toLocaleString()+' points'+(num?' (numbered '+num.start+'–'+(num.start+(rows.length-1)*num.step)+')':''));
+  };
+}
+
+var bkWhich='all';
+function openBulk(defCol){
+  bkWhich='all';
+  var pc=col('P'); if(pc<0) pc=0;
+  var dc=col('D'), descs=[];
+  if(dc>=0){ var m=new Map(); file.rows.forEach(function(r){ var k=r[dc]; m.set(k,(m.get(k)||0)+1); }); m.forEach(function(n,k){ descs.push([k,n]); }); descs.sort(function(a,b){ return b[1]-a[1]; }); descs=descs.slice(0,300); }
+  if(bkWhich==='desc' && dc<0) bkWhich='all';
+  var h='<div class="card"><h3>Which points</h3><div class="seg" style="display:flex">'+
+    [['all','All'],['range','Point # range'],['desc','By description']].map(function(m){ return '<button style="flex:1;font-size:14px" data-bw="'+m[0]+'"'+(m[0]===bkWhich?' class="on"':'')+(m[0]==='desc'&&dc<0?' disabled':'')+'>'+m[1]+'</button>'; }).join('')+'</div>'+
+    '<div class="row mt" id="bkRange"'+(bkWhich==='range'?'':' hidden')+'><div class="field"><label>From point #</label><input class="inp num" id="bkFrom" inputmode="numeric"></div><div class="field"><label>To point #</label><input class="inp num" id="bkTo" inputmode="numeric"></div></div>'+
+    '<div class="field mt" id="bkDescW"'+(bkWhich==='desc'?'':' hidden')+'><label>Points whose description is</label><select class="inp" id="bkDesc">'+descs.map(function(d){ return '<option value="'+escH(d[0])+'">'+escH(d[0]===''?'(blank)':d[0])+' — '+d[1]+'</option>'; }).join('')+'</select></div>'+
+    '<p class="muted" style="margin:10px 0 0" id="bkCount"></p></div>'+
+    '<div class="card">'+bulkFormHTML(typeof defCol==='number'?defCol:(dc>=0?dc:pc))+'</div>';
+  openSheet('Bulk Edit', h);
+  var rows=function(){
+    var out=[];
+    if(bkWhich==='all') return file.rows.map(function(_,i){return i;});
+    if(bkWhich==='range'){
+      var f=parseFloat($('#bkFrom').value), t=parseFloat($('#bkTo').value); if(isNaN(f)&&isNaN(t)) return [];
+      if(isNaN(f)) f=-Infinity; if(isNaN(t)) t=Infinity;
+      file.rows.forEach(function(r,i){ var p=parseFloat(r[pc]); if(!isNaN(p)&&p>=f&&p<=t) out.push(i); });
+      return out;
+    }
+    var d=$('#bkDesc').value; file.rows.forEach(function(r,i){ if(r[dc]===d) out.push(i); }); return out;
+  };
+  var cnt=function(){ var n=rows().length; $('#bkCount').textContent=n.toLocaleString()+' point'+(n===1?'':'s')+' selected'; $('#bkCol').dispatchEvent(new Event('change')); };
+  document.querySelectorAll('[data-bw]').forEach(function(b){ b.onclick=function(){
+    bkWhich=b.getAttribute('data-bw');
+    document.querySelectorAll('[data-bw]').forEach(function(x){ x.classList.toggle('on', x===b); });
+    $('#bkRange').hidden=bkWhich!=='range'; $('#bkDescW').hidden=bkWhich!=='desc'; cnt();
+  }; });
+  ['#bkFrom','#bkTo','#bkDesc'].forEach(function(id){ $(id).addEventListener('input',cnt); $(id).addEventListener('change',cnt); });
+  bindBulk(rows, function(){ closeSheet(); });
+  cnt();
+}
+
 function openDupsKeepScroll(){ var t=$('#shBody').scrollTop; openDups(true); $('#shBody').scrollTop=t; }
 function syncGrid(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); }
 $('#dupChip').onclick=function(){ dupOnly=!dupOnly; $('#gscroll').scrollTop=0; layoutGrid(); if(dupOnly) toast('Showing duplicate '+(DUP_MODES.filter(function(m){return m[0]===dupMode;})[0][1]).toLowerCase()+' only — red = extra copies', true); };
@@ -863,6 +942,7 @@ function openColumn(c){
   ROLES.forEach(function(r){ h+='<button class="chip'+(file.roles[c]===r[0]?' on':'')+'" data-role="'+r[0]+'">'+r[1]+'</button>'; });
   h+='</div></div>'+
     ((file.roles[c]==='P' || (col('P')<0 && c===0)) ? '<button class="btn primary block" id="cRenum" style="margin-bottom:12px">🔢 Renumber points (1, 2, 3…)</button>' : '')+
+    '<button class="btn block" id="cBulk" style="margin-bottom:12px">✎ Bulk edit this column</button>'+
     '<div class="card"><h3>Move</h3><div class="row"><button class="btn block" style="flex:1" id="mvL">◀ Left</button><button class="btn block" style="flex:1" id="mvR">Right ▶</button></div></div>'+
     '<div class="card"><h3>Header name</h3><div class="row"><input class="inp" id="hName" value="'+escH(file.header?file.header[c]:'')+'" placeholder="'+(file.header?'':'No header row — this adds one')+'"><button class="btn" id="hSave">Save</button></div></div>'+
     '<div class="row"><button class="btn block" style="flex:1" id="cAdd">+ Insert column after</button><button class="btn block danger" style="flex:1" id="cDel">Delete column</button></div>'+
@@ -874,6 +954,7 @@ function openColumn(c){
     file.roles[c]=r; save(); closeSheet(); layoutGrid();
   }; });
   if($('#cRenum')) $('#cRenum').onclick=function(){ openRenum(c); };
+  $('#cBulk').onclick=function(){ openBulk(c); };
   $('#mvL').onclick=function(){ closeSheet(); moveCol(c,c-1); };
   $('#mvR').onclick=function(){ closeSheet(); moveCol(c,c+1); };
   $('#hSave').onclick=function(){ snap(); if(!file.header) file.header=file.roles.map(function(_,i){return colName(i);}); file.header[c]=$('#hName').value; save(); closeSheet(); layoutGrid(); };
