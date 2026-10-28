@@ -846,6 +846,7 @@ function openColumn(c){
   var h='<div class="card"><h3>This column is</h3><div class="rolegrid">';
   ROLES.forEach(function(r){ h+='<button class="chip'+(file.roles[c]===r[0]?' on':'')+'" data-role="'+r[0]+'">'+r[1]+'</button>'; });
   h+='</div></div>'+
+    ((file.roles[c]==='P' || (col('P')<0 && c===0)) ? '<button class="btn primary block" id="cRenum" style="margin-bottom:12px">🔢 Renumber points (1, 2, 3…)</button>' : '')+
     '<div class="card"><h3>Move</h3><div class="row"><button class="btn block" style="flex:1" id="mvL">◀ Left</button><button class="btn block" style="flex:1" id="mvR">Right ▶</button></div></div>'+
     '<div class="card"><h3>Header name</h3><div class="row"><input class="inp" id="hName" value="'+escH(file.header?file.header[c]:'')+'" placeholder="'+(file.header?'':'No header row — this adds one')+'"><button class="btn" id="hSave">Save</button></div></div>'+
     '<div class="row"><button class="btn block" style="flex:1" id="cAdd">+ Insert column after</button><button class="btn block danger" style="flex:1" id="cDel">Delete column</button></div>'+
@@ -856,6 +857,7 @@ function openColumn(c){
     if(r){ var o=file.roles.indexOf(r); if(o>=0 && o!==c) file.roles[o]=''; }
     file.roles[c]=r; save(); closeSheet(); layoutGrid();
   }; });
+  if($('#cRenum')) $('#cRenum').onclick=function(){ openRenum(c); };
   $('#mvL').onclick=function(){ closeSheet(); moveCol(c,c-1); };
   $('#mvR').onclick=function(){ closeSheet(); moveCol(c,c+1); };
   $('#hSave').onclick=function(){ snap(); if(!file.header) file.header=file.roles.map(function(_,i){return colName(i);}); file.header[c]=$('#hName').value; save(); closeSheet(); layoutGrid(); };
@@ -878,8 +880,8 @@ function openCell(r, c){
 }
 
 /* ----- renumber ----- */
-function openRenum(){
-  var pc=col('P'); if(pc<0) pc=0;
+function openRenum(useCol){
+  var pc=typeof useCol==='number'?useCol:col('P'); if(pc<0) pc=0;
   var first=parseInt(file.rows[0]&&file.rows[0][pc],10);
   openSheet('Renumber Points',
     '<div class="card"><div class="field"><label>Point number column</label><select class="inp" id="rnCol">'+colOptions(pc)+'</select></div>'+
