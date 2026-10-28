@@ -93,6 +93,24 @@ input,select{font:inherit;color:var(--ink)}
 .qt span{font-size:12px;color:var(--muted)}
 .qt.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px}
 .qt.wide .oi{margin:0}
+#pvWrap{flex:1;position:relative;overflow:hidden;background:#8a8a85;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+#pvContent{position:absolute;left:0;top:0;transform-origin:0 0;box-shadow:0 2px 18px rgba(0,0,0,.35)}
+#pvContent canvas{position:absolute;left:0;top:0;display:block}
+#pvMarks{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pvm{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.6)}
+.pvm i{position:absolute;left:14px;top:-4px;font-style:normal;font-size:11px;font-weight:800;background:rgba(0,0,0,.72);color:#fff;padding:1px 5px;border-radius:5px;white-space:nowrap}
+.pvm.ctrl{background:#1f8a4c;width:16px;height:16px;margin:-8px 0 0 -8px} .pvm.auto{background:#e8b21b;width:10px;height:10px;margin:-5px 0 0 -5px}
+.pvm.pick{background:#2d6cdf} .pvm.pin{background:var(--accent);width:18px;height:18px;margin:-9px 0 0 -9px;box-shadow:0 0 0 2px rgba(0,0,0,.6),0 0 0 9px rgba(226,105,27,.25)}
+.pvbox{position:absolute;border:2px dashed #2d6cdf;background:rgba(45,108,223,.06)}
+.pvstatus{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);flex:none;min-height:34px}
+.pvstatus .spin{width:14px;height:14px;border-width:2px}
+.pvinfo{flex:none;padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg);max-height:42vh;overflow:auto}
+.mk .mn span.lg{white-space:normal;overflow:visible}
+.pvread{display:flex;gap:10px;margin-bottom:4px}
+.pvread div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.pvread span{font-size:11px;font-weight:800;color:var(--muted);display:block}
+.pvread b{font-size:20px}
+.ud.onv{background:#e21ea0;color:#fff}
 .phbar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:5}
 .pcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px}
 .pcard .ph{display:flex;gap:12px;align-items:center;margin-bottom:10px}
@@ -261,6 +279,7 @@ select.inp{font-size:15px;padding:10px}
         <button class="btn primary" id="pickBtn">+ Add file</button>
       </div>
       <button class="btn block mt" data-go="photos" style="background:var(--panel);border:1px solid var(--line);padding:16px"><svg width="22" height="22" style="color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Create CSV from photos or PDF</button>
+      <button class="btn block mt" data-go="plan" style="background:var(--panel);border:1px solid var(--line);padding:16px">🗺 Open a plan PDF — tap for coordinates, export DXF</button>
       <p class="muted" style="text-align:center;margin-top:14px">Works with PNEZD / PENZD point files. Everything stays on your phone.</p>
     </div>
 
@@ -281,7 +300,8 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt" data-go="dups"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div><b>Find Duplicates</b><span>Renumber or fix copies</span></button>
         <button class="qt" data-go="renum"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div><b>Renumber</b><span>1, 2, 3… to 9999999</span></button>
         <button class="qt" data-go="bulk"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><b>Bulk Edit</b><span>Overwrite, Pile 1, 2, 3…</span></button>
-        <button class="qt" data-go="photos"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div><b>Photos / PDF</b><span>Screens, sheets, plans → points</span></button>
+        <button class="qt" data-go="photos"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div><b>Photos / PDF</b><span>Points, plans, coordinates, DXF</span></button>
+        <button class="qt wide" data-go="plan"><div class="oi">🗺</div><b>Open a plan (PDF)</b><span>Georeference, tap for N/E, export linework DXF</span></button>
         <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
       </div>
       <div class="row mt">
@@ -342,6 +362,29 @@ select.inp{font-size:15px;padding:10px}
 <input type="file" id="phCamIn" accept="image/*" capture="environment" hidden>
 <input type="file" id="phLibIn" accept="image/*,application/pdf,.pdf" multiple hidden>
 <input type="file" id="phRetakeIn" accept="image/*" capture="environment" hidden>
+
+<!-- ============ PLAN VIEWER ============ -->
+<section class="screen" id="planScreen">
+  <div class="topbar">
+    <button class="iconbtn" id="pvBack">‹ Back</button>
+    <h1 id="pvTitle">Plan</h1>
+    <select class="inp" id="pvPage" hidden style="width:auto;padding:6px 8px;font-size:14px"></select>
+    <button class="iconbtn" id="pvExport" style="background:var(--good);color:#fff">Export DXF</button>
+  </div>
+  <div class="toolrow">
+    <button class="chip on" data-pvm="look">👆 Coordinates</button>
+    <button class="chip" data-pvm="ctrl">🎯 Known point</button>
+    <button class="chip" id="pvKnown">Known points</button>
+    <button class="chip" id="pvLayers">Layers</button>
+    <button class="chip" id="pvGrid">Grid</button>
+    <button class="chip on" id="pvSnapB">📌 Snap on</button>
+    <button class="chip" data-pvm="box">▭ Export area</button>
+    <button class="chip" id="pvFitB">Fit</button>
+  </div>
+  <div id="pvStatus" class="pvstatus"></div>
+  <div id="pvWrap"><div id="pvContent"></div><div id="pvMarks"></div></div>
+  <div id="pvInfo" class="pvinfo"></div>
+</section>
 
 <!-- ============ SHEETS ============ -->
 <div class="veil" id="veil"><div class="sheet" id="sheet">
@@ -463,7 +506,7 @@ $('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); undo()
 
 /* ---------------- screens ---------------- */
 function showHome(){
-  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#home').classList.add('on');
+  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#home').classList.add('on');
   $('#noFile').hidden = !!file; $('#hasFile').hidden = !file;
   if(file){
     $('#fName').textContent = file.name;
@@ -479,13 +522,14 @@ function showHome(){
   updUndo();
 }
 function showGrid(){
-  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
   $('#gTitle').textContent = file.name; layoutGrid(); updUndo();
 }
 function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); else showHome(); }
 
 function go(where){
   if(where==='photos'){ showPhotos(); return; }
+  if(where==='plan'){ var pi=document.createElement('input'); pi.type='file'; pi.accept='application/pdf,.pdf'; pi.onchange=function(){ if(pi.files[0]) openPlan(pi.files[0]); }; pi.click(); return; }
   if(!file && where!=='home') return;
   if(where==='grid') showGrid();
   else if(where==='fix') openFix();
@@ -503,7 +547,7 @@ document.addEventListener('click', function(e){
 $('#undoHome').onclick = undo; $('#undoGrid').onclick = undo;
 $('#pickBtn').onclick = $('#openOther').onclick = function(){ $('#fileIn').value=''; $('#fileIn').click(); };
 $('#fileIn').onchange = function(){ var fs=Array.prototype.slice.call(this.files||[]); if(!fs.length) return;
-  if(isPicOrPdf(fs[0])){ showPhotos(); phAddFiles(fs.filter(isPicOrPdf)); } else readFile(fs[0]); };
+  if(isPicOrPdf(fs[0])) routeFiles(fs.filter(isPicOrPdf)); else readFile(fs[0]); };
 $('#closeFile').onclick = function(){ if(confirm('Close this file? Save/Share it first if you need it.')){ file=null; hist=[]; save(); showHome(); } };
 
 // drag & drop anywhere
@@ -514,8 +558,14 @@ window.addEventListener('dragover', function(e){ e.preventDefault(); });
 window.addEventListener('drop', function(e){ e.preventDefault(); dragDepth=0; drop.classList.remove('over');
   var fs=Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files)||[]); if(!fs.length) return;
   var pics=fs.filter(isPicOrPdf), csvs=fs.filter(function(f){ return !isPicOrPdf(f); });
-  if(pics.length){ if(!$('#photoScreen').classList.contains('on')) showPhotos(); phAddFiles(pics); return; }
+  if(pics.length){ routeFiles(pics); return; }
   var f=csvs[0]; if(f){ if(!file || confirm('Open '+f.name+'? (replaces the current file)')) readFile(f); } });
+function isPdfFile(f){ return f.type==='application/pdf' || /\.pdf$/i.test(f.name||''); }
+function routeFiles(fs){
+  var pdfs=fs.filter(isPdfFile), pics=fs.filter(function(f){ return !isPdfFile(f); });
+  if(pdfs.length){ askPdf(pdfs, pics); return; }
+  if(!$('#photoScreen').classList.contains('on')) showPhotos(); phAddFiles(pics);
+}
 function isPicOrPdf(f){ return /^image\//.test(f.type) || f.type==='application/pdf' || /\.(pdf|jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(f.name||''); }
 
 /* ---------------- grid (virtual scroll) ---------------- */
@@ -1962,7 +2012,7 @@ $('#phDesc').addEventListener('input', function(){ phPoints.forEach(function(p){
 $('#phCam').onclick=function(){ $('#phCamIn').value=''; $('#phCamIn').click(); };
 $('#phLib').onclick=function(){ $('#phLibIn').value=''; $('#phLibIn').click(); };
 $('#phCamIn').onchange=function(){ phAddFiles(this.files); };
-$('#phLibIn').onchange=function(){ phAddFiles(this.files); };
+$('#phLibIn').onchange=function(){ routeFiles(Array.prototype.slice.call(this.files||[])); };
 var retakeId=null;
 $('#phRetakeIn').onchange=function(){
   var f=this.files&&this.files[0], p=phPoints.filter(function(x){ return x.id===retakeId; })[0]; retakeId=null;
@@ -1994,11 +2044,514 @@ $('#phGo').onclick=function(){
   toast((addTo?'Added ':'Created ')+rows.length+' points — check them, then Export', true);
 };
 function showPhotos(){
-  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
   if(file){ var mx=maxPoint(); if(mx) $('#phStart').value=mx+1; }
   phRender();
   loadTess().catch(function(){});   // start downloading the reader early
 }
+
+/* =====================================================================================================
+   PLAN VIEWER — open a PDF plan, georeference it from known points, tap anywhere for N/E,
+   pick linework layers and export them as DXF in real coordinates.
+   Sheet units = PDF points as the page is shown (1/72"). World = Northing / Easting.
+   ===================================================================================================== */
+var PV=null;
+function askPdf(pdfs, others){
+  var n=pdfs.length;
+  openSheet('What do you want to do with '+(n===1?'this PDF':'these PDFs')+'?',
+    '<button class="opt" id="apPts" style="margin-bottom:10px"><div class="oi">📍</div><div><b>Get points → CSV</b><span>Find every N/E callout'+(n>1?' in all '+n+' PDFs':'')+' and make a point list</span></div></button>'+
+    '<button class="opt hero" id="apPlan"><div class="oi">🗺</div><div><b>Open plan</b><span>Georeference from known points, tap anything for its coordinates, export linework as DXF</span></div></button>'+
+    (n>1?'<p class="muted mt">Open plan uses the first PDF: '+escH(pdfs[0].name||'PDF')+'</p>':''));
+  $('#apPts').onclick=function(){ closeSheet(); if(!$('#photoScreen').classList.contains('on')) showPhotos(); phAddFiles(pdfs.concat(others||[])); };
+  $('#apPlan').onclick=function(){ closeSheet(); openPlan(pdfs[0]); if(others&&others.length){ /* photos stay for later */ } };
+}
+function showPlanScreen(){ ['#home','#gridScreen','#photoScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#planScreen').classList.add('on'); }
+async function openPlan(f){
+  showPlanScreen();
+  PV={file:f, name:(f.name||'plan').replace(/\.pdf$/i,''), z:1, tx:0, ty:0, mode:'look', snap:true, grid:false, picks:[], ctrl:[], useAuto:true, show:{}, area:'auto', box:null, heal:1};
+  $('#pvTitle').textContent=PV.name; pvStatus('Opening plan…', true); $('#pvInfo').innerHTML='';
+  try{
+    var lib=await getPdfLib(); PV.doc=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+    $('#pvPage').hidden=PV.doc.numPages<2;
+    $('#pvPage').innerHTML=Array.from({length:PV.doc.numPages},function(_,i){ return '<option value="'+(i+1)+'">Page '+(i+1)+'</option>'; }).join('');
+    await pvLoadPage(1);
+  }catch(e){ try{ console.warn(e); }catch(x){} pvStatus(/pdflib/.test(String(e&&e.message))?'Couldn’t load the PDF reader — open the app once with internet, then try again.':'Couldn’t open this PDF.', false, true); }
+}
+function pvStatus(t, busy, bad){ $('#pvStatus').innerHTML=(busy?'<div class="spin"></div>':'')+'<span'+(bad?' class="danger"':'')+'>'+t+'</span>'; }
+
+async function pvLoadPage(n){
+  PV.pageNum=n; pvStatus('Reading page '+n+'… (big plans take a few seconds)', true);
+  var page=await PV.doc.getPage(n), vp=page.getViewport({scale:1}); PV.page=page; PV.W=vp.width; PV.H=vp.height;
+  var tc=await page.getTextContent(); PV.lines=pdfLines(tc.items, vp.transform); PV.calls=findCallouts(PV.lines);
+  var sm=null; PV.lines.some(function(L){ var m=/SCALE:?\s*1"?\s*=\s*([\d,]+(?:\.\d+)?)\s*'/i.exec(L.t); if(m){ sm=parseFloat(m[1].replace(/,/g,'')); return true; } }); PV.planScale=sm; // ft per inch
+  pvStatus('Drawing the sheet…', true); await new Promise(function(r){ setTimeout(r,20); });
+  var R=await renderPage(page, 12e6); PV.R=R;
+  var host=$('#pvContent'); host.innerHTML=''; R.canvas.id='pvCanvas'; host.appendChild(R.canvas);
+  var ov=document.createElement('canvas'); ov.id='pvOver'; ov.width=Math.round(R.w/2); ov.height=Math.round(R.h/2); ov.style.width=R.w+'px'; ov.style.height=R.h+'px'; host.appendChild(ov); PV.ov=ov;
+  host.style.width=R.w+'px'; host.style.height=R.h+'px';
+  pvStatus('Finding linework…', true); await new Promise(function(r){ setTimeout(r,20); });
+  pvExtract(await page.getOperatorList(), vp.transform);
+  pvLegend(); pvBuildSnap(); pvFindArea();
+  pvAutoGeo();
+  try{ var sv=JSON.parse(ls.get(pvKey())||'null'); if(sv&&sv.ctrl){ PV.ctrl=sv.ctrl; PV.useAuto=sv.useAuto!==false; PV.lockScale=sv.lockScale; } }catch(e){}
+  pvFit(); pvFitView(); pvDrawOverlay(); pvMarks(); pvUpdateStatus(); pvInfoIdle();
+}
+function pvKey(){ return 'csvfix.geo.'+PV.name+'.'+(PV.file.size||0)+'.'+PV.pageNum; }
+function pvSave(){ ls.set(pvKey(), JSON.stringify({ctrl:PV.ctrl, useAuto:PV.useAuto, lockScale:PV.lockScale})); }
+
+/* ---------- linework from the PDF's drawing commands ---------- */
+function pvExtract(ol, vt){
+  var O=pdfLib.OPS, M=pdfLib.Util.transform, ctm=vt.slice(), st=[], color='#000000', lw=1, paths=[], fills=[], groups={};
+  var ap=function(m,x,y){ return [m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]]; };
+  var STROKE={}; [O.stroke,O.closeStroke,O.fillStroke,O.eoFillStroke,O.closeFillStroke,O.closeEOFillStroke].forEach(function(o){ STROKE[o]=1; });
+  var FILL={}; [O.fill,O.eoFill].forEach(function(o){ FILL[o]=1; });
+  var clipPend=false, clips={}, SA=PV.W*PV.H;
+  for(var i=0;i<ol.fnArray.length;i++){
+    var f=ol.fnArray[i], a=ol.argsArray[i];
+    if(f===O.clip||f===O.eoClip){ clipPend=true; continue; }
+    if(clipPend && f===O.constructPath && a[0]===O.endPath && a[1] && a[1][0]){ // a clipping boundary — big ones are the plan viewports
+      var cd=a[1][0], cx0=1e9, cy0=1e9, cx1=-1e9, cy1=-1e9;
+      for(var ci=0;ci<cd.length;){ var cc=cd[ci++], cn=cc===2?3:cc===3?2:cc===4?0:1; for(var cj=0;cj<cn;cj++){ var cp=ap(ctm,cd[ci++],cd[ci++]); cx0=Math.min(cx0,cp[0]); cy0=Math.min(cy0,cp[1]); cx1=Math.max(cx1,cp[0]); cy1=Math.max(cy1,cp[1]); } }
+      var car=(cx1-cx0)*(cy1-cy0); if(car>SA*0.15 && car<SA*0.95){ var ck=[cx0,cy0,cx1,cy1].map(Math.round).join(','); clips[ck]=(clips[ck]||0)+1; }
+      clipPend=false; continue; }
+    clipPend=false;
+    if(f===O.save) st.push([ctm.slice(),color,lw]);
+    else if(f===O.restore){ var s=st.pop(); if(s){ ctm=s[0]; color=s[1]; lw=s[2]; } }
+    else if(f===O.transform) ctm=M(ctm,a);
+    else if(f===O.paintFormXObjectBegin){ st.push([ctm.slice(),color,lw]); if(a[0]) ctm=M(ctm,a[0]); }
+    else if(f===O.paintFormXObjectEnd){ var s2=st.pop(); if(s2){ ctm=s2[0]; color=s2[1]; lw=s2[2]; } }
+    else if(f===O.setStrokeRGBColor||f===O.setStrokeGray) color=typeof a[0]==='string'?a[0]:color;
+    else if(f===O.setLineWidth) lw=a[0];
+    else if(f===O.constructPath){
+      var op=a[0], d=a[1]&&a[1][0]; if(!d) continue;
+      var isS=!!STROKE[op], isF=!!FILL[op]; if(!isS && !isF) continue;
+      var sc=Math.hypot(ctm[0],ctm[1]), sub=null, subs=[];
+      for(var k=0;k<d.length;){ var c=d[k++];
+        if(c===0){ if(sub&&sub.length>1) subs.push(sub); sub=[ap(ctm,d[k++],d[k++])]; }
+        else if(c===1){ if(!sub) sub=[]; sub.push(ap(ctm,d[k++],d[k++])); }
+        else if(c===2){ var p0=sub[sub.length-1], q1=ap(ctm,d[k++],d[k++]), q2=ap(ctm,d[k++],d[k++]), q3=ap(ctm,d[k++],d[k++]);
+          for(var t=1;t<=6;t++){ var u=t/6, v=1-u; sub.push([v*v*v*p0[0]+3*v*v*u*q1[0]+3*v*u*u*q2[0]+u*u*u*q3[0], v*v*v*p0[1]+3*v*v*u*q1[1]+3*v*u*u*q2[1]+u*u*u*q3[1]]); } }
+        else if(c===3){ var p1=sub[sub.length-1], c1=ap(ctm,d[k++],d[k++]), e1=ap(ctm,d[k++],d[k++]);
+          for(var t2=1;t2<=4;t2++){ var u2=t2/4, v2=1-u2; sub.push([v2*v2*p1[0]+2*v2*u2*c1[0]+u2*u2*e1[0], v2*v2*p1[1]+2*v2*u2*c1[1]+u2*u2*e1[1]]); } }
+        else if(c===4){ if(sub&&sub.length) sub.push(sub[0].slice()); }
+      }
+      if(sub&&sub.length>1) subs.push(sub);
+      if(isS){ var gk=color.toLowerCase()+'|'+(Math.round(lw*sc*100)/100); var G=groups[gk]||(groups[gk]={key:gk, color:color.toLowerCase(), w:Math.round(lw*sc*100)/100, n:0, len:0});
+        subs.forEach(function(sp){ paths.push({g:gk, p:sp}); G.n++; for(var j=1;j<sp.length;j++) G.len+=Math.hypot(sp[j][0]-sp[j-1][0],sp[j][1]-sp[j-1][1]); }); }
+      else subs.forEach(function(sp){ if(sp.length<=12) fills.push(sp); });
+    }
+  }
+  PV.paths=paths; PV.fills=fills;
+  var ck2=Object.keys(clips).sort(function(x,y){ return clips[y]-clips[x]; })[0]; PV.clipBox=ck2?ck2.split(',').map(Number):null;
+  var list=Object.keys(groups).map(function(k){ return groups[k]; }).sort(function(a,b){ return b.len-a.len; });
+  list.forEach(function(G,i){ G.name='PDF_'+G.color.replace('#','').toUpperCase()+'_W'+String(G.w).replace('.','');
+    G.on = !(G.color==='#ffffff' || G.color==='#fff'); PV.show[G.key]=false; });
+  PV.groups=list;
+}
+/* ---------- snapping: ends and corners of every line ---------- */
+function pvBuildSnap(){
+  var C=8, grid=new Map(), add=function(x,y){ var k=Math.floor(x/C)+','+Math.floor(y/C), b=grid.get(k); if(!b){ b=[]; grid.set(k,b); } b.push(x,y); };
+  PV.paths.forEach(function(P){ if(/^#fff/.test(P.g)) return; var p=P.p; add(p[0][0],p[0][1]); add(p[p.length-1][0],p[p.length-1][1]);
+    for(var i=1;i<p.length-1;i++){ var ax=p[i-1][0]-p[i][0], ay=p[i-1][1]-p[i][1], bx=p[i+1][0]-p[i][0], by=p[i+1][1]-p[i][1], n1=Math.hypot(ax,ay), n2=Math.hypot(bx,by);
+      if(n1>0.05&&n2>0.05&&Math.abs((ax*bx+ay*by)/(n1*n2))<0.995) add(p[i][0],p[i][1]); } });
+  PV.snapGrid=grid; PV.snapC=C;
+}
+function pvSnap(x,y,rad){
+  var C=PV.snapC, best=null, bd=rad;
+  for(var gx=Math.floor((x-rad)/C);gx<=Math.floor((x+rad)/C);gx++) for(var gy=Math.floor((y-rad)/C);gy<=Math.floor((y+rad)/C);gy++){
+    var b=PV.snapGrid.get(gx+','+gy); if(!b) continue;
+    for(var i=0;i<b.length;i+=2){ var d=Math.hypot(b[i]-x,b[i+1]-y); if(d<bd){ bd=d; best=[b[i],b[i+1]]; } } }
+  return best;
+}
+/* ---------- main drawing area (the plan viewport, not the title block) ---------- */
+function pvFindArea(){
+  if(PV.clipBox){ PV.autoBox=PV.clipBox; return; }
+  var cands=[], A=PV.W*PV.H;
+  PV.paths.forEach(function(P){ var p=P.p; if(p.length<4||p.length>6) return;
+    var xs=p.map(function(q){return q[0];}), ys=p.map(function(q){return q[1];}), x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs), y0=Math.min.apply(null,ys), y1=Math.max.apply(null,ys);
+    var ar=(x1-x0)*(y1-y0); if(ar<A*0.15||ar>A*0.93) return;
+    if(!p.every(function(q){ return (Math.abs(q[0]-x0)<1||Math.abs(q[0]-x1)<1)&&(Math.abs(q[1]-y0)<1||Math.abs(q[1]-y1)<1); })) return;
+    var inside=PV.calls.filter(function(c){ var cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2; return cx>x0&&cx<x1&&cy>y0&&cy<y1; }).length;
+    cands.push({b:[x0,y0,x1,y1],ar:ar,inside:inside}); });
+  cands.sort(function(a,b){ return b.inside-a.inside || b.ar-a.ar; });
+  PV.autoBox=cands.length?cands[0].b:null;
+}
+/* ---------- auto georeference from callout leaders ---------- */
+function pvLeaderTip(c){
+  var fs=c.top.fs, B=[].concat(lineBox(c.top),lineBox(c.bot)), xs=B.map(function(p){return p[0];}), ys=B.map(function(p){return p[1];});
+  var b=[Math.min.apply(null,xs),Math.min.apply(null,ys),Math.max.apply(null,xs),Math.max.apply(null,ys)];
+  var under=null, ul=0;
+  PV.paths.forEach(function(P){ if(/^#fff/.test(P.g)) return; var p=P.p;
+    for(var i=1;i<p.length;i++){ var a=p[i-1], q=p[i]; if(Math.abs(a[1]-q[1])>1.5) continue; var y=(a[1]+q[1])/2;
+      if(!(y>b[1]+fs*0.4 && y<b[3]-fs*0.4)) continue; var x0=Math.min(a[0],q[0]), x1=Math.max(a[0],q[0]);
+      if(x0<=b[0]+fs && x1>=b[2]-fs && x1-x0>ul){ ul=x1-x0; under={g:P.g, a:a, q:q}; } } });
+  if(!under) return null;
+  var mine=PV.paths.filter(function(P){ return P.g===under.g; }), segs=[];
+  mine.forEach(function(P){ for(var i=1;i<P.p.length;i++) segs.push([P.p[i-1],P.p[i]]); });
+  var db=function(p){ var dx=Math.max(b[0]-p[0],0,p[0]-b[2]), dy=Math.max(b[1]-p[1],0,p[1]-b[3]); return Math.hypot(dx,dy); };
+  var best=null;
+  [under.a, under.q].forEach(function(start){
+    var used=new Set(), cur=start, prev=start, path=[start];
+    for(var s=0;s<40;s++){ var nx=null;
+      for(var k=0;k<segs.length;k++){ if(used.has(k)) continue; var A=segs[k][0], Bq=segs[k][1];
+        if(Math.hypot(A[0]-cur[0],A[1]-cur[1])<0.6){ nx=[k,Bq]; break; } if(Math.hypot(Bq[0]-cur[0],Bq[1]-cur[1])<0.6){ nx=[k,A]; break; } }
+      if(!nx) break; used.add(nx[0]);
+      if(path.length===1 && (Math.hypot(nx[1][0]-under.a[0],nx[1][1]-under.a[1])<0.01 || Math.hypot(nx[1][0]-under.q[0],nx[1][1]-under.q[1])<0.01)) continue;
+      prev=cur; cur=nx[1]; path.push(cur); }
+    var d=db(cur); if(!best||d>best.d) best={d:d,tip:cur,prev:prev}; });
+  if(!best || best.d<fs*0.8) return null;
+  var tip=best.tip;
+  PV.fills.some(function(F){ if(F.some(function(v){ return Math.hypot(v[0]-tip[0],v[1]-tip[1])<2.5; })){
+    var far=F.reduce(function(m,v){ return Math.hypot(v[0]-best.prev[0],v[1]-best.prev[1])>Math.hypot(m[0]-best.prev[0],m[1]-best.prev[1])?v:m; },F[0]);
+    if(Math.hypot(far[0]-tip[0],far[1]-tip[1])<15) tip=far; return true; } });
+  return tip;
+}
+function geoFit(pts, lockScale){ // complex similarity: (E + iN) = a·(x − iy) + b   (sheet y runs down)
+  var n=pts.length; if(n<2) return null;
+  var zm=[0,0], wm=[0,0]; pts.forEach(function(p){ zm[0]+=p.x; zm[1]+=-p.y; wm[0]+=p.E; wm[1]+=p.N; }); zm[0]/=n; zm[1]/=n; wm[0]/=n; wm[1]/=n;
+  var nr=0, ni=0, den=0;
+  pts.forEach(function(p){ var zr=p.x-zm[0], zi=-p.y-zm[1], wr=p.E-wm[0], wi=p.N-wm[1]; nr+=wr*zr+wi*zi; ni+=wi*zr-wr*zi; den+=zr*zr+zi*zi; });
+  if(!den) return null;
+  var ar=nr/den, ai=ni/den;
+  if(lockScale){ var m=Math.hypot(ar,ai); ar=ar/m*lockScale; ai=ai/m*lockScale; }
+  var br=wm[0]-(ar*zm[0]-ai*zm[1]), bi=wm[1]-(ar*zm[1]+ai*zm[0]);
+  return {ar:ar, ai:ai, br:br, bi:bi, scale:Math.hypot(ar,ai), rot:Math.atan2(ai,ar)*180/Math.PI};
+}
+function toWorld(T,x,y){ var zr=x, zi=-y; return {E:T.ar*zr-T.ai*zi+T.br, N:T.ar*zi+T.ai*zr+T.bi}; }
+function toSheet(T,N,E){ var wr=E-T.br, wi=N-T.bi, m=T.ar*T.ar+T.ai*T.ai, zr=(wr*T.ar+wi*T.ai)/m, zi=(wi*T.ar-wr*T.ai)/m; return {x:zr, y:-zi}; }
+function geoResid(T,p){ var w=toWorld(T,p.x,p.y); return Math.hypot(w.E-p.E, w.N-p.N); }
+function pvAutoGeo(){
+  var cand=[]; PV.calls.forEach(function(c){ var t=pvLeaderTip(c); if(t) cand.push({x:t[0], y:t[1], N:+c.N, E:+c.E, label:c.desc||('N '+c.N), src:'auto'}); });
+  PV.auto=[]; PV.autoInfo={found:PV.calls.length, leaders:cand.length};
+  if(cand.length<2) return;
+  var best=[], ps=PV.planScale?PV.planScale/72:null;
+  for(var i=0;i<cand.length;i++) for(var j=i+1;j<cand.length;j++){
+    if(Math.hypot(cand[i].x-cand[j].x,cand[i].y-cand[j].y)<20) continue;
+    var T=geoFit([cand[i],cand[j]]); if(!T) continue;
+    if(ps && Math.abs(T.scale/ps-1)>0.05) continue;
+    var tol=3*T.scale, inl=cand.filter(function(p){ return geoResid(T,p)<tol; });
+    if(inl.length>best.length) best=inl; }
+  if(best.length<2) return;
+  var T0=geoFit(best);
+  // with the plan scale known, keep it exact; then accept every leader that agrees within a few points
+  PV.autoLock = ps && Math.abs(T0.scale/ps-1)<0.03 ? ps : null;
+  var T1=geoFit(best, PV.autoLock), tol2=6*T1.scale;
+  PV.auto=cand.filter(function(p){ return geoResid(T1,p)<tol2; });
+  if(PV.auto.length<2) PV.auto=best;
+  PV.autoInfo.used=PV.auto.length;
+}
+function pvActive(){
+  var man=PV.ctrl.filter(function(c){ return c.on!==false; });
+  if(man.length>=2 || !PV.useAuto) return man;
+  return man.concat(PV.auto);
+}
+function pvFit(){
+  var pts=pvActive(), lock=null;
+  if(PV.lockScale!==false && PV.planScale){ lock=PV.planScale/72; }
+  if(pts.length===1 && lock){ // one known point + plan scale: assume the sheet isn't rotated (north up) unless auto says otherwise
+    var rotRef=PV.auto.length>=2?geoFit(PV.auto,lock):null, th=rotRef?Math.atan2(rotRef.ai,rotRef.ar):0, p=pts[0];
+    var ar=lock*Math.cos(th), ai=lock*Math.sin(th); PV.T={ar:ar, ai:ai, br:p.E-(ar*p.x-ai*(-p.y)), bi:p.N-(ar*(-p.y)+ai*p.x), scale:lock, rot:th*180/Math.PI};
+  } else PV.T=pts.length>=2?geoFit(pts, pts.length>=2 && lock && (pts.length===2 || PV.lockScale===true) ? lock : null):null;
+  if(PV.T && lock && pts.length>=3 && PV.lockScale!==true){ // only lock if it doesn't hurt
+    var Tf=geoFit(pts), Tl=geoFit(pts,lock), rf=0, rl=0; pts.forEach(function(p){ rf+=geoResid(Tf,p)*geoResid(Tf,p); rl+=geoResid(Tl,p)*geoResid(Tl,p); });
+    PV.T = rl<=rf*1.5+1e-6 ? Tl : Tf; }
+  PV.fitPts=pts;
+  if(PV.T){ var rr=pts.map(function(p){ return geoResid(PV.T,p); }); pts.forEach(function(p,i){ p.res=rr[i]; });
+    var sorted=rr.slice().sort(function(a,b){return a-b;}); PV.err = pts.length<=2 && !(pts.length===2&&lock) ? null : sorted[Math.floor(sorted.length/2)]; PV.maxErr=sorted[sorted.length-1]; }
+}
+function fmt(v,d){ return (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d); }
+function pvUpdateStatus(){
+  var T=PV.T, man=PV.ctrl.filter(function(c){ return c.on!==false; }).length, usingAuto=pvActive().some(function(p){ return p.src==='auto'; });
+  if(!T){ pvStatus('Not georeferenced yet — use <b>🎯 Known point</b> on 2 spots you know the coordinates of'+(PV.calls.length?' (the '+PV.calls.length+' N/E labels on this sheet are listed for you)':'')+'.'); return; }
+  var acc = usingAuto ? 'from '+pvActive().length+' callout leaders · typical error ±'+fmt(PV.err||0,1)+' ft — add known points for better accuracy'
+          : man+' known point'+(man===1?'':'s')+(PV.err!=null?' · fit ±'+fmt(PV.err,2)+' ft':'');
+  pvStatus('✓ Georeferenced '+acc+' · 1"='+fmt(T.scale*72,1)+'\' · rotated '+fmt(T.rot,2)+'°'+(PV.planScale?' (plan says 1"='+PV.planScale+'\')':''));
+}
+
+/* ---------- view: pan / pinch / zoom ---------- */
+function pvApply(){ $('#pvContent').style.transform='translate('+PV.tx+'px,'+PV.ty+'px) scale('+PV.z+')'; pvMarks(); }
+function pvFitView(){ var r=$('#pvWrap').getBoundingClientRect(), k=PV.R, B=PV.autoBox||[0,0,PV.W,PV.H], s=k.scale, bw=(B[2]-B[0])*s, bh=(B[3]-B[1])*s;
+  var z=Math.min(r.width/bw, r.height/bh)*0.98; PV.z=z; PV.tx=(r.width-bw*z)/2-B[0]*s*z; PV.ty=Math.min((r.height-bh*z)/2, 8)-B[1]*s*z; PV.zMin=Math.min(r.width/k.w, r.height/k.h)*0.6; pvApply(); }
+function pvZoomAt(sx,sy,f){ var z=Math.max(PV.zMin||0.02, Math.min(6, PV.z*f)); f=z/PV.z; PV.tx=sx-(sx-PV.tx)*f; PV.ty=sy-(sy-PV.ty)*f; PV.z=z; pvApply(); }
+function pvToSheet(cx,cy){ var r=$('#pvWrap').getBoundingClientRect(); return {x:((cx-r.left)-PV.tx)/PV.z/PV.R.scale, y:((cy-r.top)-PV.ty)/PV.z/PV.R.scale}; }
+function pvToScreen(x,y){ return {x:x*PV.R.scale*PV.z+PV.tx, y:y*PV.R.scale*PV.z+PV.ty}; }
+(function(){
+  var wrap=$('#pvWrap'), ptrs=new Map(), start=null, pinch=null, boxStart=null;
+  wrap.addEventListener('pointerdown', function(e){ if(!PV||!PV.R) return; wrap.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===1){ start={x:e.clientX,y:e.clientY,t:Date.now(),tx:PV.tx,ty:PV.ty,moved:false}; if(PV.mode==='box'){ boxStart=pvToSheet(e.clientX,e.clientY); } }
+    if(ptrs.size===2){ var a=Array.from(ptrs.values()); pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), z:PV.z, cx:(a[0].x+a[1].x)/2, cy:(a[0].y+a[1].y)/2, tx:PV.tx, ty:PV.ty}; if(start) start.moved=true; boxStart=null; } });
+  wrap.addEventListener('pointermove', function(e){ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    var r=wrap.getBoundingClientRect();
+    if(ptrs.size===2 && pinch){ var a=Array.from(ptrs.values()), d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), cx=(a[0].x+a[1].x)/2, cy=(a[0].y+a[1].y)/2;
+      var z=Math.max(PV.zMin, Math.min(6, pinch.z*d/pinch.d)), f=z/pinch.z, px=pinch.cx-r.left, py=pinch.cy-r.top;
+      PV.z=z; PV.tx=px-(px-pinch.tx)*f+(cx-pinch.cx); PV.ty=py-(py-pinch.ty)*f+(cy-pinch.cy); pvApply(); return; }
+    if(start){ var dx=e.clientX-start.x, dy=e.clientY-start.y; if(Math.hypot(dx,dy)>6) start.moved=true;
+      if(!start.moved) return;
+      if(PV.mode==='box' && boxStart){ var b2=pvToSheet(e.clientX,e.clientY); PV.box=[Math.min(boxStart.x,b2.x),Math.min(boxStart.y,b2.y),Math.max(boxStart.x,b2.x),Math.max(boxStart.y,b2.y)]; pvMarks(); return; }
+      PV.tx=start.tx+dx; PV.ty=start.ty+dy; pvApply(); } });
+  var end=function(e){ if(!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId);
+    if(ptrs.size<2) pinch=null;
+    if(ptrs.size===0 && start){ var s=start; start=null;
+      if(PV.mode==='box' && boxStart && s.moved && PV.box){ boxStart=null; PV.area='box'; pvSetMode('look'); toast('Export area set — '+pvAreaLabel(), true); pvMarks(); return; }
+      boxStart=null;
+      if(!s.moved && Date.now()-s.t<700) pvTap(e.clientX,e.clientY); } };
+  wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('wheel', function(e){ if(!PV||!PV.R) return; e.preventDefault(); var r=wrap.getBoundingClientRect(); pvZoomAt(e.clientX-r.left, e.clientY-r.top, Math.exp(-e.deltaY*0.0015)); }, {passive:false});
+  wrap.addEventListener('dblclick', function(e){ var r=wrap.getBoundingClientRect(); pvZoomAt(e.clientX-r.left,e.clientY-r.top,2.2); });
+})();
+window.addEventListener('resize', function(){ if(PV&&PV.R&&$('#planScreen').classList.contains('on')) pvMarks(); });
+
+/* ---------- tapping ---------- */
+function pvTap(cx,cy){
+  var p=pvToSheet(cx,cy), rad=14/(PV.z*PV.R.scale), sn=PV.snap?pvSnap(p.x,p.y,rad):null, x=sn?sn[0]:p.x, y=sn?sn[1]:p.y;
+  if(PV.mode==='ctrl'){ pvAskKnown(x,y,!!sn); return; }
+  PV.pin={x:x,y:y,snapped:!!sn}; pvMarks(); pvInfoPin();
+}
+function pvInfoIdle(){
+  $('#pvInfo').innerHTML='<div class="muted" style="font-size:13px">'+(PV.T?'Tap anywhere on the plan for its coordinates. Pinch / scroll to zoom, drag to move.':'Pinch / scroll to zoom, drag to move. Georeference with <b>🎯 Known point</b> first.')+'</div>'+pvPicksBar();
+}
+function pvPicksBar(){ return PV.picks.length?'<div class="row mt"><button class="btn block" style="flex:1" id="pvPicksCsv">📍 '+PV.picks.length+' picked point'+(PV.picks.length===1?'':'s')+' → CSV</button></div>':''; }
+function pvBindPicks(){ var b=$('#pvPicksCsv'); if(b) b.onclick=pvPicksToCsv; }
+function pvInfoPin(){
+  var P=PV.pin, h='';
+  if(!PV.T){ h='<div class="muted">Not georeferenced yet — this spot is at sheet '+fmt(P.x,1)+', '+fmt(P.y,1)+' pt. Add 2 <b>🎯 Known points</b> to get coordinates.</div>'; }
+  else { var w=toWorld(PV.T,P.x,P.y);
+    h='<div class="pvread"><div><span>N</span><b class="num">'+fmt(w.N,2)+'</b></div><div><span>E</span><b class="num">'+fmt(w.E,2)+'</b></div></div>'+
+      '<div class="muted" style="font-size:12.5px">'+(P.snapped?'📌 Snapped to a line end / corner. ':'')+(PV.err!=null?'± about '+fmt(PV.err,PV.err<1?2:1)+' ft':'')+'</div>'+
+      '<div class="row mt"><button class="btn" id="pvCopy" style="flex:1">Copy</button><button class="btn primary" id="pvAddPick" style="flex:1.4">+ Add as point</button></div>'; }
+  $('#pvInfo').innerHTML=h+pvPicksBar(); pvBindPicks();
+  if(PV.T){ var w2=toWorld(PV.T,P.x,P.y);
+    $('#pvCopy').onclick=function(){ var t=fmt(w2.N,2)+', '+fmt(w2.E,2); try{ navigator.clipboard.writeText(t).then(function(){ toast('Copied '+t,true); }); }catch(e){ toast(t,true); } };
+    $('#pvAddPick').onclick=function(){ PV.picks.push({x:P.x,y:P.y,N:w2.N,E:w2.E}); PV.pin=null; pvMarks(); pvInfoIdle(); pvBindPicks(); toast('Point added ('+PV.picks.length+')', true); }; }
+}
+function pvPicksToCsv(){
+  var rows=PV.picks.map(function(p,i){ return [String(i+1), fmt(p.N,3), fmt(p.E,3), '', p.d||'PLAN']; });
+  var addTo=file && confirm('Add these '+rows.length+' points to the open file “'+file.name+'”?\n\nOK = add to it · Cancel = make a new CSV');
+  if(addTo){ snap(); var mx=maxPoint(); rows.forEach(function(r,i){ r[0]=String(mx+1+i); var nr=file.roles.map(function(){return '';}); ['P','N','E','Z','D'].forEach(function(R,k){ var c=col(R); if(c>=0) nr[c]=r[k]; }); file.rows.push(nr); }); }
+  else { file={name:PV.name+'-points.csv', delim:',', header:null, rows:rows, roles:['P','N','E','Z','D']}; hist=[]; }
+  save(); PV.picks=[]; showGrid(); toast((addTo?'Added ':'Created ')+rows.length+' points', true);
+}
+/* known points */
+function pvAskKnown(x,y,snapped){
+  var near=PV.calls.map(function(c){ var cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2; return {c:c, d:Math.hypot(cx-x,cy-y)}; }).sort(function(a,b){ return a.d-b.d; }).slice(0,8);
+  var guess=PV.T?toWorld(PV.T,x,y):null;
+  var h='<p class="muted" style="margin:0 0 10px">'+(snapped?'📌 Snapped to a line end / corner. ':'')+'What are the real coordinates of this spot?</p>';
+  if(near.length) h+='<div class="card"><h3>Pick a label from the plan</h3><div class="plist">'+near.map(function(n,i){ return '<div class="prow" data-kc="'+i+'"><div class="pn"><b class="num">N '+escH(n.c.N)+' · E '+escH(n.c.E)+'</b><span>'+escH(n.c.desc||'')+(n.c.desc?' · ':'')+fmt(n.d,0)+' pt away</span></div><span style="color:var(--accent);font-weight:800">›</span></div>'; }).join('')+'</div></div>';
+  h+='<div class="card"><h3>Or type them</h3><div class="row"><div class="field"><label>Northing</label><input class="inp num" id="kN" inputmode="decimal" value="'+(guess?fmt(guess.N,2):'')+'"></div><div class="field"><label>Easting</label><input class="inp num" id="kE" inputmode="decimal" value="'+(guess?fmt(guess.E,2):'')+'"></div></div>'+
+     '<div class="field mt"><label>Name (optional)</label><input class="inp" id="kL" placeholder="e.g. CP 101 / fence corner"></div><button class="btn primary block mt" id="kGo">Use this point</button></div>';
+  openSheet('Known point', h);
+  var addK=function(N,E,label){ PV.ctrl.push({x:x,y:y,N:+N,E:+E,label:label||'',src:'manual',on:true}); pvSave(); closeSheet(); pvAfterGeo(); toast('Known point added ('+PV.ctrl.length+')', true); };
+  document.querySelectorAll('[data-kc]').forEach(function(el){ el.onclick=function(){ var c=near[+el.getAttribute('data-kc')].c; addK(c.N,c.E,c.desc||''); }; });
+  $('#kGo').onclick=function(){ var N=$('#kN').value.trim(), E=$('#kE').value.trim(); if(!isNum(N)||!isNum(E)){ toast('Type both Northing and Easting', true); return; } addK(N,E,$('#kL').value.trim()); };
+}
+function pvAfterGeo(){ pvFit(); pvUpdateStatus(); pvDrawOverlay(); pvMarks(); if(PV.pin) pvInfoPin(); else { pvInfoIdle(); pvBindPicks(); } }
+function pvOpenKnown(){
+  pvFit();
+  var man=PV.ctrl, act=pvActive(), h='';
+  h+='<div class="card"><h3>Your known points</h3>'+(man.length?man.map(function(c,i){ return '<div class="mk'+(c.on===false?' off':'')+'"><input type="checkbox" data-kon="'+i+'"'+(c.on!==false?' checked':'')+'><div class="mn"><b class="num">N '+fmt(c.N,2)+' · E '+fmt(c.E,2)+'</b><span>'+escH(c.label||'tapped point')+(c.res!=null&&act.indexOf(c)>=0?' · off by '+fmt(c.res,c.res<1?3:2)+' ft':'')+'</span></div><button class="ud" data-kdel="'+i+'">✕</button></div>'; }).join(''):'<p class="muted" style="margin:0">None yet. Tap <b>🎯 Known point</b>, then tap an exact spot on the plan (zoom in — it snaps to line ends and corners).</p>')+'</div>';
+  h+='<div class="card"><h3>Automatic (from the N/E labels’ leader lines)</h3>'+
+     (PV.auto.length?'<label class="check"><input type="checkbox" id="kAuto"'+(PV.useAuto?' checked':'')+'> Use '+PV.auto.length+' labels'+(man.filter(function(c){return c.on!==false;}).length>=2?' <span class="muted">(ignored while you have 2+ known points)</span>':'')+'</label><p class="muted" style="margin:4px 0 0">Leaders are drawn by hand, so these are only good to a few feet. Known points you tap are exact.</p>'
+       :'<p class="muted" style="margin:0">'+(PV.calls.length?'Found '+PV.calls.length+' N/E labels but couldn’t follow enough of their leader lines.':'No N/E labels on this sheet.')+'</p>')+'</div>';
+  if(PV.planScale) h+='<label class="check"><input type="checkbox" id="kLock"'+(PV.lockScale!==false?' checked':'')+'> Hold the plan scale (1"='+PV.planScale+'\' from the sheet)</label><p class="muted" style="margin:0 0 10px">With the scale held, 1 known point is enough if the plan is drawn north-up.</p>';
+  if(PV.T) h+='<div class="result"><span class="big num">1"='+fmt(PV.T.scale*72,2)+'\'</span>rotation '+fmt(PV.T.rot,3)+'°'+(PV.err!=null?' · typical error ±'+fmt(PV.err,PV.err<1?3:2)+' ft · worst '+fmt(PV.maxErr,2)+' ft':'')+'</div>';
+  h+='<button class="btn primary block" id="kTap">🎯 Tap a known point on the plan</button>';
+  openSheet('Known points', h);
+  document.querySelectorAll('[data-kon]').forEach(function(el){ el.onchange=function(){ PV.ctrl[+el.getAttribute('data-kon')].on=el.checked; pvSave(); pvAfterGeo(); pvOpenKnown(); }; });
+  document.querySelectorAll('[data-kdel]').forEach(function(el){ el.onclick=function(){ PV.ctrl.splice(+el.getAttribute('data-kdel'),1); pvSave(); pvAfterGeo(); pvOpenKnown(); }; });
+  if($('#kAuto')) $('#kAuto').onchange=function(){ PV.useAuto=this.checked; pvSave(); pvAfterGeo(); pvOpenKnown(); };
+  if($('#kLock')) $('#kLock').onchange=function(){ PV.lockScale=this.checked?undefined:false; pvSave(); pvAfterGeo(); pvOpenKnown(); };
+  $('#kTap').onclick=function(){ closeSheet(); pvSetMode('ctrl'); };
+}
+function pvSetMode(m){ PV.mode=m; document.querySelectorAll('#planScreen [data-pvm]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-pvm')===m); });
+  $('#pvWrap').style.cursor=m==='ctrl'?'crosshair':m==='box'?'cell':'grab';
+  if(m==='ctrl') toast('Zoom in and tap the exact spot you know the coordinates of', true);
+  if(m==='box') toast('Drag a box around the area to export', true); }
+
+/* ---------- markers (screen-space so they stay the same size) ---------- */
+function pvMarks(){
+  if(!PV||!PV.R) return; var h='', w=$('#pvWrap').getBoundingClientRect();
+  var dot=function(x,y,cls,txt){ var s=pvToScreen(x,y); if(s.x<-40||s.y<-40||s.x>w.width+40||s.y>w.height+40) return ''; return '<div class="pvm '+cls+'" style="left:'+s.x+'px;top:'+s.y+'px">'+(txt?'<i>'+escH(txt)+'</i>':'')+'</div>'; };
+  pvActive().forEach(function(c){ h+=dot(c.x,c.y,c.src==='auto'?'auto':'ctrl', c.src==='auto'?'':(c.label||'Known')); });
+  PV.picks.forEach(function(p,i){ h+=dot(p.x,p.y,'pick',String(i+1)); });
+  if(PV.pin) h+=dot(PV.pin.x,PV.pin.y,'pin','');
+  var B=pvAreaBox(); if(B && (PV.area!=='sheet')){ var a=pvToScreen(B[0],B[1]), b=pvToScreen(B[2],B[3]); h+='<div class="pvbox" style="left:'+a.x+'px;top:'+a.y+'px;width:'+(b.x-a.x)+'px;height:'+(b.y-a.y)+'px"></div>'; }
+  $('#pvMarks').innerHTML=h;
+}
+/* ---------- overlay: highlighted layers + coordinate grid ---------- */
+function pvDrawOverlay(){
+  var ov=PV.ov, cx=ov.getContext('2d'), k=PV.R.scale/2; cx.clearRect(0,0,ov.width,ov.height);
+  var shown=PV.groups.filter(function(G){ return PV.show[G.key]; }).map(function(G){ return G.key; });
+  if(shown.length){ cx.lineWidth=2.2; cx.strokeStyle='rgba(226,30,160,0.95)'; cx.lineCap='round'; cx.beginPath();
+    PV.paths.forEach(function(P){ if(shown.indexOf(P.g)<0) return; cx.moveTo(P.p[0][0]*k,P.p[0][1]*k); for(var i=1;i<P.p.length;i++) cx.lineTo(P.p[i][0]*k,P.p[i][1]*k); }); cx.stroke(); }
+  if(PV.grid && PV.T){
+    var cs=[[0,0],[PV.W,0],[0,PV.H],[PV.W,PV.H]].map(function(p){ return toWorld(PV.T,p[0],p[1]); });
+    var Ns=cs.map(function(c){return c.N;}), Es=cs.map(function(c){return c.E;}), n0=Math.min.apply(null,Ns), n1=Math.max.apply(null,Ns), e0=Math.min.apply(null,Es), e1=Math.max.apply(null,Es);
+    var span=Math.max(n1-n0,e1-e0), raw=span/8, mag=Math.pow(10,Math.floor(Math.log10(raw))), step=[1,2,5,10].map(function(m){return m*mag;}).filter(function(s){ return s>=raw; })[0]||raw;
+    PV.gridStep=step; cx.strokeStyle='rgba(0,120,255,0.75)'; cx.lineWidth=1.3; cx.fillStyle='rgba(0,90,220,1)'; cx.font='bold 13px -apple-system,sans-serif';
+    var line=function(a,b){ var A=toSheet(PV.T,a[0],a[1]), B=toSheet(PV.T,b[0],b[1]); cx.beginPath(); cx.moveTo(A.x*k,A.y*k); cx.lineTo(B.x*k,B.y*k); cx.stroke(); return [A,B]; };
+    for(var N=Math.ceil(n0/step)*step; N<=n1; N+=step){ var s=line([N,e0],[N,e1]); cx.fillText('N '+Math.round(N), Math.max(4,Math.min(s[0].x,s[1].x)*k+4), (s[0].y*k+s[1].y*k)/2-3); }
+    for(var E=Math.ceil(e0/step)*step; E<=e1; E+=step){ var s2=line([n0,E],[n1,E]); cx.save(); var mx=(s2[0].x+s2[1].x)/2*k; cx.translate(mx+4, Math.max(16,Math.min(s2[0].y,s2[1].y)*k+16)); cx.fillText('E '+Math.round(E),0,0); cx.restore(); }
+  }
+}
+
+/* ---------- layers ---------- */
+function hexName(c){ var m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c); if(!m) return c; var r=parseInt(m[1],16), g=parseInt(m[2],16), b=parseInt(m[3],16);
+  if(Math.abs(r-g)<12&&Math.abs(g-b)<12){ return r<25?'Black':r>235?'White':(r<100?'Dark gray':r<170?'Gray':'Light gray'); }
+  var mx=Math.max(r,g,b); return mx===r?(g>150?'Yellow / orange':'Red'):mx===g?(b>150?'Cyan':'Green'):(r>150?'Magenta':'Blue'); }
+function pvOpenLayers(){
+  var h='<p class="muted" style="margin:0 0 10px">The PDF has no real CAD layers, so lines are grouped by color + thickness'+(PV.legendCount?' and named from the plan’s legend ('+PV.legendCount+' matched)':'')+'. Tap 👁 to highlight a group on the plan. Ticked groups get exported.</p>'+
+    '<div class="row" style="margin-bottom:8px"><button class="chip" id="lyAll">Tick all</button><button class="chip" id="lyNone">Untick all</button><button class="chip" id="lyHide">Hide highlights</button></div>';
+  PV.groups.forEach(function(G,i){
+    h+='<div class="mk'+(G.on?'':' off')+'"><input type="checkbox" data-lon="'+i+'"'+(G.on?' checked':'')+'><span style="flex:none;width:26px;height:'+Math.max(2,Math.min(8,G.w*3+1))+'px;background:'+escH(G.color)+';border:1px solid var(--line);border-radius:2px"></span>'+
+      '<div class="mn"><b>'+(G.label?escH(G.label):escH(hexName(G.color))+' · '+G.w+' pt')+'</b><span>'+G.n.toLocaleString()+' pieces · '+Math.round(G.len*(PV.T?PV.T.scale:1)).toLocaleString()+(PV.T?' ft':' pt')+' of line · '+(G.label?escH(hexName(G.color))+' '+G.w+' pt · ':'')+'layer '+escH(G.name)+'</span>'+(G.maybe?'<span class="lg">Legend: one of '+escH(G.maybe.join(' / '))+'</span>':'')+'</div>'+
+      '<button class="ud'+(PV.show[G.key]?' onv':'')+'" data-lshow="'+i+'" title="Highlight on plan">👁</button></div>';
+  });
+  openSheet('Linework layers ('+PV.groups.length+')', h, function(){ pvDrawOverlay(); });
+  document.querySelectorAll('[data-lon]').forEach(function(el){ el.onchange=function(){ PV.groups[+el.getAttribute('data-lon')].on=el.checked; el.closest('.mk').classList.toggle('off',!el.checked); }; });
+  document.querySelectorAll('[data-lshow]').forEach(function(el){ el.onclick=function(){ var G=PV.groups[+el.getAttribute('data-lshow')]; PV.show[G.key]=!PV.show[G.key]; el.classList.toggle('onv',PV.show[G.key]); pvDrawOverlay(); }; });
+  $('#lyAll').onclick=function(){ PV.groups.forEach(function(G){ G.on=true; }); pvOpenLayers(); };
+  $('#lyNone').onclick=function(){ PV.groups.forEach(function(G){ G.on=false; }); pvOpenLayers(); };
+  $('#lyHide').onclick=function(){ Object.keys(PV.show).forEach(function(k){ PV.show[k]=false; }); pvDrawOverlay(); pvOpenLayers(); };
+}
+function pvAreaBox(){ return PV.area==='box'&&PV.box ? PV.box : PV.area==='auto'&&PV.autoBox ? PV.autoBox : null; }
+function pvAreaLabel(){ return PV.area==='box'&&PV.box ? 'your box' : PV.area==='auto'&&PV.autoBox ? 'main drawing area (title block & key plan left out)' : 'whole sheet'; }
+
+/* ---------- DXF export ---------- */
+function clipPoly(pts, B){ // Liang–Barsky per segment; returns pieces inside B
+  if(!B) return [pts]; var out=[], cur=null;
+  for(var i=1;i<pts.length;i++){ var x0=pts[i-1][0], y0=pts[i-1][1], x1=pts[i][0], y1=pts[i][1], dx=x1-x0, dy=y1-y0, t0=0, t1=1, ok=true;
+    [[-dx,x0-B[0]],[dx,B[2]-x0],[-dy,y0-B[1]],[dy,B[3]-y0]].forEach(function(pq){ if(!ok) return; var p=pq[0], q=pq[1];
+      if(p===0){ if(q<0) ok=false; } else { var r=q/p; if(p<0){ if(r>t1) ok=false; else if(r>t0) t0=r; } else { if(r<t0) ok=false; else if(r<t1) t1=r; } } });
+    if(!ok){ if(cur&&cur.length>1) out.push(cur); cur=null; continue; }
+    var a=[x0+t0*dx,y0+t0*dy], b=[x0+t1*dx,y0+t1*dy];
+    if(!cur || t0>0){ if(cur&&cur.length>1) out.push(cur); cur=[a]; }
+    cur.push(b); if(t1<1){ out.push(cur); cur=null; } }
+  if(cur&&cur.length>1) out.push(cur); return out;
+}
+function mergePolys(polys, gap){
+  // join pieces that touch end-to-end (and, if gap>0, dash pieces that line up across a small gap)
+  var key=function(p){ return Math.round(p[0]*50)+','+Math.round(p[1]*50); }, ends=new Map(), alive=polys.map(function(){ return true; });
+  var reg=function(i){ var p=polys[i]; [0,1].forEach(function(e){ var k=key(e?p[p.length-1]:p[0]); var b=ends.get(k); if(!b){ b=[]; ends.set(k,b); } b.push(i); }); };
+  polys.forEach(function(_,i){ reg(i); });
+  var take=function(pt, self){ var b=ends.get(key(pt)); if(!b) return -1; for(var j=0;j<b.length;j++){ var o=b[j]; if(o!==self && alive[o]) return o; } return -1; };
+  var out=[];
+  for(var i=0;i<polys.length;i++){ if(!alive[i]) continue; alive[i]=false; var line=polys[i].slice();
+    for(var side=0;side<2;side++){
+      for(var guard=0;guard<100000;guard++){ var end=line[line.length-1], o=take(end,i); if(o<0) break; alive[o]=false; var q=polys[o];
+        if(key(q[0])===key(end)) line=line.concat(q.slice(1)); else line=line.concat(q.slice(0,-1).reverse()); }
+      line.reverse(); }
+    out.push(line); }
+  if(gap>0){ // bridge dash gaps: an end pointing straight at another end a short way off
+    var C=gap, grid=new Map(), add=function(i,e){ var p=e?out[i][out[i].length-1]:out[i][0], k=Math.floor(p[0]/C)+','+Math.floor(p[1]/C), b=grid.get(k); if(!b){ b=[]; grid.set(k,b); } b.push([i,e]); };
+    var dirAt=function(l,e){ var a=e?l[l.length-1]:l[0], b=e?l[l.length-2]:l[1]; var dx=a[0]-b[0], dy=a[1]-b[1], n=Math.hypot(dx,dy)||1; return [dx/n,dy/n]; };
+    out.forEach(function(_,i){ add(i,0); add(i,1); });
+    var alive2=out.map(function(){return true;}), parent=out.map(function(_,i){return i;}), link=[];
+    out.forEach(function(l,i){ [0,1].forEach(function(e){ var p=e?l[l.length-1]:l[0], d=dirAt(l,e), best=null;
+      for(var gx=Math.floor(p[0]/C)-1;gx<=Math.floor(p[0]/C)+1;gx++) for(var gy=Math.floor(p[1]/C)-1;gy<=Math.floor(p[1]/C)+1;gy++){ var b=grid.get(gx+','+gy); if(!b) continue;
+        b.forEach(function(it){ if(it[0]===i) return; var l2=out[it[0]], q=it[1]?l2[l2.length-1]:l2[0], vx=q[0]-p[0], vy=q[1]-p[1], dist=Math.hypot(vx,vy); if(dist>gap||dist<1e-6) return;
+          var d2=dirAt(l2,it[1]); if((vx*d[0]+vy*d[1])/dist<0.985 || (d[0]*d2[0]+d[1]*d2[1])>-0.985) return; if(!best||dist<best.d) best={d:dist,j:it[0],e:it[1]}; }); }
+      if(best) link.push([i,e,best.j,best.e,best.d]); }); });
+    link.sort(function(a,b){return a[4]-b[4];});
+    var used=new Set(), find=function(x){ while(parent[x]!==x) x=parent[x]=parent[parent[x]]; return x; };
+    var nb=out.map(function(){ return [null,null]; });
+    link.forEach(function(L){ var a=L[0]+':'+L[1], b=L[2]+':'+L[3]; if(used.has(a)||used.has(b)) return; if(find(L[0])===find(L[2])) return; used.add(a); used.add(b); parent[find(L[0])]=find(L[2]); nb[L[0]][L[1]]=[L[2],L[3]]; nb[L[2]][L[3]]=[L[0],L[1]]; });
+    var done=out.map(function(){return false;}), res=[];
+    out.forEach(function(_,i){ if(done[i]) return; var s=i, se=0, guard=0; // walk to a chain end
+      while(nb[s][se] && guard++<100000){ var n=nb[s][se]; if(n[0]===i) break; s=n[0]; se=1-n[1]; }
+      var chain=[], cur=s, ce=se; guard=0;
+      while(cur!=null && !done[cur] && guard++<100000){ done[cur]=true; var l=out[cur]; chain=chain.concat(ce===0?l:l.slice().reverse()); var nx=nb[cur][1-ce]; if(!nx) break; cur=nx[0]; ce=nx[1]; }
+      res.push(chain); });
+    out=res; }
+  return out;
+}
+function aci(hex){ var m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex||''); if(!m) return 7; var c=[parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)];
+  var T={1:[255,0,0],2:[255,255,0],3:[0,255,0],4:[0,255,255],5:[0,0,255],6:[255,0,255],7:[0,0,0],8:[128,128,128],9:[192,192,192],250:[51,51,51],251:[91,91,91],252:[132,132,132],253:[173,173,173],254:[214,214,214],30:[255,127,0]};
+  var best=7, bd=1e9; Object.keys(T).forEach(function(k){ var t=T[k], d=(t[0]-c[0])*(t[0]-c[0])+(t[1]-c[1])*(t[1]-c[1])+(t[2]-c[2])*(t[2]-c[2]); if(d<bd){ bd=d; best=+k; } }); return best; }
+function dxfName(s){ return String(s).toUpperCase().replace(/[^A-Z0-9_$-]/g,'_').slice(0,31)||'0'; }
+function buildDxf(opts){
+  var T=PV.T, B=pvAreaBox(), gap=opts.heal?(opts.heal===2?8:3):0, L=[], n2=function(v){ return (Math.round(v*10000)/10000).toFixed(4); };
+  var layers=[], ents=[], xmin=1e18, ymin=1e18, xmax=-1e18, ymax=-1e18, nLines=0;
+  var push=function(){ for(var i=0;i<arguments.length;i++) ents.push(arguments[i]); };
+  PV.groups.filter(function(G){ return G.on; }).forEach(function(G){
+    var polys=[]; PV.paths.forEach(function(P){ if(P.g===G.key) clipPoly(P.p,B).forEach(function(q){ polys.push(q); }); });
+    if(!polys.length) return;
+    polys=mergePolys(polys, gap/1); var name=dxfName(G.name); layers.push([name, aci(G.color)]);
+    polys.forEach(function(pl){ if(pl.length<2) return; var closed=pl.length>3 && Math.hypot(pl[0][0]-pl[pl.length-1][0],pl[0][1]-pl[pl.length-1][1])<0.01;
+      if(closed) pl=pl.slice(0,-1);
+      push('0','POLYLINE','8',name,'66','1','10','0.0','20','0.0','30','0.0','70',closed?'1':'0');
+      pl.forEach(function(p){ var w=toWorld(T,p[0],p[1]); if(w.E<xmin) xmin=w.E; if(w.E>xmax) xmax=w.E; if(w.N<ymin) ymin=w.N; if(w.N>ymax) ymax=w.N; push('0','VERTEX','8',name,'10',n2(w.E),'20',n2(w.N),'30','0.0'); });
+      push('0','SEQEND','8',name); nLines++; }); });
+  if(opts.picks && PV.picks.length){ layers.push(['PICKED_POINTS',1]); PV.picks.forEach(function(p,i){ push('0','POINT','8','PICKED_POINTS','10',n2(p.E),'20',n2(p.N),'30','0.0', '0','TEXT','8','PICKED_POINTS','10',n2(p.E),'20',n2(p.N),'30','0.0','40',n2(Math.max(0.5,T.scale*5)),'1',String(i+1)); }); }
+  if(opts.ctrl){ var cp=pvActive(); if(cp.length){ layers.push(['KNOWN_POINTS',3]); cp.forEach(function(p){ push('0','POINT','8','KNOWN_POINTS','10',n2(p.E),'20',n2(p.N),'30','0.0'); }); } }
+  if(xmin>xmax){ xmin=ymin=0; xmax=ymax=1; }
+  L.push('0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','9','$INSBASE','10','0.0','20','0.0','30','0.0','9','$EXTMIN','10',n2(xmin),'20',n2(ymin),'30','0.0','9','$EXTMAX','10',n2(xmax),'20',n2(ymax),'30','0.0','0','ENDSEC');
+  L.push('0','SECTION','2','TABLES','0','TABLE','2','LTYPE','70','1','0','LTYPE','2','CONTINUOUS','70','0','3','Solid line','72','65','73','0','40','0.0','0','ENDTAB');
+  L.push('0','TABLE','2','LAYER','70',String(layers.length+1),'0','LAYER','2','0','70','0','62','7','6','CONTINUOUS');
+  layers.forEach(function(l){ L.push('0','LAYER','2',l[0],'70','0','62',String(l[1]),'6','CONTINUOUS'); });
+  L.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES'); L=L.concat(ents); L.push('0','ENDSEC','0','EOF');
+  return {text:L.join('\r\n')+'\r\n', lines:nLines, layers:layers.length};
+}
+function pvOpenExport(){
+  if(!PV.T){ toast('Georeference the plan first (🎯 Known point)', true); pvOpenKnown(); return; }
+  var on=PV.groups.filter(function(G){return G.on;}).length;
+  openSheet('Export linework',
+    '<div class="card"><h3>What</h3><p style="margin:0 0 6px"><b>'+on+'</b> of '+PV.groups.length+' line groups ticked <button class="sug" id="exLy" style="border:0;border-radius:8px;padding:6px 10px;font-weight:700;background:var(--panel2);cursor:pointer">Choose layers</button></p>'+
+    '<div class="field mt"><label>Area</label><select class="inp" id="exArea"><option value="auto"'+(PV.area==='auto'?' selected':'')+(PV.autoBox?'':' disabled')+'>Main drawing area'+(PV.autoBox?'':' (not found)')+'</option><option value="sheet"'+(PV.area==='sheet'?' selected':'')+'>Whole sheet (incl. title block)</option><option value="box"'+(PV.area==='box'?' selected':'')+'>'+(PV.box?'My box':'Draw a box…')+'</option></select></div>'+
+    '<div class="field mt"><label>Dashed lines</label><select class="inp" id="exHeal"><option value="0"'+(PV.heal===0?' selected':'')+'>Keep as dashes</option><option value="1"'+(PV.heal===1?' selected':'')+'>Join small gaps (recommended)</option><option value="2"'+(PV.heal===2?' selected':'')+'>Join bigger gaps</option></select></div>'+
+    '<label class="check"><input type="checkbox" id="exPicks"'+(PV.picks.length?' checked':' disabled')+'> Include my '+PV.picks.length+' picked points</label>'+
+    '<label class="check"><input type="checkbox" id="exCtrl"> Include known points</label></div>'+
+    '<div class="card"><div class="field"><label>File name</label><input class="inp" id="exNm" value="'+escH(PV.name+'-linework')+'"></div>'+
+    '<p class="muted" style="margin:8px 0 0">DXF (R12) in feet: X = Easting, Y = Northing, Z = 0. Opens in Civil 3D, Carlson, Trimble Business Center, Magnet, and most data collectors.'+(PV.err!=null?' Accuracy follows your georeference: ±'+fmt(PV.err,PV.err<1?2:1)+' ft.':'')+'</p></div>'+
+    '<button class="btn primary block" id="exGo">Share / Save DXF</button><button class="btn block mt" id="exDl">Download DXF</button>');
+  $('#exLy').onclick=function(){ pvOpenLayers(); };
+  $('#exArea').onchange=function(){ if(this.value==='box' && !PV.box){ closeSheet(); pvSetMode('box'); return; } PV.area=this.value; pvMarks(); };
+  $('#exHeal').onchange=function(){ PV.heal=+this.value; };
+  var make=function(){ var d=buildDxf({heal:PV.heal, picks:$('#exPicks').checked, ctrl:$('#exCtrl').checked}); var nm=($('#exNm').value.trim()||'linework').replace(/[\\/:*?"<>|]/g,'-')+'.dxf';
+    if(!d.lines){ toast('Nothing to export — tick some layers or change the area', true); return null; } toast(d.lines.toLocaleString()+' lines on '+d.layers+' layers', true);
+    return {n:nm, blob:new Blob([d.text],{type:'application/dxf'})}; };
+  $('#exGo').onclick=function(){ var m=make(); if(!m) return; var f; try{ f=new File([m.blob], m.n, {type:'application/dxf'}); }catch(e){ f=null; }
+    if(f && navigator.canShare && navigator.canShare({files:[f]})) navigator.share({files:[f]}).catch(function(err){ if(err&&err.name!=='AbortError') dl(m); }); else dl(m); };
+  $('#exDl').onclick=function(){ var m=make(); if(m) dl(m); };
+}
+window.PVtest=function(){ return PV; }; window.PVfn={toSheet:toSheet,toWorld:toWorld,after:function(){ pvAfterGeo(); }};
+/* ---------- legend / key: name line groups after the plan's own legend ---------- */
+function pvLegend(){
+  var hor=PV.lines.filter(function(L){ return L.ang===0; });
+  var title=hor.filter(function(L){ return /^(LEGEND|KEY|LINE ?TYPE LEGEND|SYMBOL LEGEND)$/i.test(L.t); })[0];
+  if(!title) return 0;
+  var fs=title.fs, tx=(title.u0+title.u1)/2, top=title.v+fs*0.5;
+  var stop=hor.filter(function(L){ return L.v>top+fs && Math.abs((L.u0+L.u1)/2-tx)<fs*8 && /^(KEY PLAN|NOTES|GENERAL NOTES|ABBREVIATIONS|VICINITY MAP)$/i.test(L.t); }).sort(function(a,b){ return a.v-b.v; })[0];
+  var bottom=stop?stop.v-fs:top+fs*110, left=tx-fs*45, right=tx+fs*45;
+  var inside=hor.filter(function(L){ return L.v>top && L.v<bottom && L.u0>left && L.u1<right && L!==title; });
+  // label lines: words, not the little tags drawn inside sample lines (GAS, OE, R/W, LOD, PL, 450…)
+  var labs=inside.filter(function(L){ return /[A-Z]{3,}/i.test(L.t) && !/^(GAS|OE|R\/W|LOD|PL|SL|SF|CFS|FO|UGE|OHE|[A-Z]{1,3})( \1)*$/i.test(L.t) && !/^\d+$/.test(L.t) && !/know what|call before/i.test(L.t); })
+                  .sort(function(a,b){ return a.u0-b.u0 || a.v-b.v; });
+  var ents=[]; labs.forEach(function(L){ var p=ents.filter(function(e){ return Math.abs(e.u0-L.u0)<fs*0.35 && L.v-e.v1>0 && L.v-e.v1<L.fs*1.25 && !/\)$/.test(e.t); })[0];
+    if(p){ p.t+=' '+L.t; p.v1=L.v; } else ents.push({t:L.t, u0:L.u0, v0:L.v, v1:L.v, fs:L.fs}); });
+  var named=0, claim={}, seen={};
+  ents.forEach(function(e){
+    var cy=(e.v0+e.v1)/2-e.fs*0.35, x1=e.u0-e.fs*0.4, x0=Math.max(left-fs*5, e.u0-e.fs*24), y0=cy-e.fs*0.9, y1=cy+e.fs*0.9, tot={};
+    PV.paths.forEach(function(P){ if(/^#fff/.test(P.g)) return; clipPoly(P.p,[x0,y0,x1,y1]).forEach(function(q){ for(var i=1;i<q.length;i++) tot[P.g]=(tot[P.g]||0)+Math.hypot(q[i][0]-q[i-1][0],q[i][1]-q[i-1][1]); }); });
+    var ks=Object.keys(tot).sort(function(a,b){ return tot[b]-tot[a]; }), sum=ks.reduce(function(s,k){ return s+tot[k]; },0), t=e.t.replace(/\s+/g,' ').trim();
+    ks.forEach(function(k){ if(tot[k]>=e.fs*1.5 && tot[k]>=sum*0.15) (seen[k]=seen[k]||[]).push(t); });   // every legend item this style shows up in
+    if(!ks.length || tot[ks[0]]<e.fs*2 || tot[ks[0]]<sum*0.6) return;
+    (claim[ks[0]]=claim[ks[0]]||[]).push(t); });
+  PV.groups.forEach(function(G){ var c=claim[G.key]||[], s2=(seen[G.key]||[]).filter(function(t,i,a){ return a.indexOf(t)===i; });
+    if(c.length===1 && s2.length<=1){ G.label=c[0]; G.name=dxfName(c[0].replace(/[^A-Z0-9]+/gi,'_').replace(/^_|_$/g,'')); named++; }
+    else if(s2.length>1) G.maybe=s2.slice(0,6); });
+  PV.groups.sort(function(a,b){ return (b.label?1:0)-(a.label?1:0) || b.len-a.len; });
+  PV.legendCount=named; return named;
+}
+
+$('#pvBack').onclick=function(){ if(PV&&PV.picks.length&&!confirm('Leave the plan? Your '+PV.picks.length+' picked points haven’t been made into a CSV yet.')) return; PV=null; $('#pvContent').innerHTML=''; showHome(); };
+document.querySelectorAll('#planScreen [data-pvm]').forEach(function(b){ b.onclick=function(){ if(PV) pvSetMode(b.getAttribute('data-pvm')); }; });
+$('#pvKnown').onclick=function(){ if(PV&&PV.R) pvOpenKnown(); };
+$('#pvLayers').onclick=function(){ if(PV&&PV.R) pvOpenLayers(); };
+$('#pvExport').onclick=function(){ if(PV&&PV.R) pvOpenExport(); };
+$('#pvFitB').onclick=function(){ if(PV&&PV.R) pvFitView(); };
+$('#pvGrid').onclick=function(){ if(!PV||!PV.R) return; if(!PV.T){ toast('Georeference first (🎯 Known point)', true); return; } PV.grid=!PV.grid; this.classList.toggle('on',PV.grid); pvDrawOverlay(); if(PV.grid) toast('Grid every '+(PV.gridStep||'')+' ft', true); };
+$('#pvSnapB').onclick=function(){ if(!PV) return; PV.snap=!PV.snap; this.textContent=PV.snap?'📌 Snap on':'📌 Snap off'; this.classList.toggle('on',PV.snap); };
+$('#pvPage').onchange=function(){ if(PV) { PV.picks=[]; PV.ctrl=[]; PV.pin=null; pvLoadPage(+this.value); } };
 
 /* ---------------- boot ---------------- */
 try{ var s=ls.get('csvfix.file'); if(s) file=JSON.parse(s); }catch(e){ file=null; }
