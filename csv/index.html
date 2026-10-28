@@ -3096,7 +3096,7 @@ function tpColor(id){ // the layer's own color, nudged so white layers show on a
   if(!TPX.dark && l>0.8) return 'rgb('+Math.round(c[0]*0.45)+','+Math.round(c[1]*0.45)+','+Math.round(c[2]*0.45)+')';
   if(TPX.dark && l<0.2) return 'rgb('+(c[0]+150)+','+(c[1]+150)+','+(c[2]+150)+')';
   return 'rgb('+c.join(',')+')'; }
-var TPF={show:[1,0], names:[4,0], desc:[8,1], elev:[16,0]}; // [bit, inverted] — what Pocket 3D's Layer screen calls Show layer / Show point names / descriptions / elevations
+var TPF={show:[1,0], names:[4,0], desc:[8,0], elev:[16,0]}; // [bit, inverted] — checked against PILES MCU (9) and POWER POLE (13) on the collector — what Pocket 3D's Layer screen calls Show layer / Show point names / descriptions / elevations
 function tpFlags(id){ var e=TPX.lops.edit[id], L=TPX.M.layers[id]; return (e&&e.flags!=null)?e.flags:(L?L.flags:1); }
 function tpOn(id,k){ var b=TPF[k], v=!!(tpFlags(id)&b[0]); return b[1]?!v:v; }
 function tpSetOn(id,k,on){ var b=TPF[k], f=tpFlags(id), set=b[1]?!on:on; f=set?(f|b[0]):(f&~b[0]); var e=TPX.lops.edit[id]=TPX.lops.edit[id]||{}; if(TPX.M.layers[id]&&f===TPX.M.layers[id].flags) delete e.flags; else e.flags=f; if(!Object.keys(e).length) delete TPX.lops.edit[id]; }
@@ -3401,7 +3401,7 @@ function tpLayerOpen(id){
   document.querySelectorAll('[data-sy]').forEach(function(b){ b.onclick=function(){ ed().sym=M.symbols[+b.getAttribute('data-sy')]; document.querySelectorAll('[data-sy]').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
   function mv(to){ var a=o.order.filter(function(x){ return x!==id; }); to=Math.max(1,Math.min(a.length,to)); a.splice(to,0,id); o.order=a; tpLayerOpen(id); }
   if(!fixed){ $('#lnTop').onclick=function(){ mv(1); }; $('#lnBot').onclick=function(){ mv(o.order.length); }; $('#lnUp').onclick=function(){ mv(pos-1); }; $('#lnDn').onclick=function(){ mv(pos+1); };
-    $('#lnComb').onclick=function(){ var to=+$('#lnInto').value; tpCombine([id],to); toast('Combined into '+tpName(to), true); tpEditor(); };
+    $('#lnComb').onclick=function(){ tpCombineAsk([+$('#lnInto').value, id]); }; // same screen as every other combine: duplicate check + which layer wins
     $('#lnDel').onclick=function(){ tpDeleteNow([id]); tpEditor(); };
     if($('#lnClrP')) $('#lnClrP').onclick=function(){ tpClearNow(id,'pts'); tpLayerOpen(id); };
     if($('#lnClrA')) $('#lnClrA').onclick=function(){ tpClearNow(id,'all'); tpLayerOpen(id); };
@@ -3417,14 +3417,14 @@ function tpPtTime(i){ var d=TPX.M.T[1].data, o=i*26+18; var lo=(d[o]|(d[o+1]<<8)
 function tpPtsOn(id){ var M=TPX.M, a=[]; for(var i=0;i<M.pE.length;i++) if(tpEnt(M.pL[i],'p')===id && !TPX.lops.dupDrop[i]) a.push(i); return a; }
 function tpWhen(ms){ if(!(ms>0)) return ''; var d=new Date(ms); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
 /* pts: {id:[point idx]}, prio: layer ids best-first, by:'spot'|'name', tol (m), nameFrom: layer id or null (= the kept copy) */
-function tpDupScan(pts, prio, by, tol, nameFrom){
+function tpDupScan(pts, prio, by, tol, nameFrom, inside){
   var M=TPX.M, hits=new Map(), drop={}, attr={}, matched=0, zc=0, zmax=0, only={}, c=Math.max(tol,1e-4), grid=new Map(), names=new Map();
   prio.forEach(function(id){ only[id]=0; });
   prio.forEach(function(id){ var a=pts[id]||[];
     a.forEach(function(i){ var hit=-1;
-      if(by==='name'){ var nm=TP3.pointName(M,i); if(nm){ var k=names.get(nm); if(k&&k.layer!==id) hit=k.i; } }
+      if(by==='name'){ var nm=TP3.pointName(M,i); if(nm){ var k=names.get(nm); if(k&&(inside||k.layer!==id)) hit=k.i; } }
       else { var gx=Math.floor(M.pE[i]/c), gy=Math.floor(M.pN[i]/c), bd=tol;
-        for(var x=-1;x<=1;x++) for(var y=-1;y<=1;y++){ var L=grid.get((gx+x)+','+(gy+y)); if(L) for(var q=0;q<L.length;q++){ var e=L[q]; if(e.layer===id) continue; var dd=Math.hypot(M.pE[e.i]-M.pE[i],M.pN[e.i]-M.pN[i]); if(dd<=bd){ bd=dd; hit=e.i; } } } }
+        for(var x=-1;x<=1;x++) for(var y=-1;y<=1;y++){ var L=grid.get((gx+x)+','+(gy+y)); if(L) for(var q=0;q<L.length;q++){ var e=L[q]; if(e.layer===id&&!inside) continue; var dd=Math.hypot(M.pE[e.i]-M.pE[i],M.pN[e.i]-M.pN[i]); if(dd<=bd){ bd=dd; hit=e.i; } } } }
       if(hit>=0){ hits.set(hit,1); drop[i]=1; matched++; var dz=Math.abs(M.pZ[hit]-M.pZ[i]); if(dz>0.0005){ zc++; if(dz>zmax) zmax=dz; } if(nameFrom===id) attr[hit]=i; return; }
       only[id]++;
       var ent={i:i, layer:id};
@@ -3441,26 +3441,28 @@ function tpCombineAsk(ids){
   var pts={}, when={}, nPts=0; ids.forEach(function(id){ pts[id]=tpPtsOn(id); nPts+=pts[id].length;
     var a=pts[id], s=[]; for(var k=0;k<a.length;k+=Math.max(1,Math.floor(a.length/300))) s.push(tpPtTime(a[k])); s.sort(); when[id]=s.length?s[s.length>>1]:0; });
   var withPts=ids.filter(function(id){ return pts[id].length; });
-  var st={on:withPts.length>1, by:'spot', tol:0.05/U.k, win:null, nameFrom:'kept'};
+  var st={on:withPts.length>1, inside:withPts.length===1, by:'spot', tol:0.05/U.k, win:null, nameFrom:'kept'};
   st.win=withPts.slice().sort(function(a,b){ return when[b]-when[a]; })[0];
   if(st.on){ // pick how to match: whichever finds more of the same points
-    var ra=tpDupScan(pts, tpPrio(), 'spot', st.tol, null), rb=tpDupScan(pts, tpPrio(), 'name', 0, null); st.by=rb.matched>ra.matched?'name':'spot'; }
+    var ra=tpDupScan(pts, tpPrio(), 'spot', st.tol, null), rb=tpDupScan(pts, tpPrio(), 'name', 0, null); st.by=rb.matched>ra.matched?'name':'spot'; st.scanned=1; }
   function tpPrio(){ return [st.win].concat(withPts.filter(function(x){ return x!==st.win; }).sort(function(a,b){ return when[b]-when[a]; })).concat(ids.filter(function(x){ return withPts.indexOf(x)<0; })); }
-  function scan(){ return st.on ? tpDupScan(pts, tpPrio(), st.by, st.tol, st.nameFrom==='kept'?null:+st.nameFrom) : null; }
+  function scan(){ return st.on ? tpDupScan(pts, tpPrio(), st.by, st.tol, st.nameFrom==='kept'?null:+st.nameFrom, st.inside||withPts.length===1) : null; }
   function draw(){
     var R=scan(), top=$('#veil').classList.contains('on')&&$('#shTitle').textContent==='Combine layers'?$('#shBody').scrollTop:0;
     var h='<div class="card"><h3>Keeps the name, color &amp; symbol of</h3>';
     ids.forEach(function(id){ var c=tpCounts(id); h+='<label class="mk"><input type="radio" name="lcK" value="'+id+'"'+(id===best?' checked':'')+'>'+tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id))+' '+tpKind(id)+'</b><span>'+(c.pts.toLocaleString()+' pts · '+c.lines.toLocaleString()+' lines')+(when[id]?' · '+tpWhen(when[id]):'')+'</span></div></label>'; });
     h+='<div class="field mt"><label>New name (optional)</label><input class="inp" id="lcName" maxlength="63" value="'+escH(st.name||'')+'"></div></div>';
-    if(withPts.length>1){
-      h+='<div class="card"><h3>Same points on both layers</h3><label class="check"><input type="checkbox" id="lcOn"'+(st.on?' checked':'')+'> Clean up: keep <b>one</b> copy of each point</label>';
+    if(withPts.length){
+      h+='<div class="card"><h3>Duplicate points</h3>'+(st.on?'<div class="row" style="align-items:center"><b style="flex:1;font-size:15px">✓ Keeping one copy of each point</b><button class="btn" id="lcOff">Don’t clean up</button></div>'+
+        (withPts.length>1?'<label class="check mt"><input type="checkbox" id="lcIn"'+(st.inside?' checked':'')+'> Also remove doubles inside the same layer</label>':''):
+        '<p class="muted" style="margin:0 0 8px">'+(withPts.length>1?'These layers may have the same points (same spot or same point #).':'Check '+escH(tpName(withPts[0]))+' for points that are in it twice.')+'</p><button class="btn primary block" id="lcOn">🔍 Check for duplicate points</button>');
       if(st.on){
         h+='<div class="field mt"><label>A point is “the same” when it has</label><div class="seg" style="display:flex"><button style="flex:1" data-by="spot"'+(st.by==='spot'?' class="on"':'')+'>Same spot (N/E)</button><button style="flex:1" data-by="name"'+(st.by==='name'?' class="on"':'')+'>Same point #</button></div></div>'+
           (st.by==='spot'?'<div class="field mt"><label>Within ('+U.lab+')</label><input class="inp num" id="lcTol" inputmode="decimal" value="'+(+(st.tol*U.k).toFixed(3))+'"></div>':'')+
-          '<div class="field mt"><label>When a point is on both, keep the copy from (its N/E/Z wins)</label><select class="inp" id="lcWin">'+withPts.map(function(id){ return '<option value="'+id+'"'+(id===st.win?' selected':'')+'>'+escH(tpName(id))+(when[id]?' — '+tpWhen(when[id]):'')+(id===withPts.slice().sort(function(a,b){ return when[b]-when[a]; })[0]?' (newest)':'')+'</option>'; }).join('')+'</select></div>'+
-          '<div class="field mt"><label>Point numbers &amp; codes from</label><select class="inp" id="lcNm"><option value="kept"'+(st.nameFrom==='kept'?' selected':'')+'>The copy that’s kept</option>'+withPts.filter(function(id){ return id!==st.win; }).map(function(id){ return '<option value="'+id+'"'+(String(st.nameFrom)===String(id)?' selected':'')+'>'+escH(tpName(id))+' (keep its numbers, take the new N/E/Z)</option>'; }).join('')+'</select></div>';
+          (withPts.length<2?'':'<div class="field mt"><label>When a point is on both, keep the copy from (its N/E/Z wins)</label><select class="inp" id="lcWin">'+withPts.map(function(id){ return '<option value="'+id+'"'+(id===st.win?' selected':'')+'>'+escH(tpName(id))+(when[id]?' — '+tpWhen(when[id]):'')+(id===withPts.slice().sort(function(a,b){ return when[b]-when[a]; })[0]?' (newest)':'')+'</option>'; }).join('')+'</select></div>'+
+          '<div class="field mt"><label>Point numbers &amp; codes from</label><select class="inp" id="lcNm"><option value="kept"'+(st.nameFrom==='kept'?' selected':'')+'>The copy that’s kept</option>'+withPts.filter(function(id){ return id!==st.win; }).map(function(id){ return '<option value="'+id+'"'+(String(st.nameFrom)===String(id)?' selected':'')+'>'+escH(tpName(id))+' (keep its numbers, take the new N/E/Z)</option>'; }).join('')+'</select></div>');
         var kept=nPts-R.matched;
-        h+='<div class="tpres"><div><b>'+R.matched.toLocaleString()+'</b> points are on both'+(R.matched?' — <b>'+R.zc.toLocaleString()+'</b> with a different elevation'+(R.zc?' (up to '+(R.zmax*U.k).toFixed(2)+' '+U.lab+')':''):'')+'</div>'+
+        h+='<div class="tpres"><div><b>'+R.matched.toLocaleString()+'</b> duplicate'+(R.matched===1?'':'s')+' found'+(R.matched?' — <b>'+R.zc.toLocaleString()+'</b> with a different elevation'+(R.zc?' (up to '+(R.zmax*U.k).toFixed(2)+' '+U.lab+')':''):'')+'</div>'+
           withPts.map(function(id){ return '<div><b>'+R.only[id].toLocaleString()+'</b> only on '+escH(tpName(id))+(id!==st.win&&R.only[id]?' <span class="muted">— kept (missing from the other)</span>':'')+'</div>'; }).join('')+
           '<div style="margin-top:4px">Result: <b>'+kept.toLocaleString()+'</b> points <span class="muted">(was '+nPts.toLocaleString()+')</span></div></div>';
       }
@@ -3470,7 +3472,9 @@ function tpCombineAsk(ids){
     openSheet('Combine layers', h, function(){ tpSel=null; tpRender(); tpInfo(); }); $('#shBody').scrollTop=top;
     document.querySelectorAll('[name=lcK]').forEach(function(r){ r.onchange=function(){ best=+r.value; }; });
     $('#lcName').oninput=function(){ st.name=this.value; };
-    if($('#lcOn')) $('#lcOn').onchange=function(){ st.on=this.checked; draw(); };
+    if($('#lcOn')) $('#lcOn').onclick=function(){ st.on=true; if(!st.scanned && withPts.length>1){ var ra=tpDupScan(pts, tpPrio(), 'spot', st.tol, null), rb=tpDupScan(pts, tpPrio(), 'name', 0, null); st.by=rb.matched>ra.matched?'name':'spot'; } st.scanned=1; draw(); };
+    if($('#lcOff')) $('#lcOff').onclick=function(){ st.on=false; draw(); };
+    if($('#lcIn')) $('#lcIn').onchange=function(){ st.inside=this.checked; draw(); };
     document.querySelectorAll('[data-by]').forEach(function(b){ b.onclick=function(){ st.by=b.getAttribute('data-by'); draw(); }; });
     if($('#lcTol')) $('#lcTol').onchange=function(){ var v=parseFloat(this.value); if(v>0) st.tol=v/U.k; draw(); };
     if($('#lcWin')) $('#lcWin').onchange=function(){ st.win=+this.value; if(String(st.nameFrom)===String(st.win)) st.nameFrom='kept'; draw(); };
