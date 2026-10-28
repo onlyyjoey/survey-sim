@@ -69,6 +69,30 @@ input,select{font:inherit;color:var(--ink)}
 .opt span{color:var(--muted);font-size:13px}
 .opt.hero{border-color:var(--accent);background:linear-gradient(0deg,var(--sel),var(--panel))}
 .opt.hero .oi{background:var(--accent);color:#fff}
+.mainbtn{display:block;width:100%;text-align:left;border:0;border-radius:20px;padding:16px;cursor:pointer;background:var(--accent);color:#fff;box-shadow:0 6px 20px color-mix(in srgb,var(--accent) 35%,transparent)}
+.mainbtn:active{transform:scale(.99)}
+.mainbtn .mtop{display:flex;align-items:center;gap:12px}
+.mainbtn .mi{width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.2);display:grid;place-items:center;flex:none}
+.mainbtn .mi svg{width:28px;height:28px}
+.mainbtn b{display:block;font-size:20px;letter-spacing:-.01em}
+.mainbtn .mtop span{font-size:13px;opacity:.85}
+.mainbtn .go{font-size:30px;font-weight:300;opacity:.9}
+.mprev{margin:14px 0 10px;background:rgba(255,255,255,.95);border-radius:10px;overflow:hidden;color:#1c1d1f}
+.mprev table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.mprev td,.mprev th{padding:5px 7px;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.mprev th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#c25510;background:#fff3ea}
+.mprev tr:last-child td{border-bottom:0}
+.mfeat{font-size:12.5px;opacity:.9;line-height:1.4}
+.qlabel{margin:22px 2px 8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;min-width:0}
+.qt:active{transform:scale(.98)}
+.qt .oi{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--panel2);margin-bottom:6px}
+.qt .oi svg{width:20px;height:20px}
+.qt b{font-size:14.5px}
+.qt span{font-size:12px;color:var(--muted)}
+.qt.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px}
+.qt.wide .oi{margin:0}
 .linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:14px;cursor:pointer;width:100%}
 
 /* grid */
@@ -206,31 +230,18 @@ select.inp{font-size:15px;padding:10px}
         <div class="ico">CSV</div>
         <div style="flex:1;min-width:0"><div class="nm" id="fName"></div><div class="meta" id="fMeta"></div></div>
       </div>
-      <div class="opts">
-        <button class="opt" data-go="grid">
-          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg></div>
-          <div><b>View &amp; Edit Points</b><span>Spreadsheet view — move columns, edit cells</span></div>
-        </button>
-        <button class="opt hero" data-go="fix">
-          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v15"/><circle cx="12" cy="4" r="2"/><path d="M8 21l4-3 4 3"/><path d="M19 9v6M17 13l2 2 2-2"/></svg></div>
-          <div><b>Fix Elevations</b><span>Wrong rod height? Shift every elevation</span></div>
-        </button>
-        <button class="opt" data-go="format">
-          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M4 12h7M4 18h12"/><path d="M18 4v6M15 7h6"/></svg></div>
-          <div><b>Format / Presets</b><span>Keep only the columns you need, in your order</span></div>
-        </button>
-        <button class="opt" data-go="dups">
-          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div>
-          <div><b>Find Duplicates</b><span>Same point #, same spot, or copied rows</span></div>
-        </button>
-        <button class="opt" data-go="renum">
-          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div>
-          <div><b>Renumber Points</b><span>First column 1, 2, 3… up to 9999999</span></div>
-        </button>
-        <button class="opt" data-go="export">
-          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div>
-          <div><b>Save / Share CSV</b><span>Export the fixed file</span></div>
-        </button>
+      <button class="mainbtn" data-go="grid">
+        <div class="mtop"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg></div><div style="flex:1"><b>View &amp; Edit Points</b><span>Your main workspace</span></div><div class="go">›</div></div>
+        <div class="mprev" id="mPrev"></div>
+        <div class="mfeat">Edit cells · move columns · fix elevations · duplicates · format · renumber · save — all inside</div>
+      </button>
+      <div class="qlabel">Quick tools</div>
+      <div class="quick">
+        <button class="qt" data-go="fix"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v15"/><circle cx="12" cy="4" r="2"/><path d="M8 21l4-3 4 3"/><path d="M19 9v6M17 13l2 2 2-2"/></svg></div><b>Fix Elevations</b><span>Wrong rod height</span></button>
+        <button class="qt" data-go="format"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M4 12h7M4 18h12"/><path d="M18 4v6M15 7h6"/></svg></div><b>Format / Presets</b><span>Keep only what you need</span></button>
+        <button class="qt" data-go="dups"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div><b>Find Duplicates</b><span>Renumber or fix copies</span></button>
+        <button class="qt" data-go="renum"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div><b>Renumber</b><span>1, 2, 3… to 9999999</span></button>
+        <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
       </div>
       <div class="row mt">
         <button class="btn block" id="undoHome" style="flex:1">↶ Undo</button>
@@ -388,6 +399,11 @@ function showHome(){
     var zc=col('Z');
     $('#fMeta').textContent = file.rows.length.toLocaleString()+' points · '+file.roles.length+' columns'+
       (zc>=0?' · elevation = '+colName(zc):' · no elevation column set');
+    var nc=Math.min(file.roles.length,4), ph='<table><tr>';
+    for(var c=0;c<nc;c++) ph+='<th>'+escH(colName(c))+'</th>';
+    ph+='</tr>';
+    file.rows.slice(0,3).forEach(function(r){ ph+='<tr>'; for(var c=0;c<nc;c++) ph+='<td>'+escH(r[c])+'</td>'; ph+='</tr>'; });
+    $('#mPrev').innerHTML=ph+'</table>';
   }
   updUndo();
 }
