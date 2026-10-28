@@ -155,6 +155,10 @@ input,select{font:inherit;color:var(--ink)}
 .lacts button{border:0;width:88px;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer}
 .lacts .la-clr{background:#e8930c}.lacts .la-del{background:var(--bad);transition:width .18s}.lacts .la-del.full{width:100vw}
 .lrow.gone{opacity:0}
+.kind{font-style:normal;display:inline-block;vertical-align:2px;font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:6px;margin-left:2px;white-space:nowrap}
+.k-pts{background:color-mix(in srgb,#2563eb 16%,transparent);color:#2563eb}.k-lines{background:color-mix(in srgb,#16a34a 18%,transparent);color:#15803d}
+.k-both{background:color-mix(in srgb,#7c3aed 16%,transparent);color:#7c3aed}.k-lbl,.k-empty{background:var(--panel2);color:var(--muted)}
+.tpres{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);font-size:13.5px;line-height:1.55}
 .lrow.lift{z-index:5;box-shadow:0 10px 26px rgba(0,0,0,.28);transition:none;opacity:.96}
 .lrow .lh{flex:none;width:30px;height:34px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted);touch-action:none;cursor:grab;margin:-6px -4px -6px -6px}
 .lrow input{width:22px;height:22px;accent-color:var(--accent);flex:none}
@@ -2894,7 +2898,7 @@ var TP3=(function(){
     var codes=M.T[0x23]; M.codeLayers=[]; if(codes) for(var i=0;i<codes.n;i++) M.codeLayers.push(u16(rec(M,0x23,i),12));
   }
   /* ops: {order:[layer ids, new top-to-bottom order of the layers that stay], into:{id:targetId} (combine),
-           drop:{id:1} (delete layer + everything on it), clear:{id:'pts'|'all'} (empty a layer but keep it), edit:{id:{name, rgb:[r,g,b], ci, sym:Uint8Array(32)}}}
+           drop:{id:1} (delete layer + everything on it), dropPoints:{i:1} (single points), attrFrom:{i:j} (point i takes point j's name/code), clear:{id:'pts'|'all'} (empty a layer but keep it), edit:{id:{name, rgb:[r,g,b], ci, sym:Uint8Array(32)}}}
      returns a copy of M with the layer table rebuilt (ids = new position) and every layer reference + coordinate moved. */
   function applyLayers(M, ops){
     var T=M.T, M2={}, k; for(k in M) M2[k]=M[k];
@@ -2918,7 +2922,8 @@ var TP3=(function(){
       cdv.setFloat64(ci*24, cdv.getFloat64(ci*24,true)+dE, true); cdv.setFloat64(ci*24+8, cdv.getFloat64(ci*24+8,true)+dN, true); }
     var gone={points:new Uint8Array(M.pE.length), lines:[], labels:[]};
     var P=clone(0x01); if(P) for(var i=0;i<P.n;i++){ var r1=P.data.subarray(i*26,i*26+26), old=u16(r1,12), nid=mapId(old);
-      if(nid<0 || clear[old]){ gone.points[i]=1; continue; } var f=finalOf(old); if(f!==old){ var c=ref(M,r1,0); if(c) shift(c.i,old,f); } w16(r1,12,nid); }
+      if(nid<0 || clear[old] || (ops.dropPoints&&ops.dropPoints[i])){ gone.points[i]=1; continue; }
+      var af=ops.attrFrom&&ops.attrFrom[i]; if(af!=null) r1.set(T[0x01].data.subarray(af*26+6, af*26+12), 6); /* take name + code from the matching point */ var f=finalOf(old); if(f!==old){ var c=ref(M,r1,0); if(c) shift(c.i,old,f); } w16(r1,12,nid); }
     var Ln=clone(0x0c); if(Ln) for(i=0;i<Ln.n;i++){ var r2=Ln.data.subarray(i*32,i*32+32), o2=u16(r2,20), n2=mapId(o2);
       if(n2<0 || clear[o2]==='all'){ gone.lines[i]=true; continue; } var f2=finalOf(o2); if(f2!==o2){ var s2=ref(M,r2,0), c2=u32(r2,12); if(s2) for(var q=0;q<c2;q++) shift(s2.i+q,o2,f2); } w16(r2,20,n2); }
     var Lb=clone(0x15); if(Lb) for(i=0;i<Lb.n;i++){ var r3=Lb.data.subarray(i*Lb.esz,(i+1)*Lb.esz), o3=u16(r3,12), n3=mapId(o3);
@@ -3058,7 +3063,7 @@ async function openTp3(f){
   try{
     var M=TP3.parse(await f.arrayBuffer());
     TPX={file:f, M:M, poly:[], closed:false, mode:'look', buffer:0, opts:{lines:'touch', surfaces:'trim', control:'keep'}, hide:{}, units:ls.get('csvfix.tpUnits')||'usft', z:1,
-      lops:{order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}}};
+      lops:{order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}}};
     TPX.dark=tpDarkBg(); tpSizeCanvas(); tpFit(); tpRender(); tpStatus(); tpInfo();
   }catch(e){ try{ console.warn(e); }catch(x){} $('#tpStatus').innerHTML='<span class="danger">Couldn’t read this file as a Topcon TP3 project'+(e&&e.message?' ('+escH(e.message)+')':'')+'.</span>'; }
 }
@@ -3073,9 +3078,9 @@ function tpColor(id){ // the layer's own color, nudged so white layers show on a
   if(!TPX.dark && l>0.8) return 'rgb('+Math.round(c[0]*0.45)+','+Math.round(c[1]*0.45)+','+Math.round(c[2]*0.45)+')';
   if(TPX.dark && l<0.2) return 'rgb('+(c[0]+150)+','+(c[1]+150)+','+(c[2]+150)+')';
   return 'rgb('+c.join(',')+')'; }
-function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
+function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.dupDrop).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
 function tpEnt(lid,kind){ var f=tpFinal(lid); if(f==null) return null; var c=TPX.lops.clear[lid]; if(c==='all'||(c==='pts'&&kind==='p')) return null; return f; } // where an item on layer lid ends up (null = removed)
-function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ var cl=TPX.lops.clear[L.id]; if(!cl) c.pts+=L.pts; if(cl!=='all'){ c.lines+=L.lines; c.labels+=L.labels; } } }); return c; }
+function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ var cl=TPX.lops.clear[L.id]; if(!cl) c.pts+=L.pts-(TPX.lops.dupN[L.id]||0); if(cl!=='all'){ c.lines+=L.lines; c.labels+=L.labels; } } }); return c; }
 var tpSymCache={};
 function tpSymURL(sym,rgb){ var k=Array.prototype.join.call(sym,',')+'|'+rgb.join(','); if(tpSymCache[k]) return tpSymCache[k];
   var c=document.createElement('canvas'); c.width=c.height=16; var x=c.getContext('2d'), im=x.createImageData(16,16), dk=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])>200;
@@ -3109,8 +3114,8 @@ function tpRender(){
   M.lines.forEach(function(l){ var f=finL[l.layer]; if(f==null) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
     for(var k=0;k<l.n;k++){ var px=l.xy[k*2]*s+tx, py=-l.xy[k*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); });
   // points (batched by layer)
-  var r=Math.max(1.2, Math.min(3, s*0.25)), by={};
-  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
+  var r=Math.max(1.2, Math.min(3, s*0.25)), by={}, dd=TPX.lops.dupDrop;
+  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null || dd[i]) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
   Object.keys(by).forEach(function(lid){ var a=by[lid]; x.fillStyle=col[lid]||'#666'; for(var j=0;j<a.length;j+=2) x.fillRect(a[j]-r/2,a[j+1]-r/2,r,r); });
   // control points
   x.fillStyle='#e11d48'; M.control.forEach(function(cp){ var px=cp.E*s+tx, py=-cp.N*s+ty; x.beginPath(); x.moveTo(px,py-6); x.lineTo(px+5,py+4); x.lineTo(px-5,py+4); x.closePath(); x.fill(); });
@@ -3180,7 +3185,7 @@ function tpFmt(v){ return (v*tpU().k).toFixed(2); }
 function tpInfo(){
   var M=TPX.M, h='', U=tpU();
   if(TPX.pick!=null && TPX.mode!=='draw'){ var i=TPX.pick, fl=tpFinal(M.pL[i]), L=fl==null?null:{name:tpName(fl)};
-    h+='<div class="pvread" style="margin-bottom:8px"><div><span>Point '+escH(TP3.pointName(M,i))+'</span><b class="num" style="font-size:15px">N '+tpFmt(M.pN[i])+'<br>E '+tpFmt(M.pE[i])+'</b></div><div><span>'+escH(L?L.name:'')+'</span><b class="num" style="font-size:15px">Z '+tpFmt(M.pZ[i])+'<br>'+escH(TP3.pointCode(M,i)||'—')+'</b></div></div>'; }
+    h+='<div class="pvread" style="margin-bottom:8px"><div><span>Point '+escH(tpPtName(i))+'</span><b class="num" style="font-size:15px">N '+tpFmt(M.pN[i])+'<br>E '+tpFmt(M.pE[i])+'</b></div><div><span>'+escH(L?L.name:'')+'</span><b class="num" style="font-size:15px">Z '+tpFmt(M.pZ[i])+'<br>'+escH(tpPtCode(i)||'—')+'</b></div></div>'; }
   if(!TPX.closed){
     h+='<div class="muted" style="font-size:13.5px">'+(TPX.mode==='draw'
       ? (TPX.poly.length? '<b>'+TPX.poly.length+' corner'+(TPX.poly.length===1?'':'s')+'</b> — keep tapping around the area to keep. Tap the <b>first corner</b> to close it. Drag a corner to adjust.' : 'Tap the corners of the area you want to <b>keep</b>, going around it. Pinch / drag to move the map.')
@@ -3197,7 +3202,7 @@ function tpInfo(){
       '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
   }
   if(tpLayerChanged()){ var o=TPX.lops, nd=Object.keys(o.drop).length, nc=Object.keys(o.into).length;
-    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', 'order set'].filter(Boolean).join(' · ')+'</span></div>';
+    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', 'order set'].filter(Boolean).join(' · ')+'</span></div>';
     if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave">💾 Save TP3 with layer changes</button>'; }
   $('#tpInfo').innerHTML=h;
   if(!TPX.plan && $('#tpSave')) $('#tpSave').onclick=tpSave;
@@ -3215,8 +3220,9 @@ function tpSave(){
   var b=$('#tpSave')||$('#tpSaveTop'), bt=b.textContent; b.disabled=true; b.textContent='Building…';
   setTimeout(function(){ try{
     var M=TPX.M, P=TPX.plan||TP3.keepAll(M), lc=tpLayerChanged(), ops=lc?TPX.lops:null;
+    if(ops) ops=Object.assign({}, ops, {dropPoints:ops.dupDrop});
     var out=TP3.build(M, P, ops), check=TP3.parse(out.buffer), ep=0, el=0;
-    for(var i=0;i<M.pE.length;i++) if(P.points[i] && tpEnt(M.pL[i],'p')!=null) ep++;
+    for(var i=0;i<M.pE.length;i++) if(P.points[i] && tpKeepPt(i)) ep++;
     M.lines.forEach(function(l,i){ if(P.lines[i] && tpEnt(l.layer,'l')!=null) el++; });
     if(check.pE.length!==ep || check.lines.length!==el || check.layerList.length!==TPX.lops.order.length) throw new Error('self-check failed ('+[check.pE.length,ep,check.lines.length,el,check.layerList.length,TPX.lops.order.length].join('/')+')');
     if(lc && check.layerList.some(function(L,i){ return L.name!==tpName(TPX.lops.order[i]); })) throw new Error('self-check failed (layers)');
@@ -3227,7 +3233,7 @@ function tpSave(){
   b.disabled=false; b.textContent=bt; }, 30);
 }
 function tpCsv(){ var M=TPX.M, U=tpU(), rows=[];
-  for(var i=0;i<M.pE.length;i++) if(TPX.plan.points[i] && tpEnt(M.pL[i],'p')!=null) rows.push([TP3.pointName(M,i)||String(i+1), tpFmt(M.pN[i]), tpFmt(M.pE[i]), tpFmt(M.pZ[i]), TP3.pointCode(M,i)]);
+  for(var i=0;i<M.pE.length;i++) if(TPX.plan.points[i] && tpKeepPt(i)) rows.push([tpPtName(i)||String(i+1), tpFmt(M.pN[i]), tpFmt(M.pE[i]), tpFmt(M.pZ[i]), tpPtCode(i)]);
   var go=confirm('Open the '+rows.length.toLocaleString()+' kept points in the CSV editor?\n\nOK = open here · Cancel = save the CSV file');
   if(go){ file={name:TPX.file.name.replace(/\.tp3$/i,'')+'-points.csv', delim:',', header:null, rows:rows, roles:['P','N','E','Z','D']}; hist=[]; save(); showGrid(); return; }
   var txt=rows.map(function(r){ return r.map(function(v){ return /[",\n]/.test(v)?'"'+String(v).replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n')+'\r\n';
@@ -3240,7 +3246,7 @@ function tpDxf(){ var M=TPX.M, k=tpU().k, L=['0','SECTION','2','HEADER','9','$AC
 function tpOpenLayers(){
   var M=TPX.M, h='<p class="muted" style="margin:0 0 8px">Untick to hide a layer on the map (the boundary still cleans every layer).</p><div class="row" style="margin-bottom:8px"><button class="chip" id="tlAll">Show all</button><button class="chip" id="tlNone">Hide all</button></div>';
   TPX.lops.order.map(function(id){ var c=tpCounts(id); return {id:id, pts:c.pts, lines:c.lines, labels:c.labels}; }).filter(function(L){ return L.pts||L.lines||L.labels; }).forEach(function(L){
-    h+='<div class="mk'+(TPX.hide[L.id]?' off':'')+'"><input type="checkbox" data-tl="'+L.id+'"'+(TPX.hide[L.id]?'':' checked')+'>'+tpSwatch(L.id)+'<div class="mn"><b>'+escH(tpName(L.id)||'(no name)')+'</b><span>'+(L.pts?L.pts.toLocaleString()+' points':'')+(L.pts&&L.lines?' · ':'')+(L.lines?L.lines.toLocaleString()+' lines':'')+(L.labels?' · '+L.labels+' labels':'')+'</span></div></div>'; });
+    h+='<div class="mk'+(TPX.hide[L.id]?' off':'')+'"><input type="checkbox" data-tl="'+L.id+'"'+(TPX.hide[L.id]?'':' checked')+'>'+tpSwatch(L.id)+'<div class="mn"><b>'+escH(tpName(L.id)||'(no name)')+' '+tpKind(L.id)+'</b><span>'+(L.pts?L.pts.toLocaleString()+' points':'')+(L.pts&&L.lines?' · ':'')+(L.lines?L.lines.toLocaleString()+' lines':'')+(L.labels?' · '+L.labels+' labels':'')+'</span></div></div>'; });
   h+='<div class="card mt"><h3>Units shown</h3><div class="seg" style="display:flex">'+Object.keys(TP_UNITS).map(function(u){ return '<button style="flex:1" data-tu="'+u+'"'+(TPX.units===u?' class="on"':'')+'>'+TP_UNITS[u].lab+'</button>'; }).join('')+'</div><p class="muted" style="margin:6px 0 0">TP3 files store meters; this only changes what you see and the CSV / DXF exports. Mississippi state plane = US survey feet.</p></div>';
   openSheet('Show on map', h, function(){ tpRender(); });
   document.querySelectorAll('[data-tl]').forEach(function(cb){ cb.onchange=function(){ TPX.hide[+cb.getAttribute('data-tl')]=!cb.checked; cb.closest('.mk').classList.toggle('off',!cb.checked); }; });
@@ -3278,7 +3284,7 @@ function tpEditor(keepScroll){
     h+='<div class="lrow'+(fixed?' fixed':'')+'" data-lid="'+id+'">'+(fixed?'':'<div class="lacts"><button class="la-clr" data-la="clr">Empty</button><button class="la-del" data-la="del">Delete</button></div>')+'<div class="lfg">'+
       (fixed?'<span class="lh" style="opacity:.25">≡</span>':'<span class="lh" aria-label="Drag to reorder">≡</span>')+
       (tpSel&&!fixed?'<input type="checkbox" data-ls="'+id+'"'+(tpSel[id]?' checked':'')+'>':'')+
-      tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id)||'(no name)')+(o.edit[id]&&o.edit[id].name!=null?' <i class="lt">renamed</i>':'')+(merged?' <i class="lt">+'+merged+' combined</i>':'')+(Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?' <i class="lt" style="color:var(--bad)">emptied</i>':'')+'</b><span>'+
+      tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id)||'(no name)')+' '+tpKind(id)+(o.edit[id]&&o.edit[id].name!=null?' <i class="lt">renamed</i>':'')+(merged?' <i class="lt">+'+merged+' combined</i>':'')+(Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?' <i class="lt" style="color:var(--bad)">emptied</i>':'')+'</b><span>'+
       ([c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'empty')+'</span></div><span class="lgo">›</span></div></div>'; });
   h+='</div>';
   var nDel=Object.keys(o.drop).length; if(nDel) h+='<p class="muted" style="margin:10px 2px 0">'+nDel+' layer'+(nDel>1?'s':'')+' deleted (with everything on '+(nDel>1?'them':'it')+'). <button class="linkbtn" id="leUndel" style="display:inline;margin:0;padding:0">Bring back</button></p>';
@@ -3289,7 +3295,7 @@ function tpEditor(keepScroll){
   $('#leAz').onclick=function(){ o.order=[0].concat(o.order.filter(function(id){ return id!==0; }).sort(function(a,b){ return tpName(a).localeCompare(tpName(b),undefined,{numeric:true,sensitivity:'base'}); })); tpEditor(true); toast('Sorted A→Z', true); };
   $('#leEmpty').onclick=function(){ var full=[], empty=[]; o.order.forEach(function(id){ var c=tpCounts(id); (id===0||c.pts||c.lines||c.labels?full:empty).push(id); }); o.order=full.concat(empty); tpEditor(true); toast(empty.length+' empty layer'+(empty.length===1?'':'s')+' moved to the bottom', true); };
   $('#leDup').onclick=tpLookAlikes;
-  if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}}; tpSel=null; tpEditor(); };
+  if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}}; tpSel=null; tpEditor(); };
   if($('#leUndel')) $('#leUndel').onclick=function(){ Object.keys(o.drop).forEach(function(k){ delete o.drop[k]; o.order.push(+k); }); tpEditor(true); };
   document.querySelectorAll('#leList .lrow').forEach(function(r){ r.addEventListener('click', function(e){ if(e.target.closest('.lh')||e.target.closest('.lacts')) return; var id=+r.getAttribute('data-lid');
     if(r._swiped){ r._swiped=false; return; } if(r.classList.contains('open')){ var fg=r.querySelector('.lfg'); fg.style.transition='transform .22s'; fg.style.transform=''; r._x=0; r.classList.remove('open','swiping'); return; }
@@ -3350,20 +3356,85 @@ function tpLayerOpen(id){
   $('#lnBack').onclick=function(){ tpEditor(); };
 }
 function tpCombine(ids,to){ var o=TPX.lops; ids.forEach(function(id){ if(id===to||id===0) return; o.into[id]=to; delete o.edit[id]; o.order=o.order.filter(function(x){ return x!==id; }); delete TPX.hide[id]; }); }
+/* ---- combine with clean-up: the same pile on two layers → keep one copy (the newer one by default) ---- */
+function tpKeepPt(i){ return tpEnt(TPX.M.pL[i],'p')!=null && !TPX.lops.dupDrop[i]; }
+function tpPtName(i){ var j=TPX.lops.attrFrom[i]; return TP3.pointName(TPX.M, j!=null?j:i); }
+function tpPtCode(i){ var j=TPX.lops.attrFrom[i]; return TP3.pointCode(TPX.M, j!=null?j:i); }
+function tpPtTime(i){ var d=TPX.M.T[1].data, o=i*26+18; var lo=(d[o]|(d[o+1]<<8)|(d[o+2]<<16))+d[o+3]*16777216, hi=(d[o+4]|(d[o+5]<<8)|(d[o+6]<<16))+d[o+7]*16777216; return (hi*4294967296+lo)/1e4-11644473600000; }
+function tpPtsOn(id){ var M=TPX.M, a=[]; for(var i=0;i<M.pE.length;i++) if(tpEnt(M.pL[i],'p')===id && !TPX.lops.dupDrop[i]) a.push(i); return a; }
+function tpWhen(ms){ if(!(ms>0)) return ''; var d=new Date(ms); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+/* pts: {id:[point idx]}, prio: layer ids best-first, by:'spot'|'name', tol (m), nameFrom: layer id or null (= the kept copy) */
+function tpDupScan(pts, prio, by, tol, nameFrom){
+  var M=TPX.M, hits=new Map(), drop={}, attr={}, matched=0, zc=0, zmax=0, only={}, c=Math.max(tol,1e-4), grid=new Map(), names=new Map();
+  prio.forEach(function(id){ only[id]=0; });
+  prio.forEach(function(id){ var a=pts[id]||[];
+    a.forEach(function(i){ var hit=-1;
+      if(by==='name'){ var nm=TP3.pointName(M,i); if(nm){ var k=names.get(nm); if(k&&k.layer!==id) hit=k.i; } }
+      else { var gx=Math.floor(M.pE[i]/c), gy=Math.floor(M.pN[i]/c), bd=tol;
+        for(var x=-1;x<=1;x++) for(var y=-1;y<=1;y++){ var L=grid.get((gx+x)+','+(gy+y)); if(L) for(var q=0;q<L.length;q++){ var e=L[q]; if(e.layer===id) continue; var dd=Math.hypot(M.pE[e.i]-M.pE[i],M.pN[e.i]-M.pN[i]); if(dd<=bd){ bd=dd; hit=e.i; } } } }
+      if(hit>=0){ hits.set(hit,1); drop[i]=1; matched++; var dz=Math.abs(M.pZ[hit]-M.pZ[i]); if(dz>0.0005){ zc++; if(dz>zmax) zmax=dz; } if(nameFrom===id) attr[hit]=i; return; }
+      only[id]++;
+      var ent={i:i, layer:id};
+      if(by==='name'){ var nm2=TP3.pointName(M,i); if(nm2 && !names.has(nm2)) names.set(nm2,ent); }
+      else { var key=Math.floor(M.pE[i]/c)+','+Math.floor(M.pN[i]/c), L2=grid.get(key); if(L2) L2.push(ent); else grid.set(key,[ent]); } });
+  });
+  hits.forEach(function(_,h){ var l=tpEnt(M.pL[h],'p'); if(only[l]!=null) only[l]--; else prio.forEach(function(id){ if((pts[id]||[]).indexOf(h)>=0) only[id]--; }); }); // points that had a match aren't "only" on their layer
+  return {drop:drop, attr:attr, matched:matched, zc:zc, zmax:zmax, only:only};
+}
 function tpCombineAsk(ids){
+  var M=TPX.M, U=tpU();
   var best=ids.slice().sort(function(a,b){ var A=tpCounts(a), B=tpCounts(b); return (B.pts+B.lines)-(A.pts+A.lines); })[0];
   if(ids.indexOf(0)>=0) best=0;
-  var h='<p class="muted" style="margin:0 0 8px">Everything on these '+ids.length+' layers ends up on <b>one</b> layer. Which one keeps its name, color and symbol?</p>';
-  ids.forEach(function(id){ var c=tpCounts(id); h+='<label class="mk"><input type="radio" name="lcK" value="'+id+'"'+(id===best?' checked':'')+'>'+tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id))+'</b><span>'+(c.pts+' pts · '+c.lines+' lines')+'</span></div></label>'; });
-  h+='<div class="field mt"><label>Name (optional — leave blank to keep it)</label><input class="inp" id="lcName" maxlength="63"></div><button class="btn primary block mt" id="lcGo">⧉ Combine '+ids.length+' layers</button><button class="btn block mt" id="lcBack">Cancel</button>';
-  openSheet('Combine layers', h, function(){ tpSel=null; tpRender(); tpInfo(); });
-  $('#lcGo').onclick=function(){ var keep=+document.querySelector('[name=lcK]:checked').value, nm=$('#lcName').value.trim();
-    tpCombine(ids.filter(function(x){ return x!==keep; }), keep); if(nm){ TPX.lops.edit[keep]=TPX.lops.edit[keep]||{}; TPX.lops.edit[keep].name=nm; }
-    tpSel=null; tpEditor(); toast(ids.length+' layers combined into '+tpName(keep), true); };
-  $('#lcBack').onclick=function(){ tpEditor(); };
+  var pts={}, when={}, nPts=0; ids.forEach(function(id){ pts[id]=tpPtsOn(id); nPts+=pts[id].length;
+    var a=pts[id], s=[]; for(var k=0;k<a.length;k+=Math.max(1,Math.floor(a.length/300))) s.push(tpPtTime(a[k])); s.sort(); when[id]=s.length?s[s.length>>1]:0; });
+  var withPts=ids.filter(function(id){ return pts[id].length; });
+  var st={on:withPts.length>1, by:'spot', tol:0.05/U.k, win:null, nameFrom:'kept'};
+  st.win=withPts.slice().sort(function(a,b){ return when[b]-when[a]; })[0];
+  if(st.on){ // pick how to match: whichever finds more of the same points
+    var ra=tpDupScan(pts, tpPrio(), 'spot', st.tol, null), rb=tpDupScan(pts, tpPrio(), 'name', 0, null); st.by=rb.matched>ra.matched?'name':'spot'; }
+  function tpPrio(){ return [st.win].concat(withPts.filter(function(x){ return x!==st.win; }).sort(function(a,b){ return when[b]-when[a]; })).concat(ids.filter(function(x){ return withPts.indexOf(x)<0; })); }
+  function scan(){ return st.on ? tpDupScan(pts, tpPrio(), st.by, st.tol, st.nameFrom==='kept'?null:+st.nameFrom) : null; }
+  function draw(){
+    var R=scan(), top=$('#veil').classList.contains('on')&&$('#shTitle').textContent==='Combine layers'?$('#shBody').scrollTop:0;
+    var h='<div class="card"><h3>Keeps the name, color &amp; symbol of</h3>';
+    ids.forEach(function(id){ var c=tpCounts(id); h+='<label class="mk"><input type="radio" name="lcK" value="'+id+'"'+(id===best?' checked':'')+'>'+tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id))+' '+tpKind(id)+'</b><span>'+(c.pts.toLocaleString()+' pts · '+c.lines.toLocaleString()+' lines')+(when[id]?' · '+tpWhen(when[id]):'')+'</span></div></label>'; });
+    h+='<div class="field mt"><label>New name (optional)</label><input class="inp" id="lcName" maxlength="63" value="'+escH(st.name||'')+'"></div></div>';
+    if(withPts.length>1){
+      h+='<div class="card"><h3>Same points on both layers</h3><label class="check"><input type="checkbox" id="lcOn"'+(st.on?' checked':'')+'> Clean up: keep <b>one</b> copy of each point</label>';
+      if(st.on){
+        h+='<div class="field mt"><label>A point is “the same” when it has</label><div class="seg" style="display:flex"><button style="flex:1" data-by="spot"'+(st.by==='spot'?' class="on"':'')+'>Same spot (N/E)</button><button style="flex:1" data-by="name"'+(st.by==='name'?' class="on"':'')+'>Same point #</button></div></div>'+
+          (st.by==='spot'?'<div class="field mt"><label>Within ('+U.lab+')</label><input class="inp num" id="lcTol" inputmode="decimal" value="'+(+(st.tol*U.k).toFixed(3))+'"></div>':'')+
+          '<div class="field mt"><label>When a point is on both, keep the copy from (its N/E/Z wins)</label><select class="inp" id="lcWin">'+withPts.map(function(id){ return '<option value="'+id+'"'+(id===st.win?' selected':'')+'>'+escH(tpName(id))+(when[id]?' — '+tpWhen(when[id]):'')+(id===withPts.slice().sort(function(a,b){ return when[b]-when[a]; })[0]?' (newest)':'')+'</option>'; }).join('')+'</select></div>'+
+          '<div class="field mt"><label>Point numbers &amp; codes from</label><select class="inp" id="lcNm"><option value="kept"'+(st.nameFrom==='kept'?' selected':'')+'>The copy that’s kept</option>'+withPts.filter(function(id){ return id!==st.win; }).map(function(id){ return '<option value="'+id+'"'+(String(st.nameFrom)===String(id)?' selected':'')+'>'+escH(tpName(id))+' (keep its numbers, take the new N/E/Z)</option>'; }).join('')+'</select></div>';
+        var kept=nPts-R.matched;
+        h+='<div class="tpres"><div><b>'+R.matched.toLocaleString()+'</b> points are on both'+(R.matched?' — <b>'+R.zc.toLocaleString()+'</b> with a different elevation'+(R.zc?' (up to '+(R.zmax*U.k).toFixed(2)+' '+U.lab+')':''):'')+'</div>'+
+          withPts.map(function(id){ return '<div><b>'+R.only[id].toLocaleString()+'</b> only on '+escH(tpName(id))+(id!==st.win&&R.only[id]?' <span class="muted">— kept (missing from the other)</span>':'')+'</div>'; }).join('')+
+          '<div style="margin-top:4px">Result: <b>'+kept.toLocaleString()+'</b> points <span class="muted">(was '+nPts.toLocaleString()+')</span></div></div>';
+      }
+      h+='</div>';
+    }
+    h+='<button class="btn primary block mt" id="lcGo">⧉ Combine '+ids.length+' layers'+(R&&R.matched?' + remove '+R.matched.toLocaleString()+' doubles':'')+'</button><button class="btn block mt" id="lcBack">Cancel</button>';
+    openSheet('Combine layers', h, function(){ tpSel=null; tpRender(); tpInfo(); }); $('#shBody').scrollTop=top;
+    document.querySelectorAll('[name=lcK]').forEach(function(r){ r.onchange=function(){ best=+r.value; }; });
+    $('#lcName').oninput=function(){ st.name=this.value; };
+    if($('#lcOn')) $('#lcOn').onchange=function(){ st.on=this.checked; draw(); };
+    document.querySelectorAll('[data-by]').forEach(function(b){ b.onclick=function(){ st.by=b.getAttribute('data-by'); draw(); }; });
+    if($('#lcTol')) $('#lcTol').onchange=function(){ var v=parseFloat(this.value); if(v>0) st.tol=v/U.k; draw(); };
+    if($('#lcWin')) $('#lcWin').onchange=function(){ st.win=+this.value; if(String(st.nameFrom)===String(st.win)) st.nameFrom='kept'; draw(); };
+    if($('#lcNm')) $('#lcNm').onchange=function(){ st.nameFrom=this.value; draw(); };
+    $('#lcGo').onclick=function(){ var keep=best, nm=(st.name||'').trim(), snap=tpSnap();
+      if(R){ Object.keys(R.drop).forEach(function(i){ TPX.lops.dupDrop[i]=1; var l=M.pL[i]; TPX.lops.dupN[l]=(TPX.lops.dupN[l]||0)+1; }); Object.keys(R.attr).forEach(function(i){ TPX.lops.attrFrom[i]=R.attr[i]; }); }
+      tpCombine(ids.filter(function(x){ return x!==keep; }), keep); if(nm){ TPX.lops.edit[keep]=TPX.lops.edit[keep]||{}; TPX.lops.edit[keep].name=nm; }
+      tpSel=null; tpEditor(); tpRender(); var msg=ids.length+' layers combined into '+tpName(keep)+(R&&R.matched?' — '+R.matched.toLocaleString()+' doubles removed':'');
+      setTimeout(function(){ toast(msg, true, tpUndoTo(snap)); },40); };
+    $('#lcBack').onclick=function(){ tpEditor(); };
+  }
+  draw();
 }
+function tpKind(id){ var c=tpCounts(id), k=c.pts&&c.lines?'both':c.pts?'pts':c.lines?'lines':c.labels?'lbl':'empty';
+  return '<em class="kind k-'+k+'">'+({both:'Points + lines',pts:'Points',lines:'Lines',lbl:'Labels',empty:'Empty'})[k]+'</em>'; }
 function tpSnap(){ var o=TPX.lops, e={}; Object.keys(o.edit).forEach(function(k){ e[k]=Object.assign({},o.edit[k]); });
-  return {order:o.order.slice(), into:Object.assign({},o.into), drop:Object.assign({},o.drop), clear:Object.assign({},o.clear), edit:e}; }
+  return {order:o.order.slice(), into:Object.assign({},o.into), drop:Object.assign({},o.drop), clear:Object.assign({},o.clear), edit:e, dupDrop:Object.assign({},o.dupDrop), attrFrom:Object.assign({},o.attrFrom), dupN:Object.assign({},o.dupN)}; }
 function tpUndoTo(snap,reopen){ return function(){ if(!TPX) return; TPX.lops=snap; tpRender(); tpInfo(); if($('#veil').classList.contains('on')) (reopen||tpEditor)(true); toast('Undone', true); }; }
 function tpDeleteNow(ids){ // delete layer(s) + everything on them; Undo in the toast
   ids=ids.filter(function(x){ return x!==0; }); if(!ids.length) return; var snap=tpSnap(), nm=tpName(ids[0]);
@@ -3454,7 +3525,7 @@ function tpLookAlikes(){
       '<p class="muted" style="margin:6px 0 0;font-size:12.5px">e.g. '+escH(TP_SENS_EX[lvl-1])+'</p></div>'+
       '<p class="muted" style="margin:4px 2px 10px">'+(groups.length?groups.length+' group'+(groups.length>1?'s':'')+' · '+n+' layers. Untick any layer that doesn’t belong, then Combine.':'No look-alikes at this setting — slide toward Loose.')+'</p>';
     groups.forEach(function(a,gi){ var on=a.filter(function(id){ return !off[id]; });
-      h+='<div class="card" style="padding:8px 12px 12px">'+a.map(function(id){ var c=tpCounts(id); return '<label class="row" style="align-items:center;gap:10px;padding:5px 0;cursor:pointer"><input type="checkbox" data-lo="'+id+'"'+(off[id]?'':' checked')+' style="width:22px;height:22px;accent-color:var(--accent);flex:none">'+tpSwatch(id)+'<b style="flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(off[id]?';opacity:.45':'')+'">'+escH(tpName(id))+'</b><span class="muted" style="font-size:12px">'+(c.pts+c.lines).toLocaleString()+'</span></label>'; }).join('')+
+      h+='<div class="card" style="padding:8px 12px 12px">'+a.map(function(id){ var c=tpCounts(id); return '<label class="row" style="align-items:center;gap:10px;padding:5px 0;cursor:pointer"><input type="checkbox" data-lo="'+id+'"'+(off[id]?'':' checked')+' style="width:22px;height:22px;accent-color:var(--accent);flex:none">'+tpSwatch(id)+'<b style="flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(off[id]?';opacity:.45':'')+'">'+escH(tpName(id))+'</b>'+tpKind(id)+'<span class="muted" style="font-size:12px;min-width:44px;text-align:right">'+(c.pts+c.lines).toLocaleString()+'</span></label>'; }).join('')+
         '<button class="btn block mt" data-lg="'+gi+'"'+(on.length<2?' disabled':'')+'>⧉ Combine '+(on.length<2?'— tick 2 or more':'these '+on.length)+'</button></div>'; });
     h+='<button class="btn block mt" id="laBack">‹ All layers</button>';
     var keep=$('#veil').classList.contains('on')&&$('#shTitle').textContent==='Look-alike layers'?$('#shBody').scrollTop:0;
