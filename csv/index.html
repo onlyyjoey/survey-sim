@@ -477,6 +477,8 @@ select.inp{font-size:15px;padding:10px}
 <div id="ghost"></div>
 <div id="dropFx"><div class="fxcard"><svg class="ring" aria-hidden="true"><rect x="1.5" y="1.5" rx="27" ry="27" width="calc(100% - 3px)" height="calc(100% - 3px)"/></svg><div class="fxicon" id="fxIcon">⬇</div><div class="fxt" id="fxT">Drop to open</div><div class="fxs" id="fxS"></div></div></div>
 <div id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+<input type="file" id="tpIn" hidden>
+<input type="file" id="planIn" accept="application/pdf,.pdf" hidden>
 <input type="file" id="fileIn" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel,image/*,application/pdf,.pdf,.tp3" hidden>
 
 <script>
@@ -690,7 +692,7 @@ function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); 
 function go(where){
   if(where==='photos'){ showPhotos(); return; }
   if(where==='tp3'){ pickTp3(); return; }
-  if(where==='plan'){ var pi=document.createElement('input'); pi.type='file'; pi.accept='application/pdf,.pdf'; pi.onchange=function(){ if(pi.files[0]) openPlan(pi.files[0]); }; pi.click(); return; }
+  if(where==='plan'){ var pi=$('#planIn'); pi.value=''; pi.click(); return; }
   if(!file && where!=='home') return;
   if(where==='grid') showGrid();
   else if(where==='fix') openFix();
@@ -709,7 +711,8 @@ document.addEventListener('click', function(e){
 $('#undoHome').onclick = undo; $('#undoGrid').onclick = undo;
 $('#pickBtn').onclick = $('#openOther').onclick = function(){ $('#fileIn').value=''; $('#fileIn').click(); };
 $('#fileIn').onchange = function(){ var fs=Array.prototype.slice.call(this.files||[]); if(!fs.length) return;
-  if(isTp3File(fs[0])) openTp3(fs[0]); else if(isPicOrPdf(fs[0])) routeFiles(fs.filter(isPicOrPdf)); else readFile(fs[0]); };
+  if(isTp3File(fs[0])) openTp3(fs[0]); else if(isPicOrPdf(fs[0])) routeFiles(fs.filter(isPicOrPdf)); else sniffTp3(fs[0]).then(function(t){ if(t) openTp3(fs[0]); else readFile(fs[0]); }); };
+function sniffTp3(f){ return f.slice(0,10).arrayBuffer().then(function(b){ return String.fromCharCode.apply(null,new Uint8Array(b))==='Topcon TP3'; }).catch(function(){ return false; }); }
 $('#closeFile').onclick = function(){ if(confirm('Close this file? Save/Share it first if you need it.')){ file=null; hist=[]; save(); showHome(); } };
 
 // drag & drop anywhere
@@ -738,7 +741,7 @@ window.addEventListener('drop', function(e){ e.preventDefault(); dragDepth=0; dr
   var tp=fs.filter(isTp3File); if(tp.length){ openTp3(tp[0]); return; }
   var pics=fs.filter(isPicOrPdf), csvs=fs.filter(function(f){ return !isPicOrPdf(f); });
   if(pics.length){ routeFiles(pics); return; }
-  if(!csvs.length) return; if(file) askCsvDrop(csvs); else readFile(csvs[0]); });
+  if(!csvs.length) return; sniffTp3(csvs[0]).then(function(t){ if(t) openTp3(csvs[0]); else if(file) askCsvDrop(csvs); else readFile(csvs[0]); }); });
 function isPdfFile(f){ return f.type==='application/pdf' || /\.pdf$/i.test(f.name||''); }
 function routeFiles(fs){
   var pdfs=fs.filter(isPdfFile), pics=fs.filter(function(f){ return !isPdfFile(f); });
@@ -2963,8 +2966,13 @@ var TP3=(function(){
 var TPX=null;
 var TP_UNITS={usft:{k:3937/1200, lab:'US ft'}, ft:{k:1/0.3048, lab:'ft'}, m:{k:1, lab:'m'}};
 function tpU(){ return TP_UNITS[(TPX&&TPX.units)||'usft']; }
-function isTp3File(f){ return /\.tp3$/i.test(f.name||''); }
-function pickTp3(){ var i=document.createElement('input'); i.type='file'; i.accept='.tp3,application/octet-stream,*/*'; i.onchange=function(){ if(i.files[0]) openTp3(i.files[0]); }; i.click(); }
+function isTp3File(f){ return /\.tp3$/i.test(f.name||'') || /\.tp3[ .(]/i.test(f.name||''); }
+// pickers live in the page (iPhone Safari can drop the "chosen" event of a picker that isn't attached to the page);
+// no file-type filter on the TP3 picker — iPhone doesn't know .tp3 and may grey it out or ignore the choice
+function pickTp3(){ var i=$('#tpIn'); i.value=''; i.click(); }
+function tpPicked(){ var f=this.files&&this.files[0]; if(f){ this.value=''; openTp3(f); } }
+$('#tpIn').addEventListener('change', tpPicked); $('#tpIn').addEventListener('input', function(){ if(this.files&&this.files[0]) tpPicked.call(this); });
+$('#planIn').addEventListener('change', function(){ var f=this.files&&this.files[0]; if(f){ this.value=''; openPlan(f); } });
 function showTpScreen(){ ['#home','#gridScreen','#photoScreen','#planScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#tpScreen').classList.add('on'); }
 async function openTp3(f){
   showTpScreen(); $('#tpTitle').textContent=f.name.replace(/\.tp3$/i,'');
