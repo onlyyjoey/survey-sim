@@ -1082,7 +1082,15 @@ function dl(m){
 try{ var s=ls.get('csvfix.file'); if(s) file=JSON.parse(s); }catch(e){ file=null; }
 showHome();
 window.CSVFix={ loadText:loadText, get file(){return file;} }; // for testing
-if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(function(){});
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  // check for a newer version every time the app opens or comes back to the front; reload once when it arrives
+  var hadSW=!!navigator.serviceWorker.controller, reloaded=false;
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+    reg.update();
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) reg.update(); });
+  }).catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange', function(){ if(hadSW && !reloaded){ reloaded=true; location.reload(); } });
+}
 })();
 </script>
 </body>
