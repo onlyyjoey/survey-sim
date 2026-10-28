@@ -3120,7 +3120,13 @@ function tpUnnumber(){ var snap=tpSnap(), o=TPX.lops, n=0; o.order.forEach(funct
   tpEditor(true); setTimeout(function(){ toast('Removed numbers from '+n+' layers', true, tpUndoTo(snap)); },40); }
 function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.dupDrop).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
 function tpEnt(lid,kind){ var f=tpFinal(lid); if(f==null) return null; var c=TPX.lops.clear[lid]; if(c==='all'||(c==='pts'&&kind==='p')) return null; return f; } // where an item on layer lid ends up (null = removed)
-function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ var cl=TPX.lops.clear[L.id]; if(!cl) c.pts+=L.pts-(TPX.lops.dupN[L.id]||0); if(cl!=='all'){ c.lines+=L.lines; c.labels+=L.labels; } } }); return c; }
+function tpCutCounts(){ // per-layer counts of what the applied boundary cut keeps (and the doubles still removed inside it)
+  var M=TPX.M, P=TPX.plan, C={}; M.layerList.forEach(function(L){ C[L.id]={pts:0,lines:0,labels:0,dup:0}; });
+  for(var i=0;i<M.pE.length;i++) if(P.points[i]){ var c=C[M.pL[i]]; if(c){ c.pts++; if(TPX.lops.dupDrop[i]) c.dup++; } }
+  M.lines.forEach(function(l,i){ if(P.lines[i]&&C[l.layer]) C[l.layer].lines++; }); M.labels.forEach(function(l,i){ if(P.labels[i]&&C[l.layer]) C[l.layer].labels++; });
+  TPX.cutCnt=C; }
+function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}, K=TPX.cutDone&&TPX.cutCnt; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ var cl=TPX.lops.clear[L.id], n=K?K[L.id]:L;
+  if(!cl) c.pts+=n.pts-(K?n.dup:(TPX.lops.dupN[L.id]||0)); if(cl!=='all'){ c.lines+=n.lines; c.labels+=n.labels; } } }); return c; }
 var tpSymCache={};
 function tpSymURL(sym,rgb){ var k=Array.prototype.join.call(sym,',')+'|'+rgb.join(','); if(tpSymCache[k]) return tpSymCache[k];
   var c=document.createElement('canvas'); c.width=c.height=16; var x=c.getContext('2d'), im=x.createImageData(16,16), dk=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])>200;
@@ -3156,11 +3162,12 @@ function tpRender(){
     x.fillStyle='hsla('+hue+',60%,55%,0.2)'; x.fill('evenodd'); x.strokeStyle='hsla('+hue+',60%,45%,0.7)'; x.lineWidth=1; x.stroke(); });
   // lines
   x.lineWidth=1.2; x.lineJoin='round';
-  M.lines.forEach(function(l){ var f=finL[l.layer]; if(f==null) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
+  var cutP=TPX.cutDone&&TPX.plan;
+  M.lines.forEach(function(l,li){ var f=finL[l.layer]; if(f==null || (cutP&&!cutP.lines[li])) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
     for(var k=0;k<l.n;k++){ var px=l.xy[k*2]*s+tx, py=-l.xy[k*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); });
   // points (batched by layer)
   var r=Math.max(1.2, Math.min(3, s*0.25)), by={}, dd=TPX.lops.dupDrop;
-  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null || dd[i]) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
+  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null || dd[i] || (cutP&&!cutP.points[i])) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
   Object.keys(by).forEach(function(lid){ var a=by[lid]; x.fillStyle=col[lid]||'#666'; for(var j=0;j<a.length;j+=2) x.fillRect(a[j]-r/2,a[j+1]-r/2,r,r); });
   // control points
   x.fillStyle='#e11d48'; M.control.forEach(function(cp){ var px=cp.E*s+tx, py=-cp.N*s+ty; x.beginPath(); x.moveTo(px,py-6); x.lineTo(px+5,py+4); x.lineTo(px-5,py+4); x.closePath(); x.fill(); });
@@ -3225,7 +3232,7 @@ function tpLoops(S){ // boundary edges = edges used by only one triangle; chain 
     if(L.length>2) loops.push(L); } });
   return loops; }
 function tpModeChips(){ document.querySelectorAll('#tpScreen [data-tpm]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tpm')===TPX.mode); }); }
-function tpChanged(){ TPX.plan=null; if(TPX.closed && TPX.poly.length>=3){ TPX.plan=TP3.plan(TPX.M,{poly:TPX.poly, buffer:TPX.buffer, lines:TPX.opts.lines, surfaces:TPX.opts.surfaces, control:TPX.opts.control}); } tpRender(); tpInfo(); }
+function tpChanged(){ TPX.plan=null; if(TPX.closed && TPX.poly.length>=3){ TPX.plan=TP3.plan(TPX.M,{poly:TPX.poly, buffer:TPX.buffer, lines:TPX.opts.lines, surfaces:TPX.opts.surfaces, control:TPX.opts.control}); if(TPX.cutDone) tpCutCounts(); } else TPX.cutDone=false; tpRender(); tpInfo(); }
 function tpFmt(v){ return (v*tpU().k).toFixed(2); }
 function tpInfo(){
   var M=TPX.M, h='', U=tpU();
@@ -3235,6 +3242,10 @@ function tpInfo(){
     h+='<div class="muted" style="font-size:13.5px">'+(TPX.mode==='draw'
       ? (TPX.poly.length? '<b>'+TPX.poly.length+' corner'+(TPX.poly.length===1?'':'s')+'</b> — keep tapping around the area to keep. Tap the <b>first corner</b> to close it. Drag a corner to adjust.' : 'Tap the corners of the area you want to <b>keep</b>, going around it. Pinch / drag to move the map.')
       : 'Tap <b>✏ Boundary</b>, then tap around the area to keep. Everything outside — every layer — gets removed from the copy you save. Tap a point to see it.')+'</div>';
+  } else if(TPX.plan && TPX.cutDone){
+    var S0=TPX.plan.summary;
+    h+='<div class="card" style="margin:0 0 8px;padding:10px 12px"><div class="row" style="align-items:center;gap:8px"><div style="flex:1"><b style="font-size:15px">✂ Boundary cut applied</b><div class="muted" style="font-size:12.5px">Keeps '+S0.points[0].toLocaleString()+' points · '+S0.lines[0].toLocaleString()+' lines · '+S0.surfaces[0]+' surfaces</div></div><button class="btn" id="tpCutEdit">Change</button></div></div>'+
+      '<button class="btn primary block" id="tpGoLayers">🗂 Edit layers</button><p class="muted" style="margin:8px 2px 0;font-size:12.5px">Fix your layers, then tap <b>Save</b> (top right) — the cut and the layer changes go into one file.</p>';
   } else if(TPX.plan){
     var S=TPX.plan.summary, line=function(lab,a,extra){ var gone=a[1]-a[0]; return '<div class="tprow"><span>'+lab+'</span><b>'+a[0].toLocaleString()+'</b><span class="muted"> of '+a[1].toLocaleString()+(gone?' · <span class="danger">'+gone.toLocaleString()+' removed</span>':'')+(extra||'')+'</span></div>'; };
     h+='<div class="card" style="margin:0 0 8px;padding:10px 12px"><h3 style="margin-bottom:6px">Keeps</h3>'+
@@ -3243,15 +3254,19 @@ function tpInfo(){
       '<div class="field"><label>Lines crossing the edge</label><select class="inp" id="tpLines"><option value="touch"'+(TPX.opts.lines==='touch'?' selected':'')+'>Keep them</option><option value="inside"'+(TPX.opts.lines==='inside'?' selected':'')+'>Remove them</option></select></div></div>'+
       '<div class="row mt" style="gap:6px"><div class="field"><label>Surfaces</label><select class="inp" id="tpSurf"><option value="trim"'+(TPX.opts.surfaces==='trim'?' selected':'')+'>Trim to boundary</option><option value="touch"'+(TPX.opts.surfaces==='touch'?' selected':'')+'>Keep whole if inside at all</option><option value="inside"'+(TPX.opts.surfaces==='inside'?' selected':'')+'>Remove if partly outside</option></select></div>'+
       '<div class="field"><label>Control points</label><select class="inp" id="tpCtl"><option value="keep"'+(TPX.opts.control==='keep'?' selected':'')+'>Always keep</option><option value="clip"'+(TPX.opts.control==='clip'?' selected':'')+'>Remove if outside</option></select></div></div>'+
-      '<button class="btn primary block mt" id="tpSave">💾 Save clean TP3</button>'+
+      '<button class="btn primary block mt" id="tpCont">✓ Continue — edit layers next</button>'+
+      '<button class="btn block mt" id="tpSave">💾 Save clean TP3 now</button>'+
       '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
   }
   if(tpLayerChanged()){ var o=TPX.lops, nd=Object.keys(o.drop).length, nc=Object.keys(o.into).length;
     h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', 'order set'].filter(Boolean).join(' · ')+'</span></div>';
     if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave">💾 Save TP3 with layer changes</button>'; }
+  var cutView=TPX.plan&&TPX.cutDone;
   $('#tpInfo').innerHTML=h;
   if(!TPX.plan && $('#tpSave')) $('#tpSave').onclick=tpSave;
-  if(TPX.plan){
+  if(cutView){ $('#tpCutEdit').onclick=function(){ TPX.cutDone=false; tpRender(); tpInfo(); }; $('#tpGoLayers').onclick=function(){ tpEditor(); }; }
+  else if(TPX.plan){
+    $('#tpCont').onclick=function(){ TPX.cutDone=true; tpCutCounts(); tpRender(); tpInfo(); toast('Cut applied — now fix your layers, then Save', true); };
     $('#tpBuf').onchange=function(){ var v=parseFloat(this.value); TPX.buffer=isNaN(v)||v<0?0:v/U.k; tpChanged(); };
     $('#tpLines').onchange=function(){ TPX.opts.lines=this.value; tpChanged(); };
     $('#tpSurf').onchange=function(){ TPX.opts.surfaces=this.value; tpChanged(); };
@@ -3301,10 +3316,10 @@ function tpOpenLayers(){
 $('#tpBack').onclick=function(){ if(TPX&&(TPX.poly.length||tpLayerChanged())&&!confirm('Leave this TP3? Your boundary / layer changes will be lost (the file itself wasn’t changed).')) return; TPX=null; showHome(); };
 document.querySelectorAll('#tpScreen [data-tpm]').forEach(function(b){ b.onclick=function(){ if(!TPX) return;
   if(TPX.closed && !confirm('Start a new boundary? This clears the current one.')) return;
-  if(TPX.closed){ TPX.poly=[]; TPX.closed=false; TPX.plan=null; }
+  if(TPX.closed){ TPX.poly=[]; TPX.closed=false; TPX.plan=null; TPX.cutDone=false; }
   TPX.mode=TPX.mode==='draw'?'look':'draw'; TPX.pick=null; tpModeChips(); $('#tpWrap').style.cursor=TPX.mode==='draw'?'crosshair':'grab'; tpRender(); tpInfo(); }; });
 $('#tpUndo').onclick=function(){ if(!TPX||!TPX.poly.length) return; if(TPX.closed){ TPX.closed=false; TPX.mode='draw'; tpModeChips(); } else TPX.poly.pop(); tpChanged(); };
-$('#tpClear').onclick=function(){ if(!TPX) return; TPX.poly=[]; TPX.closed=false; TPX.plan=null; tpRender(); tpInfo(); };
+$('#tpClear').onclick=function(){ if(!TPX) return; TPX.poly=[]; TPX.closed=false; TPX.plan=null; TPX.cutDone=false; tpRender(); tpInfo(); };
 $('#tpLayersB').onclick=function(){ if(TPX) tpOpenLayers(); };
 $('#tpFitB').onclick=function(){ if(TPX){ tpFit(); tpRender(); } };
 $('#tpOpenB').onclick=pickTp3;
@@ -3410,11 +3425,11 @@ function tpLayerOpen(id){
 }
 function tpCombine(ids,to){ var o=TPX.lops; ids.forEach(function(id){ if(id===to||id===0) return; o.into[id]=to; delete o.edit[id]; o.order=o.order.filter(function(x){ return x!==id; }); delete TPX.hide[id]; }); }
 /* ---- combine with clean-up: the same pile on two layers → keep one copy (the newer one by default) ---- */
-function tpKeepPt(i){ return tpEnt(TPX.M.pL[i],'p')!=null && !TPX.lops.dupDrop[i]; }
+function tpKeepPt(i){ return tpEnt(TPX.M.pL[i],'p')!=null && !TPX.lops.dupDrop[i] && (!TPX.cutDone||!TPX.plan||TPX.plan.points[i]); }
 function tpPtName(i){ var j=TPX.lops.attrFrom[i]; return TP3.pointName(TPX.M, j!=null?j:i); }
 function tpPtCode(i){ var j=TPX.lops.attrFrom[i]; return TP3.pointCode(TPX.M, j!=null?j:i); }
 function tpPtTime(i){ var d=TPX.M.T[1].data, o=i*26+18; var lo=(d[o]|(d[o+1]<<8)|(d[o+2]<<16))+d[o+3]*16777216, hi=(d[o+4]|(d[o+5]<<8)|(d[o+6]<<16))+d[o+7]*16777216; return (hi*4294967296+lo)/1e4-11644473600000; }
-function tpPtsOn(id){ var M=TPX.M, a=[]; for(var i=0;i<M.pE.length;i++) if(tpEnt(M.pL[i],'p')===id && !TPX.lops.dupDrop[i]) a.push(i); return a; }
+function tpPtsOn(id){ var M=TPX.M, a=[], cut=TPX.cutDone&&TPX.plan; for(var i=0;i<M.pE.length;i++) if(tpEnt(M.pL[i],'p')===id && !TPX.lops.dupDrop[i] && (!cut||cut.points[i])) a.push(i); return a; }
 function tpWhen(ms){ if(!(ms>0)) return ''; var d=new Date(ms); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
 /* pts: {id:[point idx]}, prio: layer ids best-first, by:'spot'|'name', tol (m), nameFrom: layer id or null (= the kept copy) */
 function tpDupScan(pts, prio, by, tol, nameFrom, inside){
