@@ -165,6 +165,13 @@ input,select{font:inherit;color:var(--ink)}
 .lacts button{border:0;width:88px;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer}
 .lacts .la-clr{background:#e8930c}.lacts .la-del{background:var(--bad);transition:width .18s}.lacts .la-del.full{width:100vw}
 .lrow.gone{opacity:0}
+.lfl{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.fl{border:1px solid var(--line);background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:750;padding:3px 7px;border-radius:7px;cursor:pointer;text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.fl.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent);text-decoration:none}
+#tpScale{position:absolute;left:12px;top:10px;z-index:2;pointer-events:none;color:#111;font-weight:800;font-size:13px;line-height:1}
+#tpScale .bar{height:14px;border:2.5px solid currentColor;border-top:0;border-bottom:0;position:relative}
+#tpScale .bar:after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid currentColor}
+#tpScale span{display:block;margin-top:3px;text-shadow:0 0 3px var(--panel),0 0 3px var(--panel)}
 .kind{font-style:normal;display:inline-block;vertical-align:2px;font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:6px;margin-left:2px;white-space:nowrap}
 .k-pts{background:color-mix(in srgb,#2563eb 16%,transparent);color:#2563eb}.k-lines{background:color-mix(in srgb,#16a34a 18%,transparent);color:#15803d}
 .k-both{background:color-mix(in srgb,#7c3aed 16%,transparent);color:#7c3aed}.k-lbl,.k-empty{background:var(--panel2);color:var(--muted)}
@@ -498,7 +505,7 @@ select.inp{font-size:15px;padding:10px}
     <button class="chip" id="tpFitB">Fit</button>
   </div>
   <div id="tpStatus" class="pvstatus"></div>
-  <div id="tpWrap"><canvas id="tpCanvas"></canvas><button class="tplost" id="tpLost" hidden>↺ Job is off screen — tap to bring it back</button><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job">⤢</button></div>
+  <div id="tpWrap"><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden>↺ Job is off screen — tap to bring it back</button><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job">⤢</button></div>
   <div id="tpInfo" class="pvinfo"></div>
 </section>
 
@@ -2925,6 +2932,7 @@ var TP3=(function(){
       if(e.name!=null){ for(var j=2;j<130;j++) r[j]=0; var nm=String(e.name).slice(0,63); for(j=0;j<nm.length;j++) w16(r,2+j*2,nm.charCodeAt(j)); }
       if(e.rgb){ r[132]=e.rgb[0]; r[133]=e.rgb[1]; r[134]=e.rgb[2]; if(e.ci!=null) r[194]=e.ci; }
       if(e.sym) r.set(e.sym,158);
+      if(e.flags!=null) w16(r,136,e.flags);  // display: 1 show layer · 4 point names · 8 hide descriptions · 16 elevations
       NL.data.set(r,i*LT.esz); });
     // move coordinates when an item changes layer (they're stored relative to the layer origin)
     var C=clone(0x02), cdv=new DataView(C.data.buffer);
@@ -3088,6 +3096,28 @@ function tpColor(id){ // the layer's own color, nudged so white layers show on a
   if(!TPX.dark && l>0.8) return 'rgb('+Math.round(c[0]*0.45)+','+Math.round(c[1]*0.45)+','+Math.round(c[2]*0.45)+')';
   if(TPX.dark && l<0.2) return 'rgb('+(c[0]+150)+','+(c[1]+150)+','+(c[2]+150)+')';
   return 'rgb('+c.join(',')+')'; }
+var TPF={show:[1,0], names:[4,0], desc:[8,1], elev:[16,0]}; // [bit, inverted] — what Pocket 3D's Layer screen calls Show layer / Show point names / descriptions / elevations
+function tpFlags(id){ var e=TPX.lops.edit[id], L=TPX.M.layers[id]; return (e&&e.flags!=null)?e.flags:(L?L.flags:1); }
+function tpOn(id,k){ var b=TPF[k], v=!!(tpFlags(id)&b[0]); return b[1]?!v:v; }
+function tpSetOn(id,k,on){ var b=TPF[k], f=tpFlags(id), set=b[1]?!on:on; f=set?(f|b[0]):(f&~b[0]); var e=TPX.lops.edit[id]=TPX.lops.edit[id]||{}; if(TPX.M.layers[id]&&f===TPX.M.layers[id].flags) delete e.flags; else e.flags=f; if(!Object.keys(e).length) delete TPX.lops.edit[id]; }
+function tpFlagChips(id){ return '<div class="lfl">'+[['show','👁','Shown'],['names','#','Names'],['desc','D','Desc'],['elev','Z','Elev']].map(function(k){ var on=tpOn(id,k[0]); return '<button class="fl'+(on?' on':'')+'" data-fl="'+k[0]+'" aria-pressed="'+on+'">'+k[2]+'</button>'; }).join('')+'</div>'; }
+function tpLabelsSheet(ids, back){
+  var lab={names:'Point names', desc:'Point descriptions', elev:'Point elevations', show:'Show layer'}, h='<p class="muted" style="margin:0 0 10px">'+(ids.length===TPX.lops.order.length?'All '+ids.length+' layers':ids.length+' selected layers')+'. Labels on thousands of points are what slows the data collector down — turn them off on layers you don’t need to read.</p>';
+  ['names','desc','elev','show'].forEach(function(k){ var n=ids.filter(function(id){ return tpOn(id,k); }).length;
+    h+='<div class="card" style="padding:10px 12px"><div class="row" style="align-items:center"><div style="flex:1"><b style="font-size:15px">'+lab[k]+'</b><div class="muted" style="font-size:12.5px">On for '+n+' of '+ids.length+'</div></div><button class="btn" data-off="'+k+'"'+(n?'':' disabled')+'>All off</button><button class="btn" data-onn="'+k+'"'+(n===ids.length?' disabled':'')+'>All on</button></div></div>'; });
+  h+='<button class="btn primary block mt" id="lbBack">‹ Layers</button>';
+  openSheet('Point labels', h, function(){ tpSel=null; tpRender(); tpInfo(); });
+  function apply(k,on){ var snap=tpSnap(); ids.forEach(function(id){ tpSetOn(id,k,on); }); tpLabelsSheet(ids,back); setTimeout(function(){ toast(lab[k]+(on?' on':' off')+' for '+ids.length+' layers', true, tpUndoTo(snap, function(){ tpLabelsSheet(ids,back); })); },40); }
+  document.querySelectorAll('[data-off]').forEach(function(b){ b.onclick=function(){ apply(b.getAttribute('data-off'),false); }; });
+  document.querySelectorAll('[data-onn]').forEach(function(b){ b.onclick=function(){ apply(b.getAttribute('data-onn'),true); }; });
+  $('#lbBack').onclick=function(){ (back||tpEditor)(); };
+}
+function tpNumberNames(){ // put 01 02 03… in front of the names so the order holds when the collector sorts by name
+  var snap=tpSnap(), o=TPX.lops, w=String(o.order.length).length<2?2:String(o.order.length).length;
+  o.order.forEach(function(id,i){ if(id===0) return; var base=tpName(id).replace(/^\d{2,3}[ _-]+/,''), nm=String(i).padStart(w,'0')+' '+base; var e=o.edit[id]=o.edit[id]||{}; if(TPX.M.layers[id] && nm===TPX.M.layers[id].name) delete e.name; else e.name=nm; });
+  tpEditor(true); setTimeout(function(){ toast('Numbered '+(o.order.length-1)+' layers in this order', true, tpUndoTo(snap)); },40); }
+function tpUnnumber(){ var snap=tpSnap(), o=TPX.lops, n=0; o.order.forEach(function(id){ var nm=tpName(id), b=nm.replace(/^\d{2,3}[ _-]+/,''); if(b!==nm){ n++; var e=o.edit[id]=o.edit[id]||{}; if(TPX.M.layers[id] && b===TPX.M.layers[id].name) delete e.name; else e.name=b; } });
+  tpEditor(true); setTimeout(function(){ toast('Removed numbers from '+n+' layers', true, tpUndoTo(snap)); },40); }
 function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.dupDrop).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
 function tpEnt(lid,kind){ var f=tpFinal(lid); if(f==null) return null; var c=TPX.lops.clear[lid]; if(c==='all'||(c==='pts'&&kind==='p')) return null; return f; } // where an item on layer lid ends up (null = removed)
 function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ var cl=TPX.lops.clear[L.id]; if(!cl) c.pts+=L.pts-(TPX.lops.dupN[L.id]||0); if(cl!=='all'){ c.lines+=L.lines; c.labels+=L.labels; } } }); return c; }
@@ -3107,7 +3137,12 @@ function tpSizeCanvas(){ var w=$('#tpWrap'), r=w.getBoundingClientRect(), dpr=Ma
 function tpFit(){ var e=TPX.M.ext, w=e[2]-e[0]||1, h=e[3]-e[1]||1, s=Math.min(TPX.W/w, TPX.H/h)*0.92; TPX.s=s; TPX.tx=TPX.W/2-(e[0]+w/2)*s; TPX.ty=TPX.H/2+(e[1]+h/2)*s; }
 function tpX(E){ return E*TPX.s+TPX.tx; } function tpY(N){ return -N*TPX.s+TPX.ty; }
 function tpW(x,y){ return [(x-TPX.tx)/TPX.s, -(y-TPX.ty)/TPX.s]; }
+function tpScaleBar(){ // like the data collector: a bar of a round length in the corner
+  var el=$('#tpScale'); if(!TPX||!(TPX.s>0)) { el.hidden=true; return; } el.hidden=false; var U=tpU(), upx=U.k/TPX.s, want=upx*90, p=Math.pow(10,Math.floor(Math.log10(want))), n=want/p, nice=(n<1.5?1:n<3.5?2:n<7.5?5:10)*p;
+  el.querySelector('.bar').style.width=Math.round(nice/upx)+'px'; el.querySelector('.bar').style.color=TPX.dark?'#eee':'#111';
+  var txt=nice>=1?String(+nice.toFixed(0)):String(+nice.toFixed(nice<0.1?3:2)).replace(/^0(?=\.)/,'0'); el.querySelector('span').textContent=(nice<1?nice.toFixed(nice<0.1?3:2):txt)+(U.lab==='m'?' m':"'"); el.style.color=TPX.dark?'#eee':'#111'; }
 function tpRender(){
+  tpScaleBar();
   if(!(TPX.s>0) || !isFinite(TPX.s) || !isFinite(TPX.tx) || !isFinite(TPX.ty)) tpFit();
   var M=TPX.M, c=$('#tpCanvas'), x=c.getContext('2d'), dpr=TPX.dpr, s=TPX.s, tx=TPX.tx, ty=TPX.ty, W=TPX.W, H=TPX.H, fin={};
   var finP={}, finL={}; M.layerList.forEach(function(L){ var f=tpEnt(L.id,'p'); finP[L.id]=(f==null||TPX.hide[f])?null:f; f=tpEnt(L.id,'l'); finL[L.id]=(f==null||TPX.hide[f])?null:f; });
@@ -3145,7 +3180,7 @@ function tpRender(){
 /* ---- gestures: transform the canvas while moving, redraw when you let go (cheap on battery) ---- */
 (function(){
   var wrap=$('#tpWrap'), ptr=new Map(), st=null, pinch=null, drag=null, rt=null;
-  function live(){ var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
+  function live(){ tpScaleBar(); var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
   function begin(){ TPX.s0=TPX.s; TPX.tx0=TPX.tx; TPX.ty0=TPX.ty; }
   function settle(){ clearTimeout(rt); rt=setTimeout(function(){ if(TPX) tpRender(); }, 60); }
   wrap.addEventListener('pointerdown', function(e){ if(!TPX) return; wrap.setPointerCapture(e.pointerId); ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
@@ -3288,6 +3323,8 @@ function tpEditor(keepScroll){
       '<button class="chip" id="leAz">Sort A→Z</button>'+
       '<button class="chip" id="leEmpty">Empty to bottom</button>'+
       '<button class="chip" id="leDup">Find look-alikes</button>'+
+      '<button class="chip" id="leLab">Point labels…</button>'+
+      '<button class="chip" id="leNum">'+(TPX.lops.order.some(function(id){ return /^\d{2,3} /.test(tpName(id)); })?'↻ Renumber names':'01 02… Number names')+'</button>'+
       (tpLayerChanged()?'<button class="chip" id="leReset">↺ Undo all</button>':'')+'</div>'+
     '<div id="leList">';
   o.order.forEach(function(id,i){ var c=tpCounts(id), fixed=id===0, merged=Object.keys(o.into).filter(function(k){ return tpFinal(+k)===id && +k!==id; }).length;
@@ -3295,16 +3332,19 @@ function tpEditor(keepScroll){
       (fixed?'<span class="lh" style="opacity:.25">≡</span>':'<span class="lh" aria-label="Drag to reorder">≡</span>')+
       (tpSel&&!fixed?'<input type="checkbox" data-ls="'+id+'"'+(tpSel[id]?' checked':'')+'>':'')+
       tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id)||'(no name)')+' '+tpKind(id)+(o.edit[id]&&o.edit[id].name!=null?' <i class="lt">renamed</i>':'')+(merged?' <i class="lt">+'+merged+' combined</i>':'')+(Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?' <i class="lt" style="color:var(--bad)">emptied</i>':'')+'</b><span>'+
-      ([c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'empty')+'</span></div><span class="lgo">›</span></div></div>'; });
+      ([c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'empty')+'</span>'+tpFlagChips(id)+'</div><span class="lgo">›</span></div></div>'; });
   h+='</div>';
   var nDel=Object.keys(o.drop).length; if(nDel) h+='<p class="muted" style="margin:10px 2px 0">'+nDel+' layer'+(nDel>1?'s':'')+' deleted (with everything on '+(nDel>1?'them':'it')+'). <button class="linkbtn" id="leUndel" style="display:inline;margin:0;padding:0">Bring back</button></p>';
-  if(tpSel) h+='<div class="lebar"><span id="leN">'+Object.keys(tpSel).length+' selected</span><button class="btn" id="leComb">⧉ Combine</button><button class="btn" id="leDel" style="color:var(--bad)">🗑 Delete</button></div>';
+  if(tpSel) h+='<div class="lebar"><span id="leN">'+Object.keys(tpSel).length+' selected</span><button class="btn" id="leComb">⧉ Combine</button><button class="btn" id="leLabS">Labels</button><button class="btn" id="leDel" style="color:var(--bad)">🗑 Delete</button></div>';
   openSheet('Layers ('+o.order.length+')', h, function(){ tpSel=null; tpRender(); tpInfo(); });
   $('#shBody').scrollTop=top;
   $('#leSel').onclick=function(){ tpSel=tpSel?null:{}; tpEditor(true); };
   $('#leAz').onclick=function(){ o.order=[0].concat(o.order.filter(function(id){ return id!==0; }).sort(function(a,b){ return tpName(a).localeCompare(tpName(b),undefined,{numeric:true,sensitivity:'base'}); })); tpEditor(true); toast('Sorted A→Z', true); };
   $('#leEmpty').onclick=function(){ var full=[], empty=[]; o.order.forEach(function(id){ var c=tpCounts(id); (id===0||c.pts||c.lines||c.labels?full:empty).push(id); }); o.order=full.concat(empty); tpEditor(true); toast(empty.length+' empty layer'+(empty.length===1?'':'s')+' moved to the bottom', true); };
   $('#leDup').onclick=tpLookAlikes;
+  $('#leLab').onclick=function(){ tpLabelsSheet(tpSel&&Object.keys(tpSel).length?Object.keys(tpSel).map(Number):o.order.slice()); };
+  $('#leNum').onclick=function(){ if(/Renumber/.test(this.textContent)){ if(confirm('Renumber in the current order?\n\nOK = renumber · Cancel = remove the numbers')) tpNumberNames(); else tpUnnumber(); } else tpNumberNames(); };
+  document.querySelectorAll('#leList [data-fl]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); var id=+b.closest('.lrow').getAttribute('data-lid'), k=b.getAttribute('data-fl'), on=!tpOn(id,k); tpSetOn(id,k,on); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); });
   if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}}; tpSel=null; tpEditor(); };
   if($('#leUndel')) $('#leUndel').onclick=function(){ Object.keys(o.drop).forEach(function(k){ delete o.drop[k]; o.order.push(+k); }); tpEditor(true); };
   document.querySelectorAll('#leList .lrow').forEach(function(r){ r.addEventListener('click', function(e){ if(e.target.closest('.lh')||e.target.closest('.lacts')) return; var id=+r.getAttribute('data-lid');
@@ -3312,6 +3352,7 @@ function tpEditor(keepScroll){
     if(tpSel){ if(id===0) return; var cb=r.querySelector('input'); if(e.target!==cb) cb.checked=!cb.checked; if(cb.checked) tpSel[id]=true; else delete tpSel[id]; $('#leN').textContent=Object.keys(tpSel).length+' selected'; return; }
     tpLayerOpen(id); }); });
   if(tpSel){ $('#leComb').onclick=function(){ var ids=Object.keys(tpSel).map(Number); if(ids.length<2){ toast('Pick 2 or more layers to combine', true); return; } tpCombineAsk(ids); };
+    $('#leLabS').onclick=function(){ var ids=Object.keys(tpSel).map(Number); if(!ids.length){ toast('Pick the layers first', true); return; } tpLabelsSheet(ids); };
     $('#leDel').onclick=function(){ var ids=Object.keys(tpSel).map(Number); if(!ids.length){ toast('Pick the layers to delete', true); return; } tpDeleteAsk(ids); }; }
   tpDragList(); tpSwipeList();
 }
@@ -3338,6 +3379,7 @@ function tpLayerOpen(id){
   var M=TPX.M, o=TPX.lops, c=tpCounts(id), rgb=tpRgb(id), sym=tpSym(id), fixed=id===0, pos=o.order.indexOf(id);
   var h='<div class="card"><h3>Name</h3><input class="inp" id="lnName" maxlength="63" value="'+escH(tpName(id))+'"'+(fixed?' disabled':'')+'>'+
       '<p class="muted" style="margin:6px 0 0">'+([c.pts?c.pts.toLocaleString()+' points':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'Empty layer')+' · position '+(pos+1)+' of '+o.order.length+'</p></div>'+
+    '<div class="card"><h3>On the data collector</h3>'+[['show','Show layer'],['names','Show point names'],['desc','Show point descriptions'],['elev','Show point elevations']].map(function(k){ return '<label class="check"><input type="checkbox" data-lf="'+k[0]+'"'+(tpOn(id,k[0])?' checked':'')+'> '+k[1]+'</label>'; }).join('')+'</div>'+
     '<div class="card"><h3>Color</h3><div class="swatches">'+M.palette.map(function(p,i){ return '<button class="sw'+(p.rgb.join()===rgb.join()?' on':'')+'" data-pc="'+i+'" style="background:rgb('+p.rgb.join(',')+')" aria-label="color"></button>'; }).join('')+'</div>'+
       '<p class="muted" style="margin:8px 0 0">Colors your data collector already uses in this job.</p></div>'+
     '<div class="card"><h3>Symbol</h3><div class="swatches">'+M.symbols.map(function(sy,i){ return '<button class="sw sym'+(Array.prototype.join.call(sy)===Array.prototype.join.call(sym)?' on':'')+'" data-sy="'+i+'"><img src="'+tpSymURL(sy,rgb)+'" alt=""></button>'; }).join('')+'</div></div>';
@@ -3352,6 +3394,7 @@ function tpLayerOpen(id){
   h+='<button class="btn primary block mt" id="lnBack">‹ All layers</button>';
   openSheet(tpName(id)||'(no name)', h, function(){ tpRender(); tpInfo(); });
   function ed(){ return o.edit[id]=o.edit[id]||{}; }
+  document.querySelectorAll('[data-lf]').forEach(function(cb){ cb.onchange=function(){ tpSetOn(id,cb.getAttribute('data-lf'),cb.checked); }; });
   if(!fixed) $('#lnName').onchange=function(){ var v=this.value.trim(); if(!v){ this.value=tpName(id); return; } if(v===M.layers[id].name) delete ed().name; else ed().name=v; $('#shTitle').textContent=v; };
   document.querySelectorAll('[data-pc]').forEach(function(b){ b.onclick=function(){ var p=M.palette[+b.getAttribute('data-pc')], e=ed(); e.rgb=p.rgb; e.ci=p.ci; document.querySelectorAll('[data-pc]').forEach(function(x){ x.classList.toggle('on',x===b); });
     document.querySelectorAll('[data-sy]').forEach(function(x){ x.querySelector('img').src=tpSymURL(M.symbols[+x.getAttribute('data-sy')],p.rgb); }); tpRender(); }; });
