@@ -10,4 +10,4 @@ Online rooms use the same room codes as the claude.ai version (crew must all be 
 
 Open: https://onlyyjoey.github.io/survey-sim/csv/
 
-On iPhone: open in Safari → Share → **Add to Home Screen**. Add a .csv point file, then Fix Elevations (wrong rod height or add/subtract any value), view/edit as a spreadsheet, move columns, renumber points, and Save/Share the fixed file. Files stay on the phone.
+On iPhone: open in Safari → Share → **Add to Home Screen**. Add a .csv point file, then Format with a saved preset (keep only the columns you need), Fix Elevations (wrong rod height or add/subtract any value), view/edit as a spreadsheet, move columns, renumber points, and Save/Share the fixed file. Files stay on the phone.

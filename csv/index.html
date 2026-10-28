@@ -134,6 +134,27 @@ select.inp{font-size:15px;padding:10px}
 .or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
 .rolegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .rolegrid .chip{text-align:center}
+.plist{display:grid;gap:8px}
+.prow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer}
+.prow .pn{flex:1;min-width:0}
+.prow .pn b{display:block;font-size:15px}
+.prow .pn span{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .x{border:0;background:none;color:var(--muted);font-size:18px;padding:4px 8px;cursor:pointer}
+.last{border:2px solid var(--accent);background:linear-gradient(0deg,var(--sel),var(--panel))}
+.tag{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.mk{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:6px}
+.mk.off{opacity:.45}
+.mk input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.mk .mn{flex:1;min-width:0}
+.mk .mn b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk .mn span{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk .num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:800;font-family:inherit}
+.mk.off .num{background:var(--panel2);color:var(--muted)}
+.mk .ud{flex:none;border:0;background:var(--panel2);border-radius:8px;width:34px;height:34px;font-size:15px;cursor:pointer}
+.map{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.map .to{flex:none;width:30%;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis}
+.map select{flex:1}
+.map select.miss{border-color:var(--bad)}
 .mt{margin-top:12px}
 .muted{color:var(--muted);font-size:13px}
 .danger{color:var(--bad)}
@@ -179,6 +200,10 @@ select.inp{font-size:15px;padding:10px}
           <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg></div>
           <div><b>View &amp; Edit Points</b><span>Spreadsheet view — move columns, edit cells</span></div>
         </button>
+        <button class="opt" data-go="format">
+          <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M4 12h7M4 18h12"/><path d="M18 4v6M15 7h6"/></svg></div>
+          <div><b>Format / Presets</b><span>Keep only the columns you need, in your order</span></div>
+        </button>
         <button class="opt" data-go="renum">
           <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div>
           <div><b>Renumber Points</b><span>First column 1, 2, 3… up to 9999999</span></div>
@@ -206,8 +231,7 @@ select.inp{font-size:15px;padding:10px}
     <button class="iconbtn" data-go="fix" style="background:var(--accent);color:#fff">Fix Elev</button>
   </div>
   <div class="toolrow">
-    <button class="chip" data-order="PNEZD">Order PNEZD</button>
-    <button class="chip" data-order="PENZD">Order PENZD</button>
+    <button class="chip" data-go="format" style="background:var(--accent);color:#fff;border-color:var(--accent)">⚙ Format / Presets</button>
     <button class="chip" data-go="renum">Renumber</button>
     <button class="chip" id="hdrToggle">Header row</button>
     <button class="chip" data-go="export">Save</button>
@@ -357,6 +381,7 @@ function go(where){
   if(where==='grid') showGrid();
   else if(where==='fix') openFix();
   else if(where==='renum') openRenum();
+  else if(where==='format') openFormat();
   else if(where==='export') openExport();
 }
 document.addEventListener('click', function(e){
@@ -488,11 +513,152 @@ $('#hdrToggle').onclick = function(){
   save(); layoutGrid();
 };
 
+/* ---------------- format presets ----------------
+   preset = {id, name, hdr: true|false|null (null = leave header as is), srcCount,
+             cols:[{h: header text to look for, role: 'P'|'N'|..., pos: column # it was in, out: name in the output}]} */
+var BUILTIN = ['PNEZD','PENZD','PNEZ','PENZ'].map(function(o){
+  return {id:'b-'+o, name:o, builtin:true, hdr:null,
+    cols:o.split('').map(function(r){ return {role:r}; })};
+});
+function userPresets(){ try{ return JSON.parse(ls.get('csvfix.presets')||'[]'); }catch(e){ return []; } }
+function setUserPresets(a){ ls.set('csvfix.presets', JSON.stringify(a)); }
+function allPresets(){ return userPresets().concat(BUILTIN); }
+function findPreset(id){ return allPresets().filter(function(p){ return p.id===id; })[0]; }
+function presetDesc(p){ return p.cols.map(function(s){ return s.out||s.h||ROLE_NAME[s.role]||'?'; }).join(' · '); }
+
+function autoMap(p){
+  var used={}, hasH=!!file.header, H=hasH?file.header.map(function(h){return String(h).trim().toLowerCase();}):[];
+  var free=function(j){ return !used[j]; };
+  return p.cols.map(function(s){
+    var i=-1, j;
+    if(hasH && s.h){ var t=String(s.h).trim().toLowerCase(); for(j=0;j<H.length;j++) if(H[j]===t && free(j)){ i=j; break; } }
+    if(i<0 && s.role){ for(j=0;j<file.roles.length;j++) if(file.roles[j]===s.role && free(j)){ i=j; break; } }
+    if(i<0 && !hasH && s.pos!=null && p.srcCount===file.roles.length && s.pos<file.roles.length && free(s.pos)) i=s.pos;
+    if(i>=0) used[i]=1;
+    return i;
+  });
+}
+
+function applyPreset(p, map, keepHdr){
+  snap();
+  var oldRoles=file.roles;
+  var names=p.cols.map(function(s,k){ return s.out || (map[k]>=0?colName(map[k]):(ROLE_NAME[s.role]||'Blank')); });
+  file.rows=file.rows.map(function(r){ return map.map(function(i){ return i>=0?r[i]:''; }); });
+  var seen={};
+  file.roles=p.cols.map(function(s,k){ var r=s.role||(map[k]>=0?oldRoles[map[k]]:''); if(r&&seen[r]) r=''; if(r) seen[r]=1; return r; });
+  file.header = keepHdr ? names : null;
+  ls.set('csvfix.lastPreset', p.id);
+  save(); closeSheet(); refresh();
+  toast('Formatted with “'+p.name+'” — '+map.length+' columns');
+}
+
+function openFormat(){
+  var last=findPreset(ls.get('csvfix.lastPreset')), ups=userPresets();
+  var row=function(p, cls){
+    return '<div class="prow'+(cls||'')+'" data-p="'+escH(p.id)+'"><div class="pn">'+(cls?'<span class="tag">Last used</span>':'')+
+      '<b>'+escH(p.name)+'</b><span>'+escH(presetDesc(p))+'</span></div>'+
+      (!cls&&!p.builtin?'<button class="x" data-del="'+escH(p.id)+'" aria-label="Delete">✕</button>':'')+'<span style="color:var(--accent);font-weight:800">›</span></div>';
+  };
+  var h='';
+  if(last) h+='<div class="plist" style="margin-bottom:14px">'+row(last,' last')+'</div>';
+  h+='<button class="btn primary block" id="pNew">+ Make a preset from this file</button>'+
+     '<p class="muted" style="margin:6px 2px 16px">Pick the columns you want to keep and their order. Next time an engineer sends a file, tap the preset and everything else gets deleted.</p>';
+  h+='<div class="card"><h3>My presets</h3><div class="plist">'+(ups.length?ups.map(function(p){return row(p);}).join(''):'<p class="muted" style="margin:0">None yet — make one above.</p>')+'</div></div>';
+  h+='<div class="card"><h3>Standard orders</h3><div class="plist">'+BUILTIN.map(function(p){return row(p);}).join('')+'</div></div>';
+  h+='<p class="muted">This file: '+file.roles.map(function(_,i){return escH(colName(i));}).join(' · ')+'</p>';
+  openSheet('Format / Presets', h);
+  document.querySelectorAll('[data-p]').forEach(function(el){ el.onclick=function(e){
+    if(e.target.closest('[data-del]')) return;
+    openApply(findPreset(el.getAttribute('data-p')));
+  }; });
+  document.querySelectorAll('[data-del]').forEach(function(b){ b.onclick=function(){
+    var id=b.getAttribute('data-del'), p=findPreset(id);
+    if(!confirm('Delete preset “'+p.name+'”?')) return;
+    setUserPresets(userPresets().filter(function(x){return x.id!==id;}));
+    if(ls.get('csvfix.lastPreset')===id) ls.del('csvfix.lastPreset');
+    openFormat();
+  }; });
+  $('#pNew').onclick=openMaker;
+}
+
+function openApply(p){
+  var map=autoMap(p);
+  var opts=function(sel){
+    var o='<option value="-1"'+(sel<0?' selected':'')+'>— leave blank —</option>';
+    for(var i=0;i<file.roles.length;i++) o+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+escH(colName(i))+' ('+escH(String(file.rows[0]?file.rows[0][i]:'').slice(0,14))+')</option>';
+    return o;
+  };
+  var h='<div class="card"><h3>Output column ← from your file</h3>';
+  p.cols.forEach(function(s,k){
+    h+='<div class="map"><div class="to">'+(k+1)+'. '+escH(s.out||s.h||ROLE_NAME[s.role])+'</div><select class="inp'+(map[k]<0?' miss':'')+'" data-k="'+k+'">'+opts(map[k])+'</select></div>';
+  });
+  var hdrDefault = p.hdr==null ? !!file.header : p.hdr;
+  h+='</div><div class="result" id="apRes"></div>'+
+     '<label class="check"><input type="checkbox" id="apHdr"'+(hdrDefault?' checked':'')+'> Keep a header row in the file</label>'+
+     '<button class="btn primary block mt" id="apGo">Apply “'+escH(p.name)+'”</button>'+
+     '<button class="btn block mt" id="apBack">‹ Back to presets</button>';
+  openSheet(p.name, h);
+  var upd=function(){
+    document.querySelectorAll('.map select').forEach(function(s){ map[+s.getAttribute('data-k')]=+s.value; s.classList.toggle('miss', +s.value<0); });
+    var gone=[]; for(var i=0;i<file.roles.length;i++) if(map.indexOf(i)<0) gone.push(colName(i));
+    var miss=map.filter(function(i){return i<0;}).length;
+    $('#apRes').className='result'+(gone.length?' sub':'');
+    $('#apRes').innerHTML = (gone.length ? 'Deletes '+gone.length+' column'+(gone.length>1?'s':'')+'<small>'+gone.map(escH).join(' · ')+'</small>' : 'Nothing deleted — just reorders')+
+      (miss?'<small class="danger">'+miss+' column'+(miss>1?'s':'')+' not found in this file — will be blank. Pick one above if it has a different name.</small>':'');
+  };
+  document.querySelectorAll('.map select').forEach(function(s){ s.onchange=upd; });
+  upd();
+  $('#apGo').onclick=function(){ applyPreset(p, map.slice(), $('#apHdr').checked); };
+  $('#apBack').onclick=openFormat;
+}
+
+function openMaker(){
+  var order=file.roles.map(function(_,i){ return {c:i, keep:true}; });
+  openSheet('New preset',
+    '<div class="card"><div class="field"><label>Preset name</label><input class="inp" id="mkName" placeholder="e.g. Topo PNEZD for Trimble"></div></div>'+
+    '<p class="muted" style="margin:0 2px 8px">Untick what you don’t need. Use ▲▼ to set the order.</p>'+
+    '<div id="mkList"></div>'+
+    '<label class="check"><input type="checkbox" id="mkHdr"'+(file.header?' checked':'')+'> Keep a header row in the file</label>'+
+    '<button class="btn primary block mt" id="mkSave">Save preset &amp; apply</button>'+
+    '<button class="btn block mt" id="mkBack">‹ Back to presets</button>');
+  var draw=function(){
+    var n=0, h='';
+    order.forEach(function(o,k){
+      var c=o.c, r=file.roles[c], samp=file.rows.slice(0,3).map(function(x){return x[c];}).join(', ');
+      h+='<div class="mk'+(o.keep?'':' off')+'"><input type="checkbox" data-k="'+k+'"'+(o.keep?' checked':'')+'>'+
+        '<span class="num">'+(o.keep?(++n):'–')+'</span>'+
+        '<div class="mn"><b>'+escH(colName(c))+(r?' <span class="tag">'+ROLE_NAME[r]+'</span>':'')+'</b><span>'+escH(samp)+'</span></div>'+
+        '<button class="ud" data-up="'+k+'">▲</button><button class="ud" data-dn="'+k+'">▼</button></div>';
+    });
+    $('#mkList').innerHTML=h;
+    $('#mkSave').textContent='Save preset & apply ('+n+' of '+order.length+' columns)';
+  };
+  $('#mkList').onclick=function(e){
+    var cb=e.target.closest('input[type=checkbox]'), up=e.target.closest('[data-up]'), dn=e.target.closest('[data-dn]');
+    if(cb){ order[+cb.getAttribute('data-k')].keep=cb.checked; draw(); }
+    else if(up){ var k=+up.getAttribute('data-up'); if(k>0){ var t=order[k]; order[k]=order[k-1]; order[k-1]=t; draw(); } }
+    else if(dn){ var j=+dn.getAttribute('data-dn'); if(j<order.length-1){ var t2=order[j]; order[j]=order[j+1]; order[j+1]=t2; draw(); } }
+  };
+  draw();
+  $('#mkBack').onclick=openFormat;
+  $('#mkSave').onclick=function(){
+    var kept=order.filter(function(o){return o.keep;});
+    if(!kept.length){ toast('Keep at least one column', true); return; }
+    var name=$('#mkName').value.trim();
+    if(!name){ $('#mkName').focus(); toast('Give the preset a name', true); return; }
+    var p={id:'u'+Date.now(), name:name, hdr:$('#mkHdr').checked, srcCount:file.roles.length,
+      cols:kept.map(function(o){ return {h:file.header?String(file.header[o.c]).trim():'', role:file.roles[o.c]||'', pos:o.c, out:colName(o.c)}; })};
+    var ups=userPresets().filter(function(x){ return x.name.toLowerCase()!==name.toLowerCase(); });
+    ups.unshift(p); setUserPresets(ups);
+    applyPreset(p, kept.map(function(o){return o.c;}), p.hdr);
+  };
+}
+
 /* ---------------- sheets ---------------- */
 var onClose=null;
 function openSheet(title, html, after){
   $('#shTitle').textContent=title; $('#shBody').innerHTML=html; $('#shBody').scrollTop=0;
-  $('#veil').classList.add('on'); onClose=after||null;
+  $('#veil').classList.add('on'); onClose=after||null; $('#toast').classList.remove('on');
 }
 function closeSheet(){ $('#veil').classList.remove('on'); $('#shBody').innerHTML=''; var f=onClose; onClose=null; if(f) f(); }
 $('#shClose').onclick=closeSheet;
