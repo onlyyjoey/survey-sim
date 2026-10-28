@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="CSV Fix">
@@ -74,7 +74,7 @@ html.rm *,html.rm *:before,html.rm *:after{animation:none!important;transition:n
 .swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .sw{aspect-ratio:1;border-radius:50%;border:3px solid var(--panel);box-shadow:0 0 0 2px var(--line);cursor:pointer;position:relative;padding:0}
 .sw.on{box-shadow:0 0 0 3px var(--ink)}
-.sw.on:after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:18px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.sw.on:after{content:"";position:absolute;inset:0;background:center/46% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7'/%3E%3C/svg%3E");filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.55))}
 .sw.custom{background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)}
 .sw input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .brand .gear{margin-left:auto;align-self:flex-start}
@@ -84,6 +84,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
 body{overflow:hidden}
 button{font:inherit;color:inherit}
 input,select{font:inherit;color:var(--ink)}
+i.ic{display:inline-flex;width:1.15em;height:1.15em;vertical-align:-.21em;font-style:normal;flex:none}
+i.ic svg{width:100%;height:100%;display:block}
+.tpp-a button i.ic,.opt .oi i.ic{width:20px;height:20px}
+html,body{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:100%}
+@supports (-webkit-touch-callout:none){ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:max(16px,1em)!important} } /* iPhone zooms the page when a box under 16px is tapped */
 .num{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 
 /* screens */
@@ -374,7 +379,7 @@ select.inp{font-size:15px;padding:10px}
     <div class="brand">
       <img src="icon-192.png" alt="">
       <div><h1>CSV Fix <span style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0">-by joey</span></h1><p>Point files — view, renumber, fix elevations</p></div>
-      <button class="iconbtn gear" id="gearBtn" aria-label="Settings" title="Settings">⚙</button>
+      <button class="iconbtn gear" id="gearBtn" aria-label="Settings" title="Settings"><i class="ic" data-ic="gear"></i></button>
     </div>
 
     <div id="noFile">
@@ -414,7 +419,7 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><div class="tx"><b>Save / Share</b><span>Export the CSV</span></div></button>
       </div>
       <div class="row mt">
-        <button class="btn block" id="undoHome" style="flex:1">↶ Undo</button>
+        <button class="btn block" id="undoHome" style="flex:1"><i class="ic" data-ic="undo"></i> Undo</button>
         <button class="btn block" id="openOther" style="flex:1">Open another</button>
       </div>
       <button class="linkbtn" id="closeFile">Close file</button>
@@ -427,14 +432,14 @@ select.inp{font-size:15px;padding:10px}
   <div class="topbar">
     <button class="iconbtn" data-back>‹ Back</button>
     <h1 id="gTitle">Points</h1>
-    <button class="iconbtn" id="undoGrid">↶</button>
+    <button class="iconbtn" id="undoGrid"><i class="ic" data-ic="undo"></i></button>
     <button class="iconbtn" data-go="fix" style="background:var(--accent);color:var(--accent-ink)">Fix Elev</button>
     <button class="iconbtn" data-go="export" style="background:var(--good);color:#fff">Export</button>
   </div>
   <div class="toolrow">
-    <button class="chip" data-go="format" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent)">⚙ Format / Presets</button>
-    <button class="chip" id="dupChip">⧉ Duplicates</button>
-    <button class="chip" data-go="combine">⧉ Combine CSV</button>
+    <button class="chip" data-go="format" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent)"><i class="ic" data-ic="sliders"></i> Format / Presets</button>
+    <button class="chip" id="dupChip"><i class="ic" data-ic="copy"></i> Duplicates</button>
+    <button class="chip" data-go="combine"><i class="ic" data-ic="combine"></i> Combine CSV</button>
     <button class="chip" data-go="bulk">Bulk edit</button>
     <button class="chip" data-go="dups">Fix duplicates</button>
     <button class="chip" data-go="renum">Renumber</button>
@@ -454,7 +459,7 @@ select.inp{font-size:15px;padding:10px}
   <div class="scroll"><div class="wrap">
     <div class="row">
       <button class="btn primary block" style="flex:1;padding:16px 10px" id="phCam"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Take photo</button>
-      <button class="btn block" style="flex:1;padding:16px 10px;background:var(--panel);border:1px solid var(--line)" id="phLib">🖼 Photos / PDF</button>
+      <button class="btn block" style="flex:1;padding:16px 10px;background:var(--panel);border:1px solid var(--line)" id="phLib"><i class="ic" data-ic="image"></i> Photos / PDF</button>
     </div>
     <p class="muted" style="margin:8px 2px 14px"><b>Photo of a screen</b> showing Northing, Easting and Elevation → one point per photo. <b>Screenshot of a table</b> (Excel, a point list) → every row becomes a point. <b>PDF plan</b> → every N/E callout becomes a point. Add as many as you want; screenshots read best.</p>
     <div class="card"><h3>Settings</h3>
@@ -482,13 +487,13 @@ select.inp{font-size:15px;padding:10px}
     <button class="iconbtn" id="pvExport" style="background:var(--good);color:#fff">Export DXF</button>
   </div>
   <div class="toolrow">
-    <button class="chip on" data-pvm="look">👆 Coordinates</button>
-    <button class="chip" data-pvm="ctrl">🎯 Known point</button>
+    <button class="chip on" data-pvm="look"><i class="ic" data-ic="crosshair"></i> Coordinates</button>
+    <button class="chip" data-pvm="ctrl"><i class="ic" data-ic="target"></i> Known point</button>
     <button class="chip" id="pvKnown">Known points</button>
     <button class="chip" id="pvLayers">Layers</button>
     <button class="chip" id="pvGrid">Grid</button>
-    <button class="chip on" id="pvSnapB">📌 Snap on</button>
-    <button class="chip" data-pvm="box">▭ Export area</button>
+    <button class="chip on" id="pvSnapB"><i class="ic" data-ic="magnet"></i> Snap on</button>
+    <button class="chip" data-pvm="box"><i class="ic" data-ic="box"></i> Export area</button>
     <button class="chip" id="pvFitB">Fit</button>
   </div>
   <div id="pvStatus" class="pvstatus"></div>
@@ -505,15 +510,15 @@ select.inp{font-size:15px;padding:10px}
     <button class="iconbtn" id="tpSaveTop" style="background:var(--good);color:#fff">Save</button>
   </div>
   <div class="toolrow">
-    <button class="chip" data-tpm="draw" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent)">✏ Boundary</button>
-    <button class="chip" id="tpEditL">🗂 Edit layers</button>
-    <button class="chip" id="tpUndo">↶ Corner</button>
+    <button class="chip" data-tpm="draw" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent)"><i class="ic" data-ic="pen"></i> Boundary</button>
+    <button class="chip" id="tpEditL"><i class="ic" data-ic="layers"></i> Edit layers</button>
+    <button class="chip" id="tpUndo"><i class="ic" data-ic="undo"></i> Corner</button>
     <button class="chip" id="tpClear">Clear</button>
-    <button class="chip" id="tpLayersB">👁 Show / units</button>
+    <button class="chip" id="tpLayersB"><i class="ic" data-ic="eye"></i> Show / units</button>
     <button class="chip" id="tpFitB">Fit</button>
   </div>
   <div id="tpStatus" class="pvstatus"></div>
-  <div id="tpWrap"><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden>↺ Job is off screen — tap to bring it back</button><div class="tppop" id="tpPop" hidden></div><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job">⤢</button></div>
+  <div id="tpWrap"><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden><i class="ic" data-ic="locate"></i> Job is off screen — tap to bring it back</button><div class="tppop" id="tpPop" hidden></div><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job"><i class="ic" data-ic="expand"></i></button></div>
   <div id="tpInfo" class="pvinfo"></div>
 </section>
 
@@ -524,7 +529,7 @@ select.inp{font-size:15px;padding:10px}
 </div></div>
 
 <div id="ghost"></div>
-<div id="dropFx"><div class="fxcard"><svg class="ring" aria-hidden="true"><rect x="1.5" y="1.5" rx="27" ry="27" width="calc(100% - 3px)" height="calc(100% - 3px)"/></svg><div class="fxicon" id="fxIcon">⬇</div><div class="fxt" id="fxT">Drop to open</div><div class="fxs" id="fxS"></div></div></div>
+<div id="dropFx"><div class="fxcard"><svg class="ring" aria-hidden="true"><rect x="1.5" y="1.5" rx="27" ry="27" width="calc(100% - 3px)" height="calc(100% - 3px)"/></svg><div class="fxicon" id="fxIcon"><i class="ic" data-ic="download"></i></div><div class="fxt" id="fxT">Drop to open</div><div class="fxs" id="fxS"></div></div></div>
 <div id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
 <input type="file" id="tpIn" hidden>
 <input type="file" id="planIn" accept="application/pdf,.pdf" hidden>
@@ -534,6 +539,52 @@ select.inp{font-size:15px;padding:10px}
 (function(){
 "use strict";
 var $ = function(s){ return document.querySelector(s); };
+/* ---------------- icons: one drawn symbol per action (no emoji) — <i class="ic" data-ic="name"></i> anywhere becomes the SVG ---------------- */
+var ICP={
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  sliders:'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  refresh:'<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V9H15"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  combine:'<rect x="3" y="3" width="12" height="12" rx="2.2"/><path d="M15 9h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-4"/>',
+  image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
+  crosshair:'<circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
+  magnet:'<path d="M6 3.5v7.5a6 6 0 0 0 12 0V3.5"/><path d="M6 8h3.5M14.5 8H18"/>',
+  box:'<rect x="3" y="5" width="18" height="14" rx="1.5" stroke-dasharray="3.2 2.4"/>',
+  pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+  layers:'<path d="M12 3.2 2.8 8 12 12.8 21.2 8z"/><path d="m2.8 12 9.2 4.8 9.2-4.8"/><path d="m2.8 16 9.2 4.8 9.2-4.8"/>',
+  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  locate:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+  expand:'<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
+  download:'<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>',
+  file:'<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/>',
+  map:'<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/><circle cx="12" cy="14.5" r="2.6"/><path d="M12 10.2v1.7M12 17.1v1.7M7.7 14.5h1.7M14.6 14.5h1.7"/>',
+  camera:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  up:'<path d="m6 15 6-6 6 6"/>', down:'<path d="m6 9 6 6 6-6"/>', left:'<path d="m15 6-6 6 6 6"/>', right:'<path d="m9 6 6 6-6 6"/>',
+  top:'<path d="M5 4h14"/><path d="m7 13 5-5 5 5"/><path d="M12 8v12"/>', bottom:'<path d="M5 20h14"/><path d="m7 11 5 5 5-5"/><path d="M12 4v12"/>',
+  hash:'<path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"/>',
+  warn:'<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.2"/><circle cx="12" cy="17.2" r=".9" fill="currentColor" stroke="none"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7"/>',
+  pin:'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+  save:'<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+  scissors:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.6 20 18M8.6 16.4 20 6"/>',
+  eraser:'<path d="M20 20H9.5L4.2 14.7a1.5 1.5 0 0 1 0-2.1l8.5-8.5a1.5 1.5 0 0 1 2.1 0l4.7 4.7a1.5 1.5 0 0 1 0 2.1L11 19.4"/><path d="m8 9.5 6.5 6.5"/>',
+  'pin-x':'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><path d="m10 8 4 4M14 8l-4 4"/>',
+  square:'<rect x="4" y="4" width="16" height="16" rx="3"/>',
+  grip:'<path d="M5 8h14M5 12h14M5 16h14"/>',
+  'move-h':'<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'
+};
+function icSvg(n){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICP[n]||'')+'</svg>'; }
+function icFill(root){ (root.querySelectorAll?root:document).querySelectorAll('i[data-ic]').forEach(function(e){ var n=e.getAttribute('data-ic'); e.removeAttribute('data-ic'); e.innerHTML=icSvg(n); }); }
+icFill(document);
+try{ new MutationObserver(function(ms){ for(var k=0;k<ms.length;k++){ var a=ms[k].addedNodes; for(var j=0;j<a.length;j++){ var nd=a[j]; if(nd.nodeType!==1) continue; if(nd.matches&&nd.matches('i[data-ic]')) icFill(nd.parentNode||document); else if(nd.querySelector&&nd.querySelector('i[data-ic]')) icFill(nd); } } }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+// keep the page itself from zooming / sliding sideways on iPhone (the map has its own pinch-zoom)
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, {passive:false});
+document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, {passive:false});
 var ls = { get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},
            set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}},
            del:function(k){try{localStorage.removeItem(k);}catch(e){}} };
@@ -678,8 +729,8 @@ function openCombine(C){
 }
 function askCsvDrop(fs){
   openSheet('Add '+(fs.length===1?escH(fs[0].name):fs.length+' CSV files')+'?',
-    '<button class="opt hero" id="dcComb" style="margin-bottom:10px"><div class="oi">⧉</div><div><b>Combine into '+escH(file.name)+'</b><span>Add its points to this file — you choose what happens to duplicate point numbers</span></div></button>'+
-    '<button class="opt" id="dcOpen"><div class="oi">📄</div><div><b>Open instead</b><span>Close '+escH(file.name)+' and open '+escH(fs[0].name)+'</span></div></button>');
+    '<button class="opt hero" id="dcComb" style="margin-bottom:10px"><div class="oi"><i class="ic" data-ic="combine"></i></div><div><b>Combine into '+escH(file.name)+'</b><span>Add its points to this file — you choose what happens to duplicate point numbers</span></div></button>'+
+    '<button class="opt" id="dcOpen"><div class="oi"><i class="ic" data-ic="file"></i></div><div><b>Open instead</b><span>Close '+escH(file.name)+' and open '+escH(fs[0].name)+'</span></div></button>');
   $('#dcComb').onclick=function(){ closeSheet(); combineFiles(fs); };
   $('#dcOpen').onclick=function(){ closeSheet(); readFile(fs[0]); };
 }
@@ -772,13 +823,13 @@ function fxShow(dt){
   var kinds=Array.prototype.map.call((dt&&dt.items)||[], function(it){ return it.type||''; }), n=kinds.length||1;
   var pdf=kinds.some(function(t){ return t==='application/pdf'; }), img=kinds.some(function(t){ return /^image\//.test(t); }), csv=!pdf&&!img;
   var onPlan=$('#planScreen').classList.contains('on');
-  var ic=pdf?'🗺':img?'📷':(file?'⧉':'📄'), t, sub;
+  var ic=pdf?'<i class="ic" data-ic="map"></i>':img?'<i class="ic" data-ic="camera"></i>':(file?'<i class="ic" data-ic="combine"></i>':'<i class="ic" data-ic="file"></i>'), t, sub;
   if(pdf){ t='Drop to read the PDF'; sub='Get its points, or open it as a plan'; }
   else if(img){ t='Drop to read '+(n>1?n+' photos':'the photo'); sub='Every N/E it finds becomes a point'; }
   else if(file){ t='Drop to combine'; sub='Adds the points to '+file.name+' — you choose about duplicates'; }
   else { t='Drop to open'; sub='CSV / TXT point file, or a Topcon TP3'; }
   if(onPlan && !pdf){ t=t; }
-  $('#fxIcon').textContent=ic; $('#fxT').textContent=t; $('#fxS').textContent=sub;
+  $('#fxIcon').innerHTML=ic; $('#fxT').textContent=t; $('#fxS').textContent=sub;
   clearTimeout(fxTimer); fx.classList.remove('got'); fx.classList.add('on');
   var card=fx.querySelector('.fxcard'), rc=fx.querySelector('rect'); rc.setAttribute('width', Math.max(0,card.offsetWidth-3)); rc.setAttribute('height', Math.max(0,card.offsetHeight-3));
 }
@@ -818,7 +869,7 @@ function layoutGrid(){
     D.groups.forEach(function(g){ g.forEach(function(i,k){ gridView.push(i); dupMark[i]=k?'x':'f'; }); });
   }
   $('#dupChip').classList.toggle('on', dupOnly);
-  $('#dupChip').textContent = dupOnly ? '⧉ Duplicates: '+gridView.length+' — tap to show all' : '⧉ Duplicates';
+  $('#dupChip').innerHTML = dupOnly ? '<i class="ic" data-ic="copy"></i> Duplicates: '+gridView.length+' — tap to show all' : '<i class="ic" data-ic="copy"></i> Duplicates';
   $('#ginner').style.height=(HH+(gridView?gridView.length:file.rows.length)*RH)+'px';
   var h='<div class="gcorner">#</div>';
   for(c=0;c<n;c++){
@@ -837,7 +888,7 @@ function drawRows(force){
   var a=Math.max(0, Math.floor((top-HH)/RH)-15), b=Math.min(N, Math.ceil((top+vh)/RH)+15);
   var key=a+':'+b; if(!force && key===lastRange) return; lastRange=key;
   var zc=col('Z'), h='';
-  if(gridView && !N) h='<div class="grow" style="top:'+HH+'px;padding:0 16px;line-height:34px;color:var(--muted)">No duplicates found 🎉</div>';
+  if(gridView && !N) h='<div class="grow" style="top:'+HH+'px;padding:0 16px;line-height:34px;color:var(--muted)">No duplicates found</div>';
   for(var v=a;v<b;v++){
     var i=gridView?gridView[v]:v, r=file.rows[i], dm=gridView?dupMark[i]:'';
     h+='<div class="grow'+(dm==='x'?' dupx':dm==='f'?' dupf':'')+'" style="top:'+(HH+v*RH)+'px"><div class="grn">'+(i+1)+'</div>';
@@ -868,7 +919,7 @@ window.addEventListener('pointermove', function(e){
     if(Math.abs(e.clientY-hd.y)>Math.abs(e.clientX-hd.x)){ hd=null; return; }
     hd.drag=true; hd.el.classList.add('drag');
     try{ hd.el.setPointerCapture(e.pointerId); }catch(x){}
-    var g=$('#ghost'); g.textContent='↔ '+colName(hd.c); g.style.display='block';
+    var g=$('#ghost'); g.innerHTML='<i class="ic" data-ic="move-h"></i> '+escH(colName(hd.c)); g.style.display='block';
   }
   e.preventDefault();
   var g2=$('#ghost'); g2.style.left=(e.clientX+12)+'px'; g2.style.top=(e.clientY-40)+'px';
@@ -964,7 +1015,7 @@ function openFormat(){
   var row=function(p, cls){
     return '<div class="prow'+(cls||'')+'" data-p="'+escH(p.id)+'"><div class="pn">'+(cls?'<span class="tag">Last used</span>':'')+
       '<b>'+escH(p.name)+'</b><span>'+escH(presetDesc(p))+'</span></div>'+
-      (!cls&&!p.builtin?'<button class="x" data-del="'+escH(p.id)+'" aria-label="Delete">✕</button>':'')+'<span style="color:var(--accent);font-weight:800">›</span></div>';
+      (!cls&&!p.builtin?'<button class="x" data-del="'+escH(p.id)+'" aria-label="Delete"><i class="ic" data-ic="x"></i></button>':'')+'<span style="color:var(--accent);font-weight:800">›</span></div>';
   };
   var h='';
   if(last) h+='<div class="plist" style="margin-bottom:14px">'+row(last,' last')+'</div>';
@@ -1023,7 +1074,7 @@ function openMaker(){
   var order=file.roles.map(function(_,i){ return {c:i, keep:true}; });
   openSheet('New preset',
     '<div class="card"><div class="field"><label>Preset name</label><input class="inp" id="mkName" placeholder="e.g. Topo PNEZD for Trimble"></div></div>'+
-    '<p class="muted" style="margin:0 2px 8px">Untick what you don’t need. Use ▲▼ to set the order.</p>'+
+    '<p class="muted" style="margin:0 2px 8px">Untick what you don’t need. Use <i class="ic" data-ic="up"></i><i class="ic" data-ic="down"></i> to set the order.</p>'+
     '<div id="mkList"></div>'+
     '<label class="check"><input type="checkbox" id="mkHdr"'+(file.header?' checked':'')+'> Keep a header row in the file</label>'+
     '<button class="btn primary block mt" id="mkSave">Save preset &amp; apply</button>'+
@@ -1035,7 +1086,7 @@ function openMaker(){
       h+='<div class="mk'+(o.keep?'':' off')+'"><input type="checkbox" data-k="'+k+'"'+(o.keep?' checked':'')+'>'+
         '<span class="num">'+(o.keep?(++n):'–')+'</span>'+
         '<div class="mn"><b>'+escH(colName(c))+(r?' <span class="tag">'+ROLE_NAME[r]+'</span>':'')+'</b><span>'+escH(samp)+'</span></div>'+
-        '<button class="ud" data-up="'+k+'">▲</button><button class="ud" data-dn="'+k+'">▼</button></div>';
+        '<button class="ud" data-up="'+k+'"><i class="ic" data-ic="up"></i></button><button class="ud" data-dn="'+k+'"><i class="ic" data-ic="down"></i></button></div>';
     });
     $('#mkList').innerHTML=h;
     $('#mkSave').textContent='Save preset & apply ('+n+' of '+order.length+' columns)';
@@ -1305,9 +1356,9 @@ function openColumn(c){
   var h='<div class="card"><h3>This column is</h3><div class="rolegrid">';
   ROLES.forEach(function(r){ h+='<button class="chip'+(file.roles[c]===r[0]?' on':'')+'" data-role="'+r[0]+'">'+r[1]+'</button>'; });
   h+='</div></div>'+
-    ((file.roles[c]==='P' || (col('P')<0 && c===0)) ? '<button class="btn primary block" id="cRenum" style="margin-bottom:12px">🔢 Renumber points (1, 2, 3…)</button>' : '')+
-    '<button class="btn block" id="cBulk" style="margin-bottom:12px">✎ Bulk edit this column</button>'+
-    '<div class="card"><h3>Move</h3><div class="row"><button class="btn block" style="flex:1" id="mvL">◀ Left</button><button class="btn block" style="flex:1" id="mvR">Right ▶</button></div></div>'+
+    ((file.roles[c]==='P' || (col('P')<0 && c===0)) ? '<button class="btn primary block" id="cRenum" style="margin-bottom:12px"><i class="ic" data-ic="hash"></i> Renumber points (1, 2, 3…)</button>' : '')+
+    '<button class="btn block" id="cBulk" style="margin-bottom:12px"><i class="ic" data-ic="pen"></i> Bulk edit this column</button>'+
+    '<div class="card"><h3>Move</h3><div class="row"><button class="btn block" style="flex:1" id="mvL"><i class="ic" data-ic="left"></i> Left</button><button class="btn block" style="flex:1" id="mvR">Right <i class="ic" data-ic="right"></i></button></div></div>'+
     '<div class="card"><h3>Header name</h3><div class="row"><input class="inp" id="hName" value="'+escH(file.header?file.header[c]:'')+'" placeholder="'+(file.header?'':'No header row — this adds one')+'"><button class="btn" id="hSave">Save</button></div></div>'+
     '<div class="row"><button class="btn block" style="flex:1" id="cAdd">+ Insert column after</button><button class="btn block danger" style="flex:1" id="cDel">Delete column</button></div>'+
     '<p class="muted mt">Sample: '+file.rows.slice(0,4).map(function(r){return escH(r[c]);}).join(' · ')+'</p>';
@@ -1906,12 +1957,12 @@ function tableHeaderHTML(tbl, n){
     tbl.headers.forEach(function(t,i){ if(i===tbl.roles.N||i===tbl.roles.E||i===tbl.roles.P||!tbl.numCols[i]) return; h+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+escH(t||('Column '+(i+1)))+'</option>'; }); return h; };
   var cols=[['P','Point #'],['E','Easting'],['N','Northing']].map(function(x){ var i=tbl.roles[x[0]]; return x[1]+' ← '+(i>=0?'“'+escH(tbl.headers[i]||('column '+(i+1)))+'”':'<b class="danger">not found</b>'); }).join(' · ');
   return '<div class="pcard tcard" data-tid="'+tbl.id+'"><div class="ph"><img src="'+tbl.thumb+'" data-tzoom="1" alt=""><b>'+(tbl.label?escH(tbl.label)+'<br><span class="muted" style="font-weight:600;font-size:13px">':'')+'Table · '+n+' point'+(n===1?'':'s')+(tbl.exact?' · read exactly from the PDF':'')+(tbl.label?'</span>':'')+'</b>'+
-    (tbl.exact?'':'<button class="x" data-tretake="1" title="Retake this photo">📷</button>')+'<button class="x" data-tdel="1" title="Remove all these points">✕</button></div>'+
+    (tbl.exact?'':'<button class="x" data-tretake="1" title="Retake this photo"><i class="ic" data-ic="camera"></i></button>')+'<button class="x" data-tdel="1" title="Remove all these points"><i class="ic" data-ic="x"></i></button></div>'+
     '<div class="muted" style="font-size:12.5px;margin-bottom:8px">'+cols+'</div>'+
-    (tbl.roles.guessed?'<div class="warn" style="color:#b07c00;margin:0 0 8px">⚠ No Northing/Easting headers — check which is which <button class="sug" data-tswap="1">Swap N ↔ E</button></div>':'<div style="margin:-2px 0 8px"><button class="sug" data-tswap="1" style="border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:12px;background:var(--panel2);cursor:pointer">Swap N ↔ E</button></div>')+
+    (tbl.roles.guessed?'<div class="warn" style="color:#b07c00;margin:0 0 8px"><i class="ic" data-ic="warn"></i> No Northing/Easting headers — check which is which <button class="sug" data-tswap="1">Swap N ↔ E</button></div>':'<div style="margin:-2px 0 8px"><button class="sug" data-tswap="1" style="border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:12px;background:var(--panel2);cursor:pointer">Swap N ↔ E</button></div>')+
     '<div class="row"><div class="field"><label>Elevation from</label><select class="inp" data-tz="1">'+opt(tbl.zCol,true)+'</select></div>'+
     '<div class="field"><label>Point # from</label><select class="inp" data-tp="1"><option value="table"'+(tbl.pFrom==='table'?' selected':'')+(tbl.roles.P<0?' disabled':'')+'>'+escH(tbl.roles.P>=0?(tbl.headers[tbl.roles.P]||'ID column'):'(no ID column)')+'</option><option value="auto"'+(tbl.pFrom==='auto'?' selected':'')+'>Number them (First point #)</option></select></div></div>'+
-    (tbl.exact?'':'<div class="help"><button class="hard" data-thard="1">🔍 '+(tbl.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-tretake="1">📷 Retake this photo</button></div>')+'</div>';
+    (tbl.exact?'':'<div class="help"><button class="hard" data-thard="1"><i class="ic" data-ic="search"></i> '+(tbl.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-tretake="1"><i class="ic" data-ic="camera"></i> Retake this photo</button></div>')+'</div>';
 }
 /* ---------------- PDFs: plan sheets with N/E callouts (and point tables) → points ----------------
    Text PDFs (exported from Civil 3D, AutoCAD, Excel…) are read exactly — no guessing.
@@ -2071,11 +2122,11 @@ function planHeaderHTML(g, n){
   var rep=0, seen={}; phPoints.forEach(function(p){ if(p.tableId===g.id){ var k=p.N.v+','+p.E.v; if(seen[k]) rep++; seen[k]=1; } });
   var zopt='<option value=""'+(!g.zLabel?' selected':'')+'>(none)</option>'+g.labels.map(function(l){ return '<option'+(l===g.zLabel?' selected':'')+'>'+escH(l)+'</option>'; }).join('');
   return '<div class="pcard tcard" data-tid="'+g.id+'"><div class="ph"><img src="'+g.thumb+'" data-tzoom="1" alt=""><b>'+escH(g.name)+(g.pages>1?' · page '+g.page:'')+'<br><span class="muted" style="font-weight:600;font-size:13px">Plan · '+n+' point'+(n===1?'':'s')+' · read exactly from the PDF</span></b>'+
-    '<button class="x" data-tdel="1" title="Remove all these points">✕</button></div>'+
+    '<button class="x" data-tdel="1" title="Remove all these points"><i class="ic" data-ic="x"></i></button></div>'+
     (g.labels.length?'<div class="row"><div class="field"><label>Elevation from</label><select class="inp" data-pz="1">'+zopt+'</select></div>':'<div class="muted" style="font-size:13px;margin-bottom:8px">No elevations labeled next to these points — elevation is left blank (fill it later with Bulk Edit if you need to).</div><div class="row">')+
     '<div class="field"><label>Description</label><select class="inp" data-pd="1"><option value="plan"'+(g.dFrom==='plan'?' selected':'')+'>From plan labels</option><option value="setting"'+(g.dFrom!=='plan'?' selected':'')+'>Use Description above</option></select></div></div>'+
-    (g.lonely?'<div class="helpnote">⚠ '+g.lonely+' coordinate label'+(g.lonely===1?'':'s')+' had no matching N/E partner and '+(g.lonely===1?'was':'were')+' skipped.</div>':'')+
-    (rep?'<div class="warn" style="color:#b07c00">⚠ '+rep+' point'+(rep===1?' is':'s are')+' labeled more than once on the plan <button class="sug" data-prep="1">Remove repeats</button></div>':'')+
+    (g.lonely?'<div class="helpnote"><i class="ic" data-ic="warn"></i> '+g.lonely+' coordinate label'+(g.lonely===1?'':'s')+' had no matching N/E partner and '+(g.lonely===1?'was':'were')+' skipped.</div>':'')+
+    (rep?'<div class="warn" style="color:#b07c00"><i class="ic" data-ic="warn"></i> '+rep+' point'+(rep===1?' is':'s are')+' labeled more than once on the plan <button class="sug" data-prep="1">Remove repeats</button></div>':'')+
     '</div>';
 }
 
@@ -2150,7 +2201,7 @@ function phRender(){
     var num=p.pn!=null?p.pn:String(start+idx), tb=p.tableId?phTables[p.tableId]:null;
     if(tb && !seenT[tb.id]){ seenT[tb.id]=1; var tn=phPoints.filter(function(x){ return x.tableId===tb.id; }).length; h+=tb.type==='plan'?planHeaderHTML(tb,tn):tableHeaderHTML(tb,tn); }
     h+='<div class="pcard'+(tb?' trow':'')+'" data-id="'+p.id+'"><div class="ph">'+(tb?'':(p.thumb?'<img src="'+p.thumb+'" data-zoom="'+p.id+'" alt="">':'<div class="spin" style="width:28px;height:28px"></div>'))+
-       '<b>'+(tb&&tb.type!=='plan'?'Row '+(p.row+1)+' · ':'')+'Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b>'+(p.manual||tb||p.state!=='done'?'':'<button class="x" data-retake="1" aria-label="Retake this photo" title="Retake this photo">📷</button>')+'<button class="x" data-del="'+p.id+'" aria-label="Remove">✕</button></div>';
+       '<b>'+(tb&&tb.type!=='plan'?'Row '+(p.row+1)+' · ':'')+'Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b>'+(p.manual||tb||p.state!=='done'?'':'<button class="x" data-retake="1" aria-label="Retake this photo" title="Retake this photo"><i class="ic" data-ic="camera"></i></button>')+'<button class="x" data-del="'+p.id+'" aria-label="Remove"><i class="ic" data-ic="x"></i></button></div>';
     if(p.state!=='done'){
       h+='<div class="muted">'+escH(p.step||'Waiting…')+'</div><div class="pbar"><i style="width:'+Math.round((p.prog||0)*100)+'%"></i></div></div>'; return;
     }
@@ -2161,7 +2212,7 @@ function phRender(){
     var needHelp=!p.manual && !tb && !p.pdfEmpty && !p.pdf && (p.err || ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); }));
     if(tb && tb.type!=='plan' && !tb.exact && ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); })) h+='<div class="helpnote" style="margin:0 0 6px">Unsure about this row — check it, or use “Try harder” / “Retake” on the table above.</div>';
     if(needHelp){
-      h+='<div class="help"><button class="hard" data-hard="1">🔍 '+(p.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-retake="1">📷 Retake this photo</button></div>'+
+      h+='<div class="help"><button class="hard" data-hard="1"><i class="ic" data-ic="search"></i> '+(p.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-retake="1"><i class="ic" data-ic="camera"></i> Retake this photo</button></div>'+
          '<div class="helpnote">'+(p.hardDone?'Still unsure after trying hard — a retake usually fixes it: hold the phone square to the screen, closer, and keep it steady.':'Couldn’t read everything clearly. “Try harder” sharpens the photo and tries more angles (takes longer). Or retake just this photo.')+'</div>';
     }
     h+='<div class="row"><div class="field" style="flex:.7"><label>Point #</label><input class="inp num" data-f="pn" value="'+escH(num)+'"'+(tb?'':' inputmode="numeric"')+'></div>'+
@@ -2171,11 +2222,11 @@ function phRender(){
       if(f.none){ h+='<div class="vf ok"><div class="lab"><span>'+FIELD_NAME[K]+'</span><span class="muted" style="font-size:12px">left blank</span></div><input class="inp num" data-f="'+K+'" value="'+escH(f.v)+'" inputmode="decimal" placeholder="(blank)"></div>'; return; }
       if(cl!=='ok') toVerify++;
       h+='<div class="vf '+cl+'"><div class="lab"><span>'+FIELD_NAME[K]+'</span>'+
-         '<span class="meter" style="flex:none"><span class="m"><i style="width:'+pct+'%"></i></span>'+(f.ok?'✓ Verified':pct+'%')+'</span></div>';
+         '<span class="meter" style="flex:none"><span class="m"><i style="width:'+pct+'%"></i></span>'+(f.ok?'<i class="ic" data-ic="check"></i> Verified':pct+'%')+'</span></div>';
       if(f.crop && !f.ok) h+='<img class="crop" src="'+f.crop+'" alt="What the photo shows">';
       h+='<input class="inp num" data-f="'+K+'" value="'+escH(f.v)+'" inputmode="decimal" placeholder="'+(f.found===false?'Not found — type it':'')+'">';
       if(!f.ok && cl!=='ok'){
-        h+='<div class="warn">⚠ '+(f.v?'Verify this number':f.missing?'This point has no “'+escH(tb&&tb.zLabel||'EL')+'” on the plan — type it or pick another elevation above':'Couldn’t read — type it in or check the photo')+(f.v?'<button class="yes" data-ok="'+K+'">✓ It’s right</button>':'')+
+        h+='<div class="warn"><i class="ic" data-ic="warn"></i> '+(f.v?'Verify this number':f.missing?'This point has no “'+escH(tb&&tb.zLabel||'EL')+'” on the plan — type it or pick another elevation above':'Couldn’t read — type it in or check the photo')+(f.v?'<button class="yes" data-ok="'+K+'"><i class="ic" data-ic="check"></i> It’s right</button>':'')+
            (f.sug?'<button class="sug" data-sug="'+K+'">Other photos say '+escH(f.sug.split('.')[0])+'… → use '+escH(f.sug)+'</button>':'')+
            (f.zsug?'<button class="sug" data-zsug="1">Other photos have '+escH(f.zsug)+' → use it</button>':'')+
            (f.missing?'<button class="sug" data-zblank="1">Leave blank</button>':'')+'</div>';
@@ -2537,11 +2588,11 @@ function pvFit(){
 function fmt(v,d){ return (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d); }
 function pvUpdateStatus(){
   var T=PV.T, man=PV.ctrl.filter(function(c){ return c.on!==false; }).length, usingAuto=pvActive().some(function(p){ return p.src==='auto'; });
-  if(!T){ pvStatus('Not georeferenced yet — use <b>🎯 Known point</b> on 2 spots you know the coordinates of'+(PV.calls.length?' (the '+PV.calls.length+' N/E labels on this sheet are listed for you)':'')+'.'); return; }
+  if(!T){ pvStatus('Not georeferenced yet — use <b><i class="ic" data-ic="target"></i> Known point</b> on 2 spots you know the coordinates of'+(PV.calls.length?' (the '+PV.calls.length+' N/E labels on this sheet are listed for you)':'')+'.'); return; }
   var acc = usingAuto ? (PV.autoExact ? 'exactly — '+PV.autoExact.n+' of '+PV.autoExact.of+' N/E labels sit on line corners · fit ±'+fmt(PV.err||0,2)+' ft'
                                       : 'from '+pvActive().length+' callout leaders · typical error ±'+fmt(PV.err||0,1)+' ft — add known points for better accuracy')
           : man+' known point'+(man===1?'':'s')+(PV.err!=null?' · fit ±'+fmt(PV.err,2)+' ft':'');
-  pvStatus('✓ Georeferenced '+acc+' · 1"='+fmt(T.scale*72,1)+'\' · rotated '+fmt(T.rot,2)+'°'+(PV.planScale?' (plan says 1"='+PV.planScale+'\')':''));
+  pvStatus('<i class="ic" data-ic="check"></i> Georeferenced '+acc+' · 1"='+fmt(T.scale*72,1)+'\' · rotated '+fmt(T.rot,2)+'°'+(PV.planScale?' (plan says 1"='+PV.planScale+'\')':''));
 }
 
 /* ---------- view: pan / pinch / zoom ---------- */
@@ -2584,16 +2635,16 @@ function pvTap(cx,cy){
   PV.pin={x:x,y:y,snapped:!!sn}; pvMarks(); pvInfoPin();
 }
 function pvInfoIdle(){
-  $('#pvInfo').innerHTML='<div class="muted" style="font-size:13px">'+(PV.T?'Tap anywhere on the plan for its coordinates. Pinch / scroll to zoom, drag to move.':'Pinch / scroll to zoom, drag to move. Georeference with <b>🎯 Known point</b> first.')+'</div>'+pvPicksBar();
+  $('#pvInfo').innerHTML='<div class="muted" style="font-size:13px">'+(PV.T?'Tap anywhere on the plan for its coordinates. Pinch / scroll to zoom, drag to move.':'Pinch / scroll to zoom, drag to move. Georeference with <b><i class="ic" data-ic="target"></i> Known point</b> first.')+'</div>'+pvPicksBar();
 }
-function pvPicksBar(){ return PV.picks.length?'<div class="row mt"><button class="btn block" style="flex:1" id="pvPicksCsv">📍 '+PV.picks.length+' picked point'+(PV.picks.length===1?'':'s')+' → CSV</button></div>':''; }
+function pvPicksBar(){ return PV.picks.length?'<div class="row mt"><button class="btn block" style="flex:1" id="pvPicksCsv"><i class="ic" data-ic="pin"></i> '+PV.picks.length+' picked point'+(PV.picks.length===1?'':'s')+' → CSV</button></div>':''; }
 function pvBindPicks(){ var b=$('#pvPicksCsv'); if(b) b.onclick=pvPicksToCsv; }
 function pvInfoPin(){
   var P=PV.pin, h='';
-  if(!PV.T){ h='<div class="muted">Not georeferenced yet — this spot is at sheet '+fmt(P.x,1)+', '+fmt(P.y,1)+' pt. Add 2 <b>🎯 Known points</b> to get coordinates.</div>'; }
+  if(!PV.T){ h='<div class="muted">Not georeferenced yet — this spot is at sheet '+fmt(P.x,1)+', '+fmt(P.y,1)+' pt. Add 2 <b><i class="ic" data-ic="target"></i> Known points</b> to get coordinates.</div>'; }
   else { var w=toWorld(PV.T,P.x,P.y);
     h='<div class="pvread"><div><span>N</span><b class="num">'+fmt(w.N,2)+'</b></div><div><span>E</span><b class="num">'+fmt(w.E,2)+'</b></div></div>'+
-      '<div class="muted" style="font-size:12.5px">'+(P.snapped?'📌 Snapped to a line end / corner. ':'')+(PV.err!=null?'± about '+fmt(PV.err,PV.err<1?2:1)+' ft':'')+'</div>'+
+      '<div class="muted" style="font-size:12.5px">'+(P.snapped?'<i class="ic" data-ic="magnet"></i> Snapped to a line end / corner. ':'')+(PV.err!=null?'± about '+fmt(PV.err,PV.err<1?2:1)+' ft':'')+'</div>'+
       '<div class="row mt"><button class="btn" id="pvCopy" style="flex:1">Copy</button><button class="btn primary" id="pvAddPick" style="flex:1.4">+ Add as point</button></div>'; }
   $('#pvInfo').innerHTML=h+pvPicksBar(); pvBindPicks();
   if(PV.T){ var w2=toWorld(PV.T,P.x,P.y);
@@ -2611,7 +2662,7 @@ function pvPicksToCsv(){
 function pvAskKnown(x,y,snapped){
   var near=PV.calls.map(function(c){ var cx=(c.box[0]+c.box[2])/2, cy=(c.box[1]+c.box[3])/2; return {c:c, d:Math.hypot(cx-x,cy-y)}; }).sort(function(a,b){ return a.d-b.d; }).slice(0,8);
   var guess=PV.T?toWorld(PV.T,x,y):null;
-  var h='<p class="muted" style="margin:0 0 10px">'+(snapped?'📌 Snapped to a line end / corner. ':'')+'What are the real coordinates of this spot?</p>';
+  var h='<p class="muted" style="margin:0 0 10px">'+(snapped?'<i class="ic" data-ic="magnet"></i> Snapped to a line end / corner. ':'')+'What are the real coordinates of this spot?</p>';
   if(near.length) h+='<div class="card"><h3>Pick a label from the plan</h3><div class="plist">'+near.map(function(n,i){ return '<div class="prow" data-kc="'+i+'"><div class="pn"><b class="num">N '+escH(n.c.N)+' · E '+escH(n.c.E)+'</b><span>'+escH(n.c.desc||'')+(n.c.desc?' · ':'')+fmt(n.d,0)+' pt away</span></div><span style="color:var(--accent);font-weight:800">›</span></div>'; }).join('')+'</div></div>';
   h+='<div class="card"><h3>Or type them</h3><div class="row"><div class="field"><label>Northing</label><input class="inp num" id="kN" inputmode="decimal" value="'+(guess?fmt(guess.N,2):'')+'"></div><div class="field"><label>Easting</label><input class="inp num" id="kE" inputmode="decimal" value="'+(guess?fmt(guess.E,2):'')+'"></div></div>'+
      '<div class="field mt"><label>Name (optional)</label><input class="inp" id="kL" placeholder="e.g. CP 101 / fence corner"></div><button class="btn primary block mt" id="kGo">Use this point</button></div>';
@@ -2624,13 +2675,13 @@ function pvAfterGeo(){ pvFit(); pvUpdateStatus(); pvDrawOverlay(); pvMarks(); if
 function pvOpenKnown(){
   pvFit();
   var man=PV.ctrl, act=pvActive(), h='';
-  h+='<div class="card"><h3>Your known points</h3>'+(man.length?man.map(function(c,i){ return '<div class="mk'+(c.on===false?' off':'')+'"><input type="checkbox" data-kon="'+i+'"'+(c.on!==false?' checked':'')+'><div class="mn"><b class="num">N '+fmt(c.N,2)+' · E '+fmt(c.E,2)+'</b><span>'+escH(c.label||'tapped point')+(c.res!=null&&act.indexOf(c)>=0?' · off by '+fmt(c.res,c.res<1?3:2)+' ft':'')+'</span></div><button class="ud" data-kdel="'+i+'">✕</button></div>'; }).join(''):'<p class="muted" style="margin:0">None yet. Tap <b>🎯 Known point</b>, then tap an exact spot on the plan (zoom in — it snaps to line ends and corners).</p>')+'</div>';
+  h+='<div class="card"><h3>Your known points</h3>'+(man.length?man.map(function(c,i){ return '<div class="mk'+(c.on===false?' off':'')+'"><input type="checkbox" data-kon="'+i+'"'+(c.on!==false?' checked':'')+'><div class="mn"><b class="num">N '+fmt(c.N,2)+' · E '+fmt(c.E,2)+'</b><span>'+escH(c.label||'tapped point')+(c.res!=null&&act.indexOf(c)>=0?' · off by '+fmt(c.res,c.res<1?3:2)+' ft':'')+'</span></div><button class="ud" data-kdel="'+i+'"><i class="ic" data-ic="x"></i></button></div>'; }).join(''):'<p class="muted" style="margin:0">None yet. Tap <b><i class="ic" data-ic="target"></i> Known point</b>, then tap an exact spot on the plan (zoom in — it snaps to line ends and corners).</p>')+'</div>';
   h+='<div class="card"><h3>Automatic (from the N/E labels on the plan)</h3>'+
-     (PV.auto.length?'<label class="check"><input type="checkbox" id="kAuto"'+(PV.useAuto?' checked':'')+'> Use '+PV.auto.length+' labels'+(man.filter(function(c){return c.on!==false;}).length>=2?' <span class="muted">(ignored while you have 2+ known points)</span>':'')+'</label>'+(PV.autoExact?'<p class="muted" style="margin:4px 0 0">✓ Exact: '+PV.autoExact.n+' of '+PV.autoExact.of+' labels land right on a line corner at the plan scale. Labels that don’t (like PIs, which aren’t on a drawn line) are left out.</p>':'<p class="muted" style="margin:4px 0 0">Only rough: these come from where the leader lines end, good to a few feet. Add known points you tap for exact.</p>')
+     (PV.auto.length?'<label class="check"><input type="checkbox" id="kAuto"'+(PV.useAuto?' checked':'')+'> Use '+PV.auto.length+' labels'+(man.filter(function(c){return c.on!==false;}).length>=2?' <span class="muted">(ignored while you have 2+ known points)</span>':'')+'</label>'+(PV.autoExact?'<p class="muted" style="margin:4px 0 0"><i class="ic" data-ic="check"></i> Exact: '+PV.autoExact.n+' of '+PV.autoExact.of+' labels land right on a line corner at the plan scale. Labels that don’t (like PIs, which aren’t on a drawn line) are left out.</p>':'<p class="muted" style="margin:4px 0 0">Only rough: these come from where the leader lines end, good to a few feet. Add known points you tap for exact.</p>')
        :'<p class="muted" style="margin:0">'+(PV.calls.length?'Found '+PV.calls.length+' N/E labels but couldn’t follow enough of their leader lines.':'No N/E labels on this sheet.')+'</p>')+'</div>';
   if(PV.planScale) h+='<label class="check"><input type="checkbox" id="kLock"'+(PV.lockScale!==false?' checked':'')+'> Hold the plan scale (1"='+PV.planScale+'\' from the sheet)</label><p class="muted" style="margin:0 0 10px">With the scale held, 1 known point is enough if the plan is drawn north-up.</p>';
   if(PV.T) h+='<div class="result"><span class="big num">1"='+fmt(PV.T.scale*72,2)+'\'</span>rotation '+fmt(PV.T.rot,3)+'°'+(PV.err!=null?' · typical error ±'+fmt(PV.err,PV.err<1?3:2)+' ft · worst '+fmt(PV.maxErr,2)+' ft':'')+'</div>';
-  h+='<button class="btn primary block" id="kTap">🎯 Tap a known point on the plan</button>';
+  h+='<button class="btn primary block" id="kTap"><i class="ic" data-ic="target"></i> Tap a known point on the plan</button>';
   openSheet('Known points', h);
   document.querySelectorAll('[data-kon]').forEach(function(el){ el.onchange=function(){ PV.ctrl[+el.getAttribute('data-kon')].on=el.checked; pvSave(); pvAfterGeo(); pvOpenKnown(); }; });
   document.querySelectorAll('[data-kdel]').forEach(function(el){ el.onclick=function(){ PV.ctrl.splice(+el.getAttribute('data-kdel'),1); pvSave(); pvAfterGeo(); pvOpenKnown(); }; });
@@ -2675,12 +2726,12 @@ function hexName(c){ var m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c
   if(Math.abs(r-g)<12&&Math.abs(g-b)<12){ return r<25?'Black':r>235?'White':(r<100?'Dark gray':r<170?'Gray':'Light gray'); }
   var mx=Math.max(r,g,b); return mx===r?(g>150?'Yellow / orange':'Red'):mx===g?(b>150?'Cyan':'Green'):(r>150?'Magenta':'Blue'); }
 function pvOpenLayers(){
-  var h='<p class="muted" style="margin:0 0 10px">The PDF has no real CAD layers, so lines are grouped by color + thickness'+(PV.legendCount?' and named from the plan’s legend ('+PV.legendCount+' matched)':'')+'. Tap 👁 to highlight a group on the plan. Ticked groups get exported.</p>'+
+  var h='<p class="muted" style="margin:0 0 10px">The PDF has no real CAD layers, so lines are grouped by color + thickness'+(PV.legendCount?' and named from the plan’s legend ('+PV.legendCount+' matched)':'')+'. Tap <i class="ic" data-ic="eye"></i> to highlight a group on the plan. Ticked groups get exported.</p>'+
     '<div class="row" style="margin-bottom:8px"><button class="chip" id="lyAll">Tick all</button><button class="chip" id="lyNone">Untick all</button><button class="chip" id="lyHide">Hide highlights</button></div>';
   PV.groups.forEach(function(G,i){
     h+='<div class="mk'+(G.on?'':' off')+'"><input type="checkbox" data-lon="'+i+'"'+(G.on?' checked':'')+'><span style="flex:none;width:26px;height:'+Math.max(2,Math.min(8,G.w*3+1))+'px;background:'+escH(G.color)+';border:1px solid var(--line);border-radius:2px"></span>'+
       '<div class="mn"><b>'+(G.label?escH(G.label):escH(hexName(G.color))+' · '+G.w+' pt')+'</b><span>'+G.n.toLocaleString()+' pieces · '+Math.round(G.len*(PV.T?PV.T.scale:1)).toLocaleString()+(PV.T?' ft':' pt')+' of line · '+(G.label?escH(hexName(G.color))+' '+G.w+' pt · ':'')+'layer '+escH(G.name)+'</span>'+(G.maybe?'<span class="lg">Legend: one of '+escH(G.maybe.join(' / '))+'</span>':'')+'</div>'+
-      '<button class="ud'+(PV.show[G.key]?' onv':'')+'" data-lshow="'+i+'" title="Highlight on plan">👁</button></div>';
+      '<button class="ud'+(PV.show[G.key]?' onv':'')+'" data-lshow="'+i+'" title="Highlight on plan"><i class="ic" data-ic="eye"></i></button></div>';
   });
   openSheet('Linework layers ('+PV.groups.length+')', h, function(){ pvDrawOverlay(); });
   document.querySelectorAll('[data-lon]').forEach(function(el){ el.onchange=function(){ PV.groups[+el.getAttribute('data-lon')].on=el.checked; el.closest('.mk').classList.toggle('off',!el.checked); }; });
@@ -2768,7 +2819,7 @@ function buildDxf(opts){
   return {text:L.join('\r\n')+'\r\n', lines:nLines, layers:layers.length};
 }
 function pvOpenExport(){
-  if(!PV.T){ toast('Georeference the plan first (🎯 Known point)', true); pvOpenKnown(); return; }
+  if(!PV.T){ toast('Georeference the plan first (Known point)', true); pvOpenKnown(); return; }
   var on=PV.groups.filter(function(G){return G.on;}).length;
   openSheet('Export linework',
     '<div class="card"><h3>What</h3><p style="margin:0 0 6px"><b>'+on+'</b> of '+PV.groups.length+' line groups ticked <button class="sug" id="exLy" style="border:0;border-radius:8px;padding:6px 10px;font-weight:700;background:var(--panel2);cursor:pointer">Choose layers</button></p>'+
@@ -2825,8 +2876,8 @@ $('#pvKnown').onclick=function(){ if(PV&&PV.R) pvOpenKnown(); };
 $('#pvLayers').onclick=function(){ if(PV&&PV.R) pvOpenLayers(); };
 $('#pvExport').onclick=function(){ if(PV&&PV.R) pvOpenExport(); };
 $('#pvFitB').onclick=function(){ if(PV&&PV.R) pvFitView(); };
-$('#pvGrid').onclick=function(){ if(!PV||!PV.R) return; if(!PV.T){ toast('Georeference first (🎯 Known point)', true); return; } PV.grid=!PV.grid; this.classList.toggle('on',PV.grid); pvDrawOverlay(); if(PV.grid) toast('Grid every '+(PV.gridStep||'')+' ft', true); };
-$('#pvSnapB').onclick=function(){ if(!PV) return; PV.snap=!PV.snap; this.textContent=PV.snap?'📌 Snap on':'📌 Snap off'; this.classList.toggle('on',PV.snap); };
+$('#pvGrid').onclick=function(){ if(!PV||!PV.R) return; if(!PV.T){ toast('Georeference first (Known point)', true); return; } PV.grid=!PV.grid; this.classList.toggle('on',PV.grid); pvDrawOverlay(); if(PV.grid) toast('Grid every '+(PV.gridStep||'')+' ft', true); };
+$('#pvSnapB').onclick=function(){ if(!PV) return; PV.snap=!PV.snap; this.innerHTML=PV.snap?'<i class="ic" data-ic="magnet"></i> Snap on':'<i class="ic" data-ic="magnet"></i> Snap off'; this.classList.toggle('on',PV.snap); };
 $('#pvPage').onchange=function(){ if(PV) { PV.picks=[]; PV.ctrl=[]; PV.pin=null; pvLoadPage(+this.value); } };
 
 /* ===================== TP3 (Topcon project) engine =====================
@@ -3108,7 +3159,7 @@ var TPF={show:[1,0], names:[4,0], desc:[8,0], elev:[16,0]}; // [bit, inverted] �
 function tpFlags(id){ var e=TPX.lops.edit[id], L=TPX.M.layers[id]; return (e&&e.flags!=null)?e.flags:(L?L.flags:1); }
 function tpOn(id,k){ var b=TPF[k], v=!!(tpFlags(id)&b[0]); return b[1]?!v:v; }
 function tpSetOn(id,k,on){ var b=TPF[k], f=tpFlags(id), set=b[1]?!on:on; f=set?(f|b[0]):(f&~b[0]); var e=TPX.lops.edit[id]=TPX.lops.edit[id]||{}; if(TPX.M.layers[id]&&f===TPX.M.layers[id].flags) delete e.flags; else e.flags=f; if(!Object.keys(e).length) delete TPX.lops.edit[id]; }
-function tpFlagChips(id){ return '<div class="lfl">'+[['show','👁','Shown'],['names','#','Names'],['desc','D','Desc'],['elev','Z','Elev']].map(function(k){ var on=tpOn(id,k[0]); return '<button class="fl'+(on?' on':'')+'" data-fl="'+k[0]+'" aria-pressed="'+on+'">'+k[2]+'</button>'; }).join('')+'</div>'; }
+function tpFlagChips(id){ return '<div class="lfl">'+[['show','<i class="ic" data-ic="eye"></i>','Shown'],['names','#','Names'],['desc','D','Desc'],['elev','Z','Elev']].map(function(k){ var on=tpOn(id,k[0]); return '<button class="fl'+(on?' on':'')+'" data-fl="'+k[0]+'" aria-pressed="'+on+'">'+k[2]+'</button>'; }).join('')+'</div>'; }
 function tpLabelsSheet(ids, back){
   var lab={names:'Point names', desc:'Point descriptions', elev:'Point elevations', show:'Show layer'}, h='<p class="muted" style="margin:0 0 10px">'+(ids.length===TPX.lops.order.length?'All '+ids.length+' layers':ids.length+' selected layers')+'. Labels on thousands of points are what slows the data collector down — turn them off on layers you don’t need to read.</p>';
   ['names','desc','elev','show'].forEach(function(k){ var n=ids.filter(function(id){ return tpOn(id,k); }).length;
@@ -3248,13 +3299,13 @@ function tpPopClose(){ var p=$('#tpPop'); if(p) p.hidden=true; }
 function tpPop(px,py){
   var M=TPX.M, U=tpU(), el=$('#tpPop'), isPt=TPX.pick!=null, i=TPX.pick, li=TPX.pickLine;
   var id=isPt?tpEnt(M.pL[i],'p'):tpEnt(M.lines[li].layer,'l'); if(id==null){ tpPopClose(); return; }
-  var c=tpCounts(id), h='<div class="tpp-h">'+tpSwatch(id)+'<div style="flex:1;min-width:0"><b>'+escH(tpName(id)||'(no name)')+'</b><span>'+tpKind(id)+' '+[c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':''].filter(Boolean).join(' · ')+'</span></div><button class="tpp-x" id="tppX" aria-label="Close">✕</button></div>';
+  var c=tpCounts(id), h='<div class="tpp-h">'+tpSwatch(id)+'<div style="flex:1;min-width:0"><b>'+escH(tpName(id)||'(no name)')+'</b><span>'+tpKind(id)+' '+[c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':''].filter(Boolean).join(' · ')+'</span></div><button class="tpp-x" id="tppX" aria-label="Close"><i class="ic" data-ic="x"></i></button></div>';
   if(isPt) h+='<div class="tpp-pt"><b>'+escH(tpPtName(i)||'Point')+'</b>'+(tpPtCode(i)?' · '+escH(tpPtCode(i)):'')+'<div class="num">N '+tpFmt(M.pN[i])+'  E '+tpFmt(M.pE[i])+'  Z '+tpFmt(M.pZ[i])+'</div></div>';
   else h+='<div class="tpp-pt"><b>Line</b> · '+M.lines[li].n+' vertices</div>';
   h+='<div class="tpp-l">On the data collector</div>'+tpFlagChips(id)+
-    '<div class="tpp-a"><button data-pa="set">⚙ Layer settings</button><button data-pa="hide">👁 Hide on this map</button>'+
-    (isPt?'<button data-pa="delpt">Delete this point</button>':'')+
-    (id!==0?'<button data-pa="empty">Empty layer</button><button data-pa="del" class="bad">🗑 Delete layer</button>':'')+'</div>';
+    '<div class="tpp-a"><button data-pa="set"><i class="ic" data-ic="gear"></i> Layer settings</button><button data-pa="hide"><i class="ic" data-ic="eye"></i> Hide on this map</button>'+
+    (isPt?'<button data-pa="delpt"><i class="ic" data-ic="pin-x"></i> Delete this point</button>':'')+
+    (id!==0?'<button data-pa="empty"><i class="ic" data-ic="eraser"></i> Empty layer</button><button data-pa="del" class="bad"><i class="ic" data-ic="trash"></i> Delete layer</button>':'')+'</div>';
   el.innerHTML=h; el.hidden=false;
   var W=TPX.W, H=TPX.H, w=el.offsetWidth, hh=el.offsetHeight, x=px+14, y=py-hh/2; if(x+w>W-8) x=px-14-w;
   if(x<8){ x=Math.max(8,Math.min(W-w-8,px-w/2)); y=(py+18+hh<=H-8)?py+18:(py-18-hh>=8?py-18-hh:(py>H/2?8:H-hh-8)); } // no room beside it: go above or below so the point stays visible
@@ -3265,7 +3316,7 @@ function tpPop(px,py){
   el.querySelectorAll('[data-fl]').forEach(function(b){ b.onclick=function(){ var k=b.getAttribute('data-fl'), on=!tpOn(id,k); tpSetOn(id,k,on); b.classList.toggle('on',on); tpRender(); tpInfo(); }; });
   el.querySelectorAll('[data-pa]').forEach(function(b){ b.onclick=function(){ var a=b.getAttribute('data-pa'), snap=tpSnap();
     if(a==='set'){ tpPopClose(); tpLayerOpen(id,true); return; }
-    if(a==='hide'){ TPX.hide[id]=true; TPX.pick=null; TPX.pickLine=null; tpPopClose(); tpRender(); toast('“'+tpName(id)+'” hidden on this map (👁 Show / units to bring it back)', true, function(){ delete TPX.hide[id]; tpRender(); }); return; }
+    if(a==='hide'){ TPX.hide[id]=true; TPX.pick=null; TPX.pickLine=null; tpPopClose(); tpRender(); toast('“'+tpName(id)+'” hidden on this map (Show / units brings it back)', true, function(){ delete TPX.hide[id]; tpRender(); }); return; }
     if(a==='delpt'){ TPX.lops.dupDrop[i]=1; TPX.lops.dupN[M.pL[i]]=(TPX.lops.dupN[M.pL[i]]||0)+1; if(TPX.cutDone&&TPX.plan) tpCutCounts(); TPX.pick=null; tpPopClose(); tpRender(); tpInfo(); toast('Point '+(tpPtName(i)||'')+' deleted', true, tpUndoTo(snap, function(){})); return; }
     if(a==='empty'){ tpClearNow(id,'all'); TPX.pick=null; TPX.pickLine=null; tpPopClose(); return; }
     if(a==='del'){ tpDeleteNow([id]); TPX.pick=null; TPX.pickLine=null; tpPopClose(); return; } }; });
@@ -3290,10 +3341,10 @@ function tpInfo(){
   if(!TPX.closed){
     h+='<div class="muted" style="font-size:13.5px">'+(TPX.mode==='draw'
       ? (TPX.poly.length? '<b>'+TPX.poly.length+' corner'+(TPX.poly.length===1?'':'s')+'</b> — keep tapping around the area to keep. Tap the <b>first corner</b> to close it. Drag a corner to adjust.' : 'Tap the corners of the area you want to <b>keep</b>, going around it. Pinch / drag to move the map.')
-      : 'Tap <b>✏ Boundary</b>, then tap around the area to keep. Everything outside — every layer — gets removed from the copy you save. Tap a point or line for its layer menu.')+'</div>';
+      : 'Tap <b><i class="ic" data-ic="pen"></i> Boundary</b>, then tap around the area to keep. Everything outside — every layer — gets removed from the copy you save. Tap a point or line for its layer menu.')+'</div>';
   } else if(TPX.plan && TPX.cutDone){
     var S0=TPX.plan.summary;
-    h+='<div class="row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><b style="font-size:14px">✂ Boundary cut applied</b><div class="muted" style="font-size:12.5px">Keeps '+S0.points[0].toLocaleString()+' of '+S0.points[1].toLocaleString()+' points · '+S0.lines[0].toLocaleString()+' lines · '+S0.surfaces[0]+' surfaces. Tap <b>Save</b> when you’re ready.</div></div><button class="btn" id="tpCutEdit">Change</button></div>';
+    h+='<div class="row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><b style="font-size:14px"><i class="ic" data-ic="scissors"></i> Boundary cut applied</b><div class="muted" style="font-size:12.5px">Keeps '+S0.points[0].toLocaleString()+' of '+S0.points[1].toLocaleString()+' points · '+S0.lines[0].toLocaleString()+' lines · '+S0.surfaces[0]+' surfaces. Tap <b>Save</b> when you’re ready.</div></div><button class="btn" id="tpCutEdit">Change</button></div>';
   } else if(TPX.plan){
     var S=TPX.plan.summary, line=function(lab,a,extra){ var gone=a[1]-a[0]; return '<div class="tprow"><span>'+lab+'</span><b>'+a[0].toLocaleString()+'</b><span class="muted"> of '+a[1].toLocaleString()+(gone?' · <span class="danger">'+gone.toLocaleString()+' removed</span>':'')+(extra||'')+'</span></div>'; };
     h+='<div class="card" style="margin:0 0 8px;padding:10px 12px"><h3 style="margin-bottom:6px">Keeps</h3>'+
@@ -3302,13 +3353,13 @@ function tpInfo(){
       '<div class="field"><label>Lines crossing the edge</label><select class="inp" id="tpLines"><option value="touch"'+(TPX.opts.lines==='touch'?' selected':'')+'>Keep them</option><option value="inside"'+(TPX.opts.lines==='inside'?' selected':'')+'>Remove them</option></select></div></div>'+
       '<div class="row mt" style="gap:6px"><div class="field"><label>Surfaces</label><select class="inp" id="tpSurf"><option value="trim"'+(TPX.opts.surfaces==='trim'?' selected':'')+'>Trim to boundary</option><option value="touch"'+(TPX.opts.surfaces==='touch'?' selected':'')+'>Keep whole if inside at all</option><option value="inside"'+(TPX.opts.surfaces==='inside'?' selected':'')+'>Remove if partly outside</option></select></div>'+
       '<div class="field"><label>Control points</label><select class="inp" id="tpCtl"><option value="keep"'+(TPX.opts.control==='keep'?' selected':'')+'>Always keep</option><option value="clip"'+(TPX.opts.control==='clip'?' selected':'')+'>Remove if outside</option></select></div></div>'+
-      '<button class="btn primary block mt" id="tpCont">✓ Done — apply the cut</button>'+
-      '<button class="btn block mt" id="tpSave">💾 Save clean TP3 now</button>'+
+      '<button class="btn primary block mt" id="tpCont"><i class="ic" data-ic="check"></i> Done — apply the cut</button>'+
+      '<button class="btn block mt" id="tpSave"><i class="ic" data-ic="save"></i> Save clean TP3 now</button>'+
       '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
   }
   if(tpLayerChanged()){ var o=TPX.lops, nd=Object.keys(o.drop).length, nc=Object.keys(o.into).length;
     h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', (o.order.length===M.layerList.length&&o.order.every(function(id,k){ return id===M.layerList[k].id; }))?'':'order changed'].filter(Boolean).join(' · ')+'</span></div>';
-    if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave">💾 Save TP3 with layer changes</button>'; }
+    if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave"><i class="ic" data-ic="save"></i> Save TP3 with layer changes</button>'; }
   var cutView=TPX.plan&&TPX.cutDone;
   $('#tpInfo').innerHTML=h;
   if(!TPX.plan && $('#tpSave')) $('#tpSave').onclick=tpSave;
@@ -3325,7 +3376,7 @@ function tpInfo(){
 function tpShare(name, blob, type){ var f; try{ f=new File([blob],name,{type:type}); }catch(e){ f=null; }
   if(f && navigator.canShare && navigator.canShare({files:[f]})) navigator.share({files:[f]}).catch(function(err){ if(err&&err.name!=='AbortError') dl({n:name, blob:blob}); }); else dl({n:name, blob:blob}); }
 function tpSave(){
-  var b=$('#tpSave')||$('#tpSaveTop'), bt=b.textContent; b.disabled=true; b.textContent='Building…';
+  var b=$('#tpSave')||$('#tpSaveTop'), bt=b.innerHTML; b.disabled=true; b.textContent='Building…';
   setTimeout(function(){ try{
     var M=TPX.M, P=TPX.plan||TP3.keepAll(M), lc=tpLayerChanged(), ops=lc?TPX.lops:null;
     if(ops) ops=Object.assign({}, ops, {dropPoints:ops.dupDrop});
@@ -3338,7 +3389,7 @@ function tpSave(){
     toast('Built '+nm+' — '+(out.length/1e6).toFixed(1)+' MB (was '+(TPX.file.size/1e6).toFixed(1)+' MB)', true);
     tpShare(nm, new Blob([out],{type:'application/octet-stream'}), 'application/octet-stream');
   }catch(e){ try{ console.warn(e); }catch(x){} toast('Couldn’t build the TP3: '+(e&&e.message||e), true); }
-  b.disabled=false; b.textContent=bt; }, 30);
+  b.disabled=false; b.innerHTML=bt; }, 30);
 }
 function tpCsv(){ var M=TPX.M, U=tpU(), rows=[];
   for(var i=0;i<M.pE.length;i++) if(TPX.plan.points[i] && tpKeepPt(i)) rows.push([tpPtName(i)||String(i+1), tpFmt(M.pN[i]), tpFmt(M.pE[i]), tpFmt(M.pZ[i]), tpPtCode(i)]);
@@ -3381,25 +3432,25 @@ var tpSel=null; // null = not selecting; otherwise {id:true}
 function tpBackToList(){ tpRender(); tpInfo(); tpEditor('restore'); } // Done on a layer / combine / labels screen → back to the layer list where you were
 function tpEditor(keepScroll){
   var M=TPX.M, o=TPX.lops, top=keepScroll==='restore'?(TPX.edTop||0):keepScroll?$('#shBody').scrollTop:0;
-  var h='<p class="muted" style="margin:0 0 8px">Drag <b>≡</b> to set the order your data collector lists the layers. <b>Swipe left</b> to delete or empty a layer. Tap a layer to rename it, change its color or symbol, or combine it. Nothing changes in your file until you save.</p>'+
+  var h='<p class="muted" style="margin:0 0 8px">Drag <b><i class="ic" data-ic="grip"></i></b> to set the order your data collector lists the layers. <b>Swipe left</b> to delete or empty a layer. Tap a layer to rename it, change its color or symbol, or combine it. Nothing changes in your file until you save.</p>'+
     '<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">'+
-      '<button class="chip'+(tpSel?' on':'')+'" id="leSel">'+(tpSel?'✓ Selecting':'☐ Select')+'</button>'+
+      '<button class="chip'+(tpSel?' on':'')+'" id="leSel">'+(tpSel?'<i class="ic" data-ic="check"></i> Selecting':'<i class="ic" data-ic="square"></i> Select')+'</button>'+
       '<button class="chip" id="leAz">Sort A→Z</button>'+
       '<button class="chip" id="leEmpty">Empty to bottom</button>'+
       '<button class="chip" id="leDup">Find look-alikes</button>'+
       '<button class="chip" id="leLab">Point labels…</button>'+
-      '<button class="chip" id="leNum">'+(TPX.lops.order.some(function(id){ return /^\d{2,3} /.test(tpName(id)); })?'↻ Renumber names':'01 02… Number names')+'</button>'+
-      (tpLayerChanged()?'<button class="chip" id="leReset">↺ Undo all</button>':'')+'</div>'+
+      '<button class="chip" id="leNum">'+(TPX.lops.order.some(function(id){ return /^\d{2,3} /.test(tpName(id)); })?'<i class="ic" data-ic="refresh"></i> Renumber names':'01 02… Number names')+'</button>'+
+      (tpLayerChanged()?'<button class="chip" id="leReset"><i class="ic" data-ic="undo"></i> Undo all</button>':'')+'</div>'+
     '<div id="leList">';
   o.order.forEach(function(id,i){ var c=tpCounts(id), fixed=id===0, merged=Object.keys(o.into).filter(function(k){ return tpFinal(+k)===id && +k!==id; }).length;
     h+='<div class="lrow'+(fixed?' fixed':'')+'" data-lid="'+id+'">'+(fixed?'':'<div class="lacts"><button class="la-clr" data-la="clr">Empty</button><button class="la-del" data-la="del">Delete</button></div>')+'<div class="lfg">'+
-      (fixed?'<span class="lh" style="opacity:.25">≡</span>':'<span class="lh" aria-label="Drag to reorder">≡</span>')+
+      (fixed?'<span class="lh" style="opacity:.25"><i class="ic" data-ic="grip"></i></span>':'<span class="lh" aria-label="Drag to reorder"><i class="ic" data-ic="grip"></i></span>')+
       (tpSel&&!fixed?'<input type="checkbox" data-ls="'+id+'"'+(tpSel[id]?' checked':'')+'>':'')+
       tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id)||'(no name)')+' '+tpKind(id)+(o.edit[id]&&o.edit[id].name!=null?' <i class="lt">renamed</i>':'')+(merged?' <i class="lt">+'+merged+' combined</i>':'')+(Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?' <i class="lt" style="color:var(--bad)">emptied</i>':'')+'</b><span>'+
       ([c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'empty')+'</span>'+tpFlagChips(id)+'</div><span class="lgo">›</span></div></div>'; });
   h+='</div>';
   var nDel=Object.keys(o.drop).length; if(nDel) h+='<p class="muted" style="margin:10px 2px 0">'+nDel+' layer'+(nDel>1?'s':'')+' deleted (with everything on '+(nDel>1?'them':'it')+'). <button class="linkbtn" id="leUndel" style="display:inline;margin:0;padding:0">Bring back</button></p>';
-  if(tpSel) h+='<div class="lebar"><span id="leN">'+Object.keys(tpSel).length+' selected</span><button class="btn" id="leComb">⧉ Combine</button><button class="btn" id="leLabS">Labels</button><button class="btn" id="leDel" style="color:var(--bad)">🗑 Delete</button></div>';
+  if(tpSel) h+='<div class="lebar"><span id="leN">'+Object.keys(tpSel).length+' selected</span><button class="btn" id="leComb"><i class="ic" data-ic="combine"></i> Combine</button><button class="btn" id="leLabS">Labels</button><button class="btn" id="leDel" style="color:var(--bad)"><i class="ic" data-ic="trash"></i> Delete</button></div>';
   openSheet('Layers ('+o.order.length+')', h, function(){ tpSel=null; tpRender(); tpInfo(); });
   $('#shBody').scrollTop=top; TPX.edTop=top; $('#shBody').onscroll=function(){ if($('#shTitle').textContent.indexOf('Layers (')===0) TPX.edTop=this.scrollTop; };
   $('#leSel').onclick=function(){ tpSel=tpSel?null:{}; tpEditor(true); };
@@ -3447,14 +3498,14 @@ function tpLayerOpen(id,fromMap){
     '<div class="card"><h3>Color</h3><div class="swatches">'+M.palette.map(function(p,i){ return '<button class="sw'+(p.rgb.join()===rgb.join()?' on':'')+'" data-pc="'+i+'" style="background:rgb('+p.rgb.join(',')+')" aria-label="color"></button>'; }).join('')+'</div>'+
       '<p class="muted" style="margin:8px 0 0">Colors your data collector already uses in this job.</p></div>'+
     '<div class="card"><h3>Symbol</h3><div class="swatches">'+M.symbols.map(function(sy,i){ return '<button class="sw sym'+(Array.prototype.join.call(sy)===Array.prototype.join.call(sym)?' on':'')+'" data-sy="'+i+'"><img src="'+tpSymURL(sy,rgb)+'" alt=""></button>'; }).join('')+'</div></div>';
-  if(!fixed) h+='<div class="card"><h3>Position</h3><div class="row"><button class="btn" style="flex:1" id="lnTop">⤒ Top</button><button class="btn" style="flex:1" id="lnUp">↑</button><button class="btn" style="flex:1" id="lnDn">↓</button><button class="btn" style="flex:1" id="lnBot">⤓ Bottom</button></div></div>'+
+  if(!fixed) h+='<div class="card"><h3>Position</h3><div class="row"><button class="btn" style="flex:1" id="lnTop"><i class="ic" data-ic="top"></i> Top</button><button class="btn" style="flex:1" id="lnUp"><i class="ic" data-ic="up"></i></button><button class="btn" style="flex:1" id="lnDn"><i class="ic" data-ic="down"></i></button><button class="btn" style="flex:1" id="lnBot"><i class="ic" data-ic="bottom"></i> Bottom</button></div></div>'+
     '<div class="card"><h3>Combine</h3><p class="muted" style="margin:0 0 8px">Move everything on this layer onto another layer, then remove this one.</p><div class="row"><select class="inp" id="lnInto" style="flex:1">'+
       o.order.filter(function(x){ return x!==id; }).map(function(x){ return '<option value="'+x+'">'+escH(tpName(x)||'(no name)')+'</option>'; }).join('')+'</select><button class="btn primary" id="lnComb">Combine</button></div></div>'+
     '<div class="card"><h3>Empty or delete</h3>'+
       (c.pts&&(c.lines||c.labels)?'<button class="btn block" id="lnClrP">Delete its '+c.pts.toLocaleString()+' points — keep the lines</button>':'')+
       (c.pts||c.lines||c.labels?'<button class="btn block mt" id="lnClrA">Empty the layer — keep it, blank</button>':'<p class="muted" style="margin:0 0 4px">This layer is empty.</p>')+
-      (Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?'<button class="btn block mt" id="lnUnclr">↺ Bring back what was emptied</button>':'')+
-      '<button class="btn block mt" id="lnDel" style="color:var(--bad)">🗑 Delete layer'+(c.pts||c.lines||c.labels?' and everything on it':'')+'</button></div>';
+      (Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?'<button class="btn block mt" id="lnUnclr"><i class="ic" data-ic="undo"></i> Bring back what was emptied</button>':'')+
+      '<button class="btn block mt" id="lnDel" style="color:var(--bad)"><i class="ic" data-ic="trash"></i> Delete layer'+(c.pts||c.lines||c.labels?' and everything on it':'')+'</button></div>';
   h+='<button class="btn primary block mt" id="lnBack">‹ All layers</button>';
   openSheet(tpName(id)||'(no name)', h, fromMap?function(){ tpRender(); tpInfo(); }:tpBackToList);
   function ed(){ return o.edit[id]=o.edit[id]||{}; }
@@ -3517,9 +3568,9 @@ function tpCombineAsk(ids){
     ids.forEach(function(id){ var c=tpCounts(id); h+='<label class="mk"><input type="radio" name="lcK" value="'+id+'"'+(id===best?' checked':'')+'>'+tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id))+' '+tpKind(id)+'</b><span>'+(c.pts.toLocaleString()+' pts · '+c.lines.toLocaleString()+' lines')+(when[id]?' · '+tpWhen(when[id]):'')+'</span></div></label>'; });
     h+='<div class="field mt"><label>New name (optional)</label><input class="inp" id="lcName" maxlength="63" value="'+escH(st.name||'')+'"></div></div>';
     if(withPts.length){
-      h+='<div class="card"><h3>Duplicate points</h3>'+(st.on?'<div class="row" style="align-items:center"><b style="flex:1;font-size:15px">✓ Keeping one copy of each point</b><button class="btn" id="lcOff">Don’t clean up</button></div>'+
+      h+='<div class="card"><h3>Duplicate points</h3>'+(st.on?'<div class="row" style="align-items:center"><b style="flex:1;font-size:15px"><i class="ic" data-ic="check"></i> Keeping one copy of each point</b><button class="btn" id="lcOff">Don’t clean up</button></div>'+
         (withPts.length>1?'<label class="check mt"><input type="checkbox" id="lcIn"'+(st.inside?' checked':'')+'> Also remove doubles inside the same layer</label>':''):
-        '<p class="muted" style="margin:0 0 8px">'+(withPts.length>1?'These layers may have the same points (same spot or same point #).':'Check '+escH(tpName(withPts[0]))+' for points that are in it twice.')+'</p><button class="btn primary block" id="lcOn">🔍 Check for duplicate points</button>');
+        '<p class="muted" style="margin:0 0 8px">'+(withPts.length>1?'These layers may have the same points (same spot or same point #).':'Check '+escH(tpName(withPts[0]))+' for points that are in it twice.')+'</p><button class="btn primary block" id="lcOn"><i class="ic" data-ic="search"></i> Check for duplicate points</button>');
       if(st.on){
         h+='<div class="field mt"><label>A point is “the same” when it has</label><div class="seg" style="display:flex"><button style="flex:1" data-by="spot"'+(st.by==='spot'?' class="on"':'')+'>Same spot (N/E)</button><button style="flex:1" data-by="name"'+(st.by==='name'?' class="on"':'')+'>Same point #</button></div></div>'+
           (st.by==='spot'?'<div class="field mt"><label>Within ('+U.lab+')</label><input class="inp num" id="lcTol" inputmode="decimal" value="'+(+(st.tol*U.k).toFixed(3))+'"></div>':'')+
@@ -3532,7 +3583,7 @@ function tpCombineAsk(ids){
       }
       h+='</div>';
     }
-    h+='<button class="btn primary block mt" id="lcGo">⧉ Combine '+ids.length+' layers'+(R&&R.matched?' + remove '+R.matched.toLocaleString()+' doubles':'')+'</button><button class="btn block mt" id="lcBack">Cancel</button>';
+    h+='<button class="btn primary block mt" id="lcGo"><i class="ic" data-ic="combine"></i> Combine '+ids.length+' layers'+(R&&R.matched?' + remove '+R.matched.toLocaleString()+' doubles':'')+'</button><button class="btn block mt" id="lcBack">Cancel</button>';
     openSheet('Combine layers', h, function(){ tpSel=null; tpBackToList(); }); $('#shBody').scrollTop=top;
     document.querySelectorAll('[name=lcK]').forEach(function(r){ r.onchange=function(){ best=+r.value; }; });
     $('#lcName').oninput=function(){ st.name=this.value; };
@@ -3647,7 +3698,7 @@ function tpLookAlikes(){
       '<p class="muted" style="margin:4px 2px 10px">'+(groups.length?groups.length+' group'+(groups.length>1?'s':'')+' · '+n+' layers. Untick any layer that doesn’t belong, then Combine.':'No look-alikes at this setting — slide toward Loose.')+'</p>';
     groups.forEach(function(a,gi){ var on=a.filter(function(id){ return !off[id]; });
       h+='<div class="card" style="padding:8px 12px 12px">'+a.map(function(id){ var c=tpCounts(id); return '<label class="row" style="align-items:center;gap:10px;padding:5px 0;cursor:pointer"><input type="checkbox" data-lo="'+id+'"'+(off[id]?'':' checked')+' style="width:22px;height:22px;accent-color:var(--accent);flex:none">'+tpSwatch(id)+'<b style="flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(off[id]?';opacity:.45':'')+'">'+escH(tpName(id))+'</b>'+tpKind(id)+'<span class="muted" style="font-size:12px;min-width:44px;text-align:right">'+(c.pts+c.lines).toLocaleString()+'</span></label>'; }).join('')+
-        '<button class="btn block mt" data-lg="'+gi+'"'+(on.length<2?' disabled':'')+'>⧉ Combine '+(on.length<2?'— tick 2 or more':'these '+on.length)+'</button></div>'; });
+        '<button class="btn block mt" data-lg="'+gi+'"'+(on.length<2?' disabled':'')+'><i class="ic" data-ic="combine"></i> Combine '+(on.length<2?'— tick 2 or more':'these '+on.length)+'</button></div>'; });
     h+='<button class="btn block mt" id="laBack">‹ All layers</button>';
     var keep=$('#veil').classList.contains('on')&&$('#shTitle').textContent==='Look-alike layers'?$('#shBody').scrollTop:0;
     openSheet('Look-alike layers', h, tpBackToList); $('#shBody').scrollTop=keep;
