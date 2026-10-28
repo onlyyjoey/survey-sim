@@ -3106,11 +3106,11 @@ function tpLabelsSheet(ids, back){
   ['names','desc','elev','show'].forEach(function(k){ var n=ids.filter(function(id){ return tpOn(id,k); }).length;
     h+='<div class="card" style="padding:10px 12px"><div class="row" style="align-items:center"><div style="flex:1"><b style="font-size:15px">'+lab[k]+'</b><div class="muted" style="font-size:12.5px">On for '+n+' of '+ids.length+'</div></div><button class="btn" data-off="'+k+'"'+(n?'':' disabled')+'>All off</button><button class="btn" data-onn="'+k+'"'+(n===ids.length?' disabled':'')+'>All on</button></div></div>'; });
   h+='<button class="btn primary block mt" id="lbBack">‹ Layers</button>';
-  openSheet('Point labels', h, function(){ tpSel=null; tpRender(); tpInfo(); });
+  openSheet('Point labels', h, function(){ tpSel=null; tpBackToList(); });
   function apply(k,on){ var snap=tpSnap(); ids.forEach(function(id){ tpSetOn(id,k,on); }); tpLabelsSheet(ids,back); setTimeout(function(){ toast(lab[k]+(on?' on':' off')+' for '+ids.length+' layers', true, tpUndoTo(snap, function(){ tpLabelsSheet(ids,back); })); },40); }
   document.querySelectorAll('[data-off]').forEach(function(b){ b.onclick=function(){ apply(b.getAttribute('data-off'),false); }; });
   document.querySelectorAll('[data-onn]').forEach(function(b){ b.onclick=function(){ apply(b.getAttribute('data-onn'),true); }; });
-  $('#lbBack').onclick=function(){ (back||tpEditor)(); };
+  $('#lbBack').onclick=function(){ back?back():tpEditor('restore'); };
 }
 function tpNumberNames(){ // put 01 02 03… in front of the names so the order holds when the collector sorts by name
   var snap=tpSnap(), o=TPX.lops, w=String(o.order.length).length<2?2:String(o.order.length).length;
@@ -3329,8 +3329,9 @@ $('#tpEditL').onclick=function(){ if(TPX) tpEditor(); };
 window.TPtest={tpEditor:function(){ tpEditor(); }, tpLayerOpen:function(id){ tpLayerOpen(id); }, get TPX(){return TPX;}, TP3:TP3, tpTap:tpTap, tpChanged:tpChanged, tpX:tpX, tpY:tpY};
 /* ---- layer editor: order (top → bottom as the data collector lists them), rename, color, symbol, combine, delete ---- */
 var tpSel=null; // null = not selecting; otherwise {id:true}
+function tpBackToList(){ tpRender(); tpInfo(); tpEditor('restore'); } // Done on a layer / combine / labels screen → back to the layer list where you were
 function tpEditor(keepScroll){
-  var M=TPX.M, o=TPX.lops, top=keepScroll?$('#shBody').scrollTop:0;
+  var M=TPX.M, o=TPX.lops, top=keepScroll==='restore'?(TPX.edTop||0):keepScroll?$('#shBody').scrollTop:0;
   var h='<p class="muted" style="margin:0 0 8px">Drag <b>≡</b> to set the order your data collector lists the layers. <b>Swipe left</b> to delete or empty a layer. Tap a layer to rename it, change its color or symbol, or combine it. Nothing changes in your file until you save.</p>'+
     '<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">'+
       '<button class="chip'+(tpSel?' on':'')+'" id="leSel">'+(tpSel?'✓ Selecting':'☐ Select')+'</button>'+
@@ -3351,7 +3352,7 @@ function tpEditor(keepScroll){
   var nDel=Object.keys(o.drop).length; if(nDel) h+='<p class="muted" style="margin:10px 2px 0">'+nDel+' layer'+(nDel>1?'s':'')+' deleted (with everything on '+(nDel>1?'them':'it')+'). <button class="linkbtn" id="leUndel" style="display:inline;margin:0;padding:0">Bring back</button></p>';
   if(tpSel) h+='<div class="lebar"><span id="leN">'+Object.keys(tpSel).length+' selected</span><button class="btn" id="leComb">⧉ Combine</button><button class="btn" id="leLabS">Labels</button><button class="btn" id="leDel" style="color:var(--bad)">🗑 Delete</button></div>';
   openSheet('Layers ('+o.order.length+')', h, function(){ tpSel=null; tpRender(); tpInfo(); });
-  $('#shBody').scrollTop=top;
+  $('#shBody').scrollTop=top; TPX.edTop=top; $('#shBody').onscroll=function(){ if($('#shTitle').textContent.indexOf('Layers (')===0) TPX.edTop=this.scrollTop; };
   $('#leSel').onclick=function(){ tpSel=tpSel?null:{}; tpEditor(true); };
   $('#leAz').onclick=function(){ o.order=[0].concat(o.order.filter(function(id){ return id!==0; }).sort(function(a,b){ return tpName(a).localeCompare(tpName(b),undefined,{numeric:true,sensitivity:'base'}); })); tpEditor(true); toast('Sorted A→Z', true); };
   $('#leEmpty').onclick=function(){ var full=[], empty=[]; o.order.forEach(function(id){ var c=tpCounts(id); (id===0||c.pts||c.lines||c.labels?full:empty).push(id); }); o.order=full.concat(empty); tpEditor(true); toast(empty.length+' empty layer'+(empty.length===1?'':'s')+' moved to the bottom', true); };
@@ -3406,7 +3407,7 @@ function tpLayerOpen(id){
       (Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?'<button class="btn block mt" id="lnUnclr">↺ Bring back what was emptied</button>':'')+
       '<button class="btn block mt" id="lnDel" style="color:var(--bad)">🗑 Delete layer'+(c.pts||c.lines||c.labels?' and everything on it':'')+'</button></div>';
   h+='<button class="btn primary block mt" id="lnBack">‹ All layers</button>';
-  openSheet(tpName(id)||'(no name)', h, function(){ tpRender(); tpInfo(); });
+  openSheet(tpName(id)||'(no name)', h, tpBackToList);
   function ed(){ return o.edit[id]=o.edit[id]||{}; }
   document.querySelectorAll('[data-lf]').forEach(function(cb){ cb.onchange=function(){ tpSetOn(id,cb.getAttribute('data-lf'),cb.checked); }; });
   if(!fixed) $('#lnName').onchange=function(){ var v=this.value.trim(); if(!v){ this.value=tpName(id); return; } if(v===M.layers[id].name) delete ed().name; else ed().name=v; $('#shTitle').textContent=v; };
@@ -3416,11 +3417,11 @@ function tpLayerOpen(id){
   function mv(to){ var a=o.order.filter(function(x){ return x!==id; }); to=Math.max(1,Math.min(a.length,to)); a.splice(to,0,id); o.order=a; tpLayerOpen(id); }
   if(!fixed){ $('#lnTop').onclick=function(){ mv(1); }; $('#lnBot').onclick=function(){ mv(o.order.length); }; $('#lnUp').onclick=function(){ mv(pos-1); }; $('#lnDn').onclick=function(){ mv(pos+1); };
     $('#lnComb').onclick=function(){ tpCombineAsk([+$('#lnInto').value, id]); }; // same screen as every other combine: duplicate check + which layer wins
-    $('#lnDel').onclick=function(){ tpDeleteNow([id]); tpEditor(); };
+    $('#lnDel').onclick=function(){ tpDeleteNow([id]); tpEditor('restore'); };
     if($('#lnClrP')) $('#lnClrP').onclick=function(){ tpClearNow(id,'pts'); tpLayerOpen(id); };
     if($('#lnClrA')) $('#lnClrA').onclick=function(){ tpClearNow(id,'all'); tpLayerOpen(id); };
     if($('#lnUnclr')) $('#lnUnclr').onclick=function(){ Object.keys(o.clear).forEach(function(k){ if(tpFinal(+k)===id) delete o.clear[k]; }); tpRender(); tpLayerOpen(id); }; }
-  $('#lnBack').onclick=function(){ tpEditor(); };
+  $('#lnBack').onclick=function(){ tpEditor('restore'); };
 }
 function tpCombine(ids,to){ var o=TPX.lops; ids.forEach(function(id){ if(id===to||id===0) return; o.into[id]=to; delete o.edit[id]; o.order=o.order.filter(function(x){ return x!==id; }); delete TPX.hide[id]; }); }
 /* ---- combine with clean-up: the same pile on two layers → keep one copy (the newer one by default) ---- */
@@ -3483,7 +3484,7 @@ function tpCombineAsk(ids){
       h+='</div>';
     }
     h+='<button class="btn primary block mt" id="lcGo">⧉ Combine '+ids.length+' layers'+(R&&R.matched?' + remove '+R.matched.toLocaleString()+' doubles':'')+'</button><button class="btn block mt" id="lcBack">Cancel</button>';
-    openSheet('Combine layers', h, function(){ tpSel=null; tpRender(); tpInfo(); }); $('#shBody').scrollTop=top;
+    openSheet('Combine layers', h, function(){ tpSel=null; tpBackToList(); }); $('#shBody').scrollTop=top;
     document.querySelectorAll('[name=lcK]').forEach(function(r){ r.onchange=function(){ best=+r.value; }; });
     $('#lcName').oninput=function(){ st.name=this.value; };
     if($('#lcOn')) $('#lcOn').onclick=function(){ st.on=true; if(!st.scanned && withPts.length>1){ var ra=tpDupScan(pts, tpPrio(), 'spot', st.tol, null), rb=tpDupScan(pts, tpPrio(), 'name', 0, null); st.by=rb.matched>ra.matched?'name':'spot'; } st.scanned=1; draw(); };
@@ -3496,9 +3497,9 @@ function tpCombineAsk(ids){
     $('#lcGo').onclick=function(){ var keep=best, nm=(st.name||'').trim(), snap=tpSnap();
       if(R){ Object.keys(R.drop).forEach(function(i){ TPX.lops.dupDrop[i]=1; var l=M.pL[i]; TPX.lops.dupN[l]=(TPX.lops.dupN[l]||0)+1; }); Object.keys(R.attr).forEach(function(i){ TPX.lops.attrFrom[i]=R.attr[i]; }); }
       tpCombine(ids.filter(function(x){ return x!==keep; }), keep); if(nm){ TPX.lops.edit[keep]=TPX.lops.edit[keep]||{}; TPX.lops.edit[keep].name=nm; }
-      tpSel=null; tpEditor(); tpRender(); var msg=ids.length+' layers combined into '+tpName(keep)+(R&&R.matched?' — '+R.matched.toLocaleString()+' doubles removed':'');
+      tpSel=null; tpEditor('restore'); tpRender(); var msg=ids.length+' layers combined into '+tpName(keep)+(R&&R.matched?' — '+R.matched.toLocaleString()+' doubles removed':'');
       setTimeout(function(){ toast(msg, true, tpUndoTo(snap)); },40); };
-    $('#lcBack').onclick=function(){ tpEditor(); };
+    $('#lcBack').onclick=function(){ tpEditor('restore'); };
   }
   draw();
 }
@@ -3551,7 +3552,7 @@ function tpClearAsk(id){
   openSheet('Empty “'+tpName(id)+'”', '<p class="muted" style="margin:0 0 10px">The layer stays (name, color, symbol, its place in the list) — only what’s on it goes.</p>'+
     '<button class="btn block" id="lcPts">Delete the '+c.pts.toLocaleString()+' points — keep the '+(c.lines?c.lines.toLocaleString()+' lines':c.labels+' labels')+'</button>'+
     '<button class="btn block mt" id="lcAll" style="color:var(--bad)">Delete everything on it ('+[c.pts?c.pts.toLocaleString()+' points':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(', ')+')</button>'+
-    '<button class="btn block mt" id="lcNo">Cancel</button>', function(){ tpRender(); tpInfo(); });
+    '<button class="btn block mt" id="lcNo">Cancel</button>', tpBackToList);
   $('#lcPts').onclick=function(){ tpClearNow(id,'pts'); tpEditor(true); };
   $('#lcAll').onclick=function(){ tpClearNow(id,'all'); tpEditor(true); };
   $('#lcNo').onclick=function(){ tpEditor(true); };
@@ -3600,12 +3601,12 @@ function tpLookAlikes(){
         '<button class="btn block mt" data-lg="'+gi+'"'+(on.length<2?' disabled':'')+'>⧉ Combine '+(on.length<2?'— tick 2 or more':'these '+on.length)+'</button></div>'; });
     h+='<button class="btn block mt" id="laBack">‹ All layers</button>';
     var keep=$('#veil').classList.contains('on')&&$('#shTitle').textContent==='Look-alike layers'?$('#shBody').scrollTop:0;
-    openSheet('Look-alike layers', h, function(){ tpRender(); tpInfo(); }); $('#shBody').scrollTop=keep;
+    openSheet('Look-alike layers', h, tpBackToList); $('#shBody').scrollTop=keep;
     var sl=$('#laS'); sl.oninput=function(){ $('#laS').closest('.card').querySelector('h3 span').textContent=TP_SENS[this.value-1]; };
     sl.onchange=function(){ lvl=+this.value; ls.set('csvfix.tpSens',lvl); off={}; draw(); };
     document.querySelectorAll('[data-lo]').forEach(function(cb){ cb.onchange=function(){ var id=+cb.getAttribute('data-lo'); if(cb.checked) delete off[id]; else off[id]=1; draw(); }; });
     document.querySelectorAll('[data-lg]').forEach(function(b){ b.onclick=function(){ var g=groups[+b.getAttribute('data-lg')].filter(function(id){ return !off[id]; }); if(g.length>1) tpCombineAsk(g); }; });
-    $('#laBack').onclick=function(){ tpEditor(); };
+    $('#laBack').onclick=function(){ tpEditor('restore'); };
   }
   draw();
 }
