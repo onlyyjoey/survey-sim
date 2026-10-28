@@ -100,6 +100,7 @@ input,select{font:inherit;color:var(--ink)}
 .pcard .ph b{font-size:16px;flex:1}
 .help{display:flex;gap:8px;margin-top:10px}
 .tcard{border:2px solid var(--accent)}
+.crop.snip{max-height:none;width:auto;max-width:100%;margin:0 0 8px}
 .tcard .ph img{object-fit:contain;background:#fff;width:88px}
 .trow{margin-left:10px;border-left:4px solid color-mix(in srgb,var(--accent) 45%,var(--line))}
 .trow .ph{margin-bottom:6px}
@@ -255,11 +256,11 @@ select.inp{font-size:15px;padding:10px}
     <div id="noFile">
       <div class="drop" id="drop">
         <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
-        <div class="big">Drop a .csv file here</div>
-        <div class="small">or pick one from Files</div>
+        <div class="big">Drop a CSV, photo, screenshot or PDF here</div>
+        <div class="small">or pick one from Files — photos &amp; PDFs get read into points</div>
         <button class="btn primary" id="pickBtn">+ Add file</button>
       </div>
-      <button class="btn block mt" data-go="photos" style="background:var(--panel);border:1px solid var(--line);padding:16px"><svg width="22" height="22" style="color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Create CSV from photos</button>
+      <button class="btn block mt" data-go="photos" style="background:var(--panel);border:1px solid var(--line);padding:16px"><svg width="22" height="22" style="color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Create CSV from photos or PDF</button>
       <p class="muted" style="text-align:center;margin-top:14px">Works with PNEZD / PENZD point files. Everything stays on your phone.</p>
     </div>
 
@@ -280,7 +281,7 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt" data-go="dups"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div><b>Find Duplicates</b><span>Renumber or fix copies</span></button>
         <button class="qt" data-go="renum"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div><b>Renumber</b><span>1, 2, 3… to 9999999</span></button>
         <button class="qt" data-go="bulk"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><b>Bulk Edit</b><span>Overwrite, Pile 1, 2, 3…</span></button>
-        <button class="qt" data-go="photos"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div><b>From Photos</b><span>Snap screens → points</span></button>
+        <button class="qt" data-go="photos"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div><b>Photos / PDF</b><span>Screens, sheets, plans → points</span></button>
         <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
       </div>
       <div class="row mt">
@@ -318,14 +319,14 @@ select.inp{font-size:15px;padding:10px}
 <section class="screen" id="photoScreen">
   <div class="topbar">
     <button class="iconbtn" id="phBack">‹ Back</button>
-    <h1>CSV from photos</h1>
+    <h1>CSV from photos / PDF</h1>
   </div>
   <div class="scroll"><div class="wrap">
     <div class="row">
       <button class="btn primary block" style="flex:1;padding:16px 10px" id="phCam"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Take photo</button>
-      <button class="btn block" style="flex:1;padding:16px 10px;background:var(--panel);border:1px solid var(--line)" id="phLib">🖼 Choose photos</button>
+      <button class="btn block" style="flex:1;padding:16px 10px;background:var(--panel);border:1px solid var(--line)" id="phLib">🖼 Photos / PDF</button>
     </div>
-    <p class="muted" style="margin:8px 2px 14px"><b>Photo of a screen</b> showing Northing, Easting and Elevation → one point per photo. <b>Screenshot of a table</b> (Excel, a point list) → every row becomes a point. Add as many as you want; screenshots read best.</p>
+    <p class="muted" style="margin:8px 2px 14px"><b>Photo of a screen</b> showing Northing, Easting and Elevation → one point per photo. <b>Screenshot of a table</b> (Excel, a point list) → every row becomes a point. <b>PDF plan</b> → every N/E callout becomes a point. Add as many as you want; screenshots read best.</p>
     <div class="card"><h3>Settings</h3>
       <div class="row"><div class="field"><label>First point #</label><input class="inp num" id="phStart" inputmode="numeric" value="1"></div>
       <div class="field" style="flex:1.4"><label>Description (all points)</label><input class="inp" id="phDesc" placeholder="e.g. PILE"></div></div>
@@ -339,7 +340,7 @@ select.inp{font-size:15px;padding:10px}
   <div class="phbar" id="phBar" hidden><div class="wrap"><div id="phSum" class="muted" style="margin-bottom:8px;text-align:center"></div><button class="btn primary block" id="phGo">Create CSV</button></div></div>
 </section>
 <input type="file" id="phCamIn" accept="image/*" capture="environment" hidden>
-<input type="file" id="phLibIn" accept="image/*" multiple hidden>
+<input type="file" id="phLibIn" accept="image/*,application/pdf,.pdf" multiple hidden>
 <input type="file" id="phRetakeIn" accept="image/*" capture="environment" hidden>
 
 <!-- ============ SHEETS ============ -->
@@ -350,7 +351,7 @@ select.inp{font-size:15px;padding:10px}
 
 <div id="ghost"></div>
 <div id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
-<input type="file" id="fileIn" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel" hidden>
+<input type="file" id="fileIn" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel,image/*,application/pdf,.pdf" hidden>
 
 <script>
 (function(){
@@ -501,7 +502,8 @@ document.addEventListener('click', function(e){
 });
 $('#undoHome').onclick = undo; $('#undoGrid').onclick = undo;
 $('#pickBtn').onclick = $('#openOther').onclick = function(){ $('#fileIn').value=''; $('#fileIn').click(); };
-$('#fileIn').onchange = function(){ readFile(this.files[0]); };
+$('#fileIn').onchange = function(){ var fs=Array.prototype.slice.call(this.files||[]); if(!fs.length) return;
+  if(isPicOrPdf(fs[0])){ showPhotos(); phAddFiles(fs.filter(isPicOrPdf)); } else readFile(fs[0]); };
 $('#closeFile').onclick = function(){ if(confirm('Close this file? Save/Share it first if you need it.')){ file=null; hist=[]; save(); showHome(); } };
 
 // drag & drop anywhere
@@ -510,7 +512,11 @@ window.addEventListener('dragenter', function(e){ if(e.dataTransfer && Array.pro
 window.addEventListener('dragleave', function(){ if(--dragDepth<=0){ dragDepth=0; drop.classList.remove('over'); } });
 window.addEventListener('dragover', function(e){ e.preventDefault(); });
 window.addEventListener('drop', function(e){ e.preventDefault(); dragDepth=0; drop.classList.remove('over');
-  var f=e.dataTransfer && e.dataTransfer.files[0]; if(f){ if(!file || confirm('Open '+f.name+'? (replaces the current file)')) readFile(f); } });
+  var fs=Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files)||[]); if(!fs.length) return;
+  var pics=fs.filter(isPicOrPdf), csvs=fs.filter(function(f){ return !isPicOrPdf(f); });
+  if(pics.length){ if(!$('#photoScreen').classList.contains('on')) showPhotos(); phAddFiles(pics); return; }
+  var f=csvs[0]; if(f){ if(!file || confirm('Open '+f.name+'? (replaces the current file)')) readFile(f); } });
+function isPicOrPdf(f){ return /^image\//.test(f.type) || f.type==='application/pdf' || /\.(pdf|jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(f.name||''); }
 
 /* ---------------- grid (virtual scroll) ---------------- */
 var RH=34, HH=52, RN=52, widths=[];
@@ -1557,14 +1563,15 @@ function tableRoles(T, order){
   r.guessed = !T.headers.some(function(h){ return /east|north/i.test(h||''); });
   return r;
 }
-async function readCell(S, cell, numeric){
+async function readCell(S, cell, numeric, exact){
   if(!cell) return {v:'',conf:0,base:0,found:false};
   var v1=numeric?cleanNum(cell.t):cell.t.trim();
   var pad=Math.round((cell.y1-cell.y0)*0.3), sx=Math.max(0,cell.x0-pad), sy=Math.max(0,cell.y0-pad), sw=Math.min(S.w-sx,cell.x1-cell.x0+2*pad), sh=Math.min(S.h-sy,cell.y1-cell.y0+2*pad);
   var cc=document.createElement('canvas'), k=(sh<40?2:1); cc.width=sw*k; cc.height=sh*k;
   var cx=cc.getContext('2d'); cx.imageSmoothingQuality='high'; cx.drawImage(S.canvas,sx,sy,sw,sh,0,0,sw*k,sh*k);
   var crop=cc.toDataURL('image/jpeg',0.85), conf, v=v1;
-  if(numeric || /^[\d.\-]+$/.test(v1)){
+  if(exact) conf=100;
+  else if(numeric || /^[\d.\-]+$/.test(v1)){
     // read it a second time on its own, digits only — two matching reads = sure
     var d=await ocrRun(canvasOf(adaptive(greyOf(cc),cc.width,cc.height,25,10),cc.width,cc.height),'digits');
     var v2=cleanNum(d.text||'').replace(/[^\d.\-]/g,'');
@@ -1574,22 +1581,23 @@ async function readCell(S, cell, numeric){
   } else conf=Math.round(Math.max(40,Math.min(100,cell.conf||70)));
   return {v:v,conf:conf,base:conf,found:!!v,crop:crop};
 }
-async function buildTable(pt, S, T, hard){
+async function buildTable(pt, S, T, hard, exact){
   var tid='t'+(++phSeq), order=$('#phOrder').value, R=tableRoles(T, order), numCols={};
   T.headers.forEach(function(_,i){ var n=0,k=0; T.rows.forEach(function(row){ if(row[i]){ n++; if(isNumTok(row[i].t)) k++; } }); numCols[i]=n>0 && k/n>0.6; });
   var need=T.headers.map(function(_,i){ return i; }).filter(function(i){ return i===R.P||i===R.N||i===R.E||i===R.D||numCols[i]; });
-  var tbl={id:tid, src:pt.src, thumb:S.thumb, big:S.big, headers:T.headers, roles:R, zCol:R.Z.length?R.Z[0]:-1, pFrom:R.P>=0?'table':'auto', dFrom:R.D, cells:[], hardDone:!!hard, numCols:numCols};
+  var tbl={id:tid, src:pt.src, exact:!!exact, thumb:S.thumb, big:S.big, headers:T.headers, roles:R, zCol:R.Z.length?R.Z[0]:-1, pFrom:R.P>=0?'table':'auto', dFrom:R.D, cells:[], hardDone:!!hard, numCols:numCols};
   var total=T.rows.length*need.length, done=0;
   for(var r=0;r<T.rows.length;r++){
     var rowCells={};
     for(var q=0;q<need.length;q++){
       var c=need[q]; pt.step='Table found — reading row '+(r+1)+' of '+T.rows.length+'…'; pt.prog=.1+.9*(done++/total); pt.thumb=S.thumb; phRender();
-      rowCells[c]=await readCell(S, T.rows[r][c], c!==R.P && c!==R.D);
+      rowCells[c]=await readCell(S, T.rows[r][c], c!==R.P && c!==R.D, exact);
     }
     tbl.cells.push(rowCells);
   }
   phTables[tid]=tbl;
   var pts=tbl.cells.map(function(rc,r){ return tablePoint(tbl, r, {id:++phSeq}); });
+  if(pt.collect){ pt.out=pts; pt.tbl=tbl; return; }
   var at=phPoints.indexOf(pt); if(at<0) at=phPoints.length; phPoints.splice.apply(phPoints,[at,1].concat(pts));
   if(!pts.length) phPoints.splice(at,0,pt);
 }
@@ -1608,13 +1616,178 @@ function tableHeaderHTML(tbl, n){
   var opt=function(sel, allowNone){ var h=allowNone?'<option value="-1"'+(sel<0?' selected':'')+'>(none)</option>':'';
     tbl.headers.forEach(function(t,i){ if(i===tbl.roles.N||i===tbl.roles.E||i===tbl.roles.P||!tbl.numCols[i]) return; h+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+escH(t||('Column '+(i+1)))+'</option>'; }); return h; };
   var cols=[['P','Point #'],['E','Easting'],['N','Northing']].map(function(x){ var i=tbl.roles[x[0]]; return x[1]+' ← '+(i>=0?'“'+escH(tbl.headers[i]||('column '+(i+1)))+'”':'<b class="danger">not found</b>'); }).join(' · ');
-  return '<div class="pcard tcard" data-tid="'+tbl.id+'"><div class="ph"><img src="'+tbl.thumb+'" data-tzoom="1" alt=""><b>Table · '+n+' point'+(n===1?'':'s')+'</b>'+
-    '<button class="x" data-tretake="1" title="Retake this photo">📷</button><button class="x" data-tdel="1" title="Remove all these points">✕</button></div>'+
+  return '<div class="pcard tcard" data-tid="'+tbl.id+'"><div class="ph"><img src="'+tbl.thumb+'" data-tzoom="1" alt=""><b>'+(tbl.label?escH(tbl.label)+'<br><span class="muted" style="font-weight:600;font-size:13px">':'')+'Table · '+n+' point'+(n===1?'':'s')+(tbl.exact?' · read exactly from the PDF':'')+(tbl.label?'</span>':'')+'</b>'+
+    (tbl.exact?'':'<button class="x" data-tretake="1" title="Retake this photo">📷</button>')+'<button class="x" data-tdel="1" title="Remove all these points">✕</button></div>'+
     '<div class="muted" style="font-size:12.5px;margin-bottom:8px">'+cols+'</div>'+
     (tbl.roles.guessed?'<div class="warn" style="color:#b07c00;margin:0 0 8px">⚠ No Northing/Easting headers — check which is which <button class="sug" data-tswap="1">Swap N ↔ E</button></div>':'<div style="margin:-2px 0 8px"><button class="sug" data-tswap="1" style="border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:12px;background:var(--panel2);cursor:pointer">Swap N ↔ E</button></div>')+
     '<div class="row"><div class="field"><label>Elevation from</label><select class="inp" data-tz="1">'+opt(tbl.zCol,true)+'</select></div>'+
     '<div class="field"><label>Point # from</label><select class="inp" data-tp="1"><option value="table"'+(tbl.pFrom==='table'?' selected':'')+(tbl.roles.P<0?' disabled':'')+'>'+escH(tbl.roles.P>=0?(tbl.headers[tbl.roles.P]||'ID column'):'(no ID column)')+'</option><option value="auto"'+(tbl.pFrom==='auto'?' selected':'')+'>Number them (First point #)</option></select></div></div>'+
-    '<div class="help"><button class="hard" data-thard="1">🔍 '+(tbl.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-tretake="1">📷 Retake this photo</button></div></div>';
+    (tbl.exact?'':'<div class="help"><button class="hard" data-thard="1">🔍 '+(tbl.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-tretake="1">📷 Retake this photo</button></div>')+'</div>';
+}
+/* ---------------- PDFs: plan sheets with N/E callouts (and point tables) → points ----------------
+   Text PDFs (exported from Civil 3D, AutoCAD, Excel…) are read exactly — no guessing.
+   Scanned PDFs (pictures of pages) go through the photo reader instead. */
+var pdfLib=null;
+async function getPdfLib(){
+  if(pdfLib) return pdfLib;
+  try{ pdfLib=await import(new URL('lib/pdf.min.js', location.href).href); }
+  catch(e){ throw new Error('pdflib'); }
+  pdfLib.GlobalWorkerOptions.workerSrc=new URL('lib/pdf.worker.min.js', location.href).href;
+  return pdfLib;
+}
+var RX_N=/(?:^|[^A-Z0-9])(?:N|NORTH|NORTHING|N\.)\s*[:=]?\s*(-?\d{5,8}\.\d{1,4})(?![\d.])/i;
+var RX_E=/(?:^|[^A-Z0-9])(?:E|EAST|EASTING|E\.)\s*[:=]?\s*(-?\d{5,8}\.\d{1,4})(?![\d.])/i;
+var RX_EL=/(?:^|\s|\()((?:[A-Z][A-Z'\/&-]*\s+){0,3})(EL|ELEV|ELEVATION|FG|FFE|FF|TOP|TOC|TOW|BOW|BW|TW|INV|IE|TOS|GRD|FS|Z)\.?\s*[:=]?\s*(-?\d{1,5}\.\d{1,4})(?![\d.])/i;
+function pdfLines(items, vt){
+  // put every text piece on the sheet as you see it (handles rotated pages + rotated text)
+  var segs=[];
+  items.forEach(function(it){
+    if(!it.str || !it.str.trim()) return;
+    var m=pdfLib.Util.transform(vt, it.transform), fs=Math.hypot(m[2],m[3]) || Math.hypot(m[0],m[1]);
+    var len=Math.hypot(m[0],m[1]); if(!len||!fs) return;
+    var ang=Math.round(Math.atan2(m[1],m[0])*180/Math.PI/5)*5, a=ang*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+    var u=m[4]*c+m[5]*s, v=-m[4]*s+m[5]*c, w=(it.width||0)*(len/Math.hypot(it.transform[0],it.transform[1])||1);
+    segs.push({t:it.str, ang:ang, u:u, v:v, w:w, fs:fs, x:m[4], y:m[5]});
+  });
+  // join pieces that sit on the same line
+  segs.sort(function(a,b){ return a.ang-b.ang || a.v-b.v || a.u-b.u; });
+  var lines=[];
+  segs.forEach(function(sg){
+    var L=lines[lines.length-1];
+    if(L && L.ang===sg.ang && Math.abs(L.v-sg.v)<sg.fs*0.35 && sg.u-L.u1<sg.fs*1.2 && sg.u-L.u1>-sg.fs*0.5){
+      L.t+=(sg.u-L.u1>sg.fs*0.15?' ':'')+sg.t; L.u1=Math.max(L.u1,sg.u+sg.w);
+    } else lines.push({t:sg.t, ang:sg.ang, u0:sg.u, u1:sg.u+sg.w, v:sg.v, fs:sg.fs});
+  });
+  lines.forEach(function(L){ L.t=L.t.replace(/\s+/g,' ').trim(); });
+  return lines;
+}
+function lineBox(L){ // corners on the sheet (display coords) for cropping
+  var a=L.ang*Math.PI/180, c=Math.cos(a), s=Math.sin(a), pts=[[L.u0,L.v-L.fs],[L.u1,L.v-L.fs],[L.u0,L.v+L.fs*0.3],[L.u1,L.v+L.fs*0.3]];
+  return pts.map(function(p){ return [p[0]*c-p[1]*s, p[0]*s+p[1]*c]; });
+}
+function cleanDesc(t){
+  return t.replace(/\(?\s*SEE\s+(NOTE|NOTES|SHEET|DETAIL|DWG)S?\b[^)]*\)?/ig,'').replace(/\s+-\s*$/,'').replace(/\s{2,}/g,' ').trim().slice(0,60);
+}
+function findCallouts(lines){
+  var nL=[], eL=[], used=new Set(), out=[];
+  lines.forEach(function(L,i){ var n=RX_N.exec(L.t), e=RX_E.exec(L.t);
+    if(n && e){ out.push({N:n[1], E:e[1], lines:[L], top:L, bot:L}); used.add(L); }
+    else if(n) nL.push(L); else if(e) eL.push(L); });
+  // N line + E line stacked (either order), same direction, starting near the same spot
+  var pairs=[];
+  nL.forEach(function(n){ eL.forEach(function(e){
+    if(e.ang!==n.ang) return; var dv=e.v-n.v, du=Math.abs(e.u0-n.u0), fs=n.fs;
+    if(Math.abs(dv)>fs*0.6 && Math.abs(dv)<fs*2.4 && du<fs*3) pairs.push({n:n,e:e,d:Math.abs(dv)+du*0.5}); }); });
+  pairs.sort(function(a,b){ return a.d-b.d; });
+  pairs.forEach(function(p){ if(used.has(p.n)||used.has(p.e)) return; used.add(p.n); used.add(p.e);
+    var top=p.n.v<p.e.v?p.n:p.e, bot=top===p.n?p.e:p.n;
+    out.push({N:RX_N.exec(p.n.t)[1], E:RX_E.exec(p.e.t)[1], lines:[top,bot], top:top, bot:bot}); });
+  var lonely=nL.filter(function(L){ return !used.has(L); }).length+eL.filter(function(L){ return !used.has(L); }).length;
+  // the rest of each callout: text stacked right above / below it (same direction, lined up, no gaps)
+  var byAng={}; lines.forEach(function(L){ (byAng[L.ang]=byAng[L.ang]||[]).push(L); });
+  out.forEach(function(c){
+    var fs=c.top.fs, pool=(byAng[c.top.ang]||[]).filter(function(L){ return !used.has(L) || c.lines.indexOf(L)>=0; });
+    var stackDir=function(start, dir, max){ var cur=start, got=[];
+      for(var k=0;k<max;k++){
+        var nx=pool.filter(function(L){ var dv=(L.v-cur.v)*dir; return dv>fs*0.5 && dv<fs*1.9 && Math.abs(L.u0-c.top.u0)<fs*2.2 && c.lines.indexOf(L)<0 && got.indexOf(L)<0; })
+                   .sort(function(a,b){ return Math.abs(a.v-cur.v)-Math.abs(b.v-cur.v); })[0];
+        if(!nx || RX_N.test(nx.t) || RX_E.test(nx.t)) break; got.push(nx); cur=nx; }
+      return got; };
+    var above=stackDir(c.top,-1,4).reverse(), below=stackDir(c.bot,1,2);
+    // "EL =" at the end of a line with the number on the next line
+    var join=function(arr){ var r=[]; arr.forEach(function(L){ var p=r[r.length-1]; if(p && /\b(EL|ELEV|ELEVATION)\s*[:=]?\s*$/i.test(p.t) && /^-?\d{1,5}\.\d+$/.test(L.t)) { p.t+=' '+L.t; p.L2=L; } else r.push({t:L.t, L:L}); }); return r; };
+    c.elevs=[]; var desc=[];
+    join(above).concat(join(below).map(function(x){ x.below=true; return x; })).forEach(function(x){
+      var m=RX_EL.exec(x.t);
+      if(m){ var lab=((m[1]||'')+m[2]).replace(/\s+/g,' ').trim().toUpperCase(); c.elevs.push({label:lab, v:m[3]}); c.lines.push(x.L); if(x.L2) c.lines.push(x.L2); }
+      else if(!x.below){ desc.push(x.t); c.lines.push(x.L); }
+    });
+    c.desc=cleanDesc(desc.join(' '));
+  });
+  // sheet reading order: top to bottom, then left to right
+  out.forEach(function(c){ var bx=[].concat.apply([],c.lines.map(lineBox)), xs=bx.map(function(p){return p[0];}), ys=bx.map(function(p){return p[1];});
+    c.box=[Math.min.apply(null,xs),Math.min.apply(null,ys),Math.max.apply(null,xs),Math.max.apply(null,ys)]; });
+  out.sort(function(a,b){ return Math.abs(a.box[1]-b.box[1])>40 ? a.box[1]-b.box[1] : a.box[0]-b.box[0]; });
+  out.lonely=lonely;
+  return out;
+}
+async function renderPage(page, maxPx, maxScale){
+  var vp1=page.getViewport({scale:1}), sc=Math.min(maxScale||1.25, Math.sqrt(maxPx/(vp1.width*vp1.height)));
+  var vp=page.getViewport({scale:sc}), cv=document.createElement('canvas'); cv.width=Math.floor(vp.width); cv.height=Math.floor(vp.height);
+  var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height);
+  await page.render({canvasContext:cx, viewport:vp}).promise;
+  var shrink=function(max,q){ var k=Math.min(1,max/Math.max(cv.width,cv.height)), t=document.createElement('canvas'); t.width=Math.round(cv.width*k); t.height=Math.round(cv.height*k); t.getContext('2d').drawImage(cv,0,0,t.width,t.height); return t.toDataURL('image/jpeg',q); };
+  return {canvas:cv, scale:sc, w:cv.width, h:cv.height, thumb:shrink(360,0.75), big:shrink(2200,0.8)};
+}
+function cropOf(R, box, pad){
+  var s=R.scale, x0=Math.max(0,Math.floor((box[0]-pad)*s)), y0=Math.max(0,Math.floor((box[1]-pad)*s)), x1=Math.min(R.w,Math.ceil((box[2]+pad)*s)), y1=Math.min(R.h,Math.ceil((box[3]+pad)*s));
+  var w=x1-x0, h=y1-y0; if(w<2||h<2) return null;
+  var k=Math.min(2.2, 520/w), c=document.createElement('canvas'); c.width=Math.round(w*k); c.height=Math.round(h*k);
+  var cx=c.getContext('2d'); cx.imageSmoothingQuality='high'; cx.drawImage(R.canvas,x0,y0,w,h,0,0,c.width,c.height);
+  return c.toDataURL('image/jpeg',0.85);
+}
+async function readPdf(pt){
+  pt.step='Opening PDF…'; pt.prog=.02; phRender();
+  var lib=await getPdfLib(), buf=await pt.src.arrayBuffer(), doc=await lib.getDocument({data:new Uint8Array(buf)}).promise;
+  var name=(pt.src.name||'PDF').replace(/\.pdf$/i,''), made=[], scanned=[];
+  for(var pn=1; pn<=doc.numPages; pn++){
+    pt.step='Reading page '+pn+' of '+doc.numPages+'…'; pt.prog=(pn-.5)/doc.numPages; phRender();
+    var page=await doc.getPage(pn), vp=page.getViewport({scale:1}), tc=await page.getTextContent();
+    var lines=pdfLines(tc.items, vp.transform), hasText=lines.length>15;
+    if(!hasText){ scanned.push(pn); var R0=await renderPage(page, 9e6, 4); var blob=await new Promise(function(r){ R0.canvas.toBlob(r,'image/jpeg',0.92); });
+      blob.name=name+' p'+pn+'.jpg'; made.push({id:++phSeq, src:blob, state:'wait', step:'Waiting…', prog:0, fromPdf:name+' · page '+pn}); R0.canvas.width=0; continue; }
+    var calls=findCallouts(lines);
+    if(calls.length){
+      var R=await renderPage(page, 12e6), gid='p'+(++phSeq);
+      var labels={}; calls.forEach(function(c){ c.elevs.forEach(function(e){ labels[e.label]=(labels[e.label]||0)+1; }); });
+      var labs=Object.keys(labels).sort(function(a,b){ return labels[b]-labels[a]; });
+      var g={id:gid, type:'plan', name:name, page:pn, pages:doc.numPages, thumb:R.thumb, big:R.big, labels:labs, zLabel:labs.length?labs[0]:'', dFrom:'plan', lonely:calls.lonely,
+        pts:calls.map(function(c){ var el={}; c.elevs.forEach(function(e){ if(el[e.label]==null) el[e.label]=e.v; }); return {N:c.N, E:c.E, el:el, desc:c.desc, crop:cropOf(R,c.box,6)}; })};
+      R.canvas.width=0;
+      phTables[gid]=g;
+      g.pts.forEach(function(_,r){ made.push(planPoint(g, r, {id:++phSeq})); });
+      continue;
+    }
+    // no callouts — maybe the page is a table of points (pile schedule, coordinate table…)
+    var R2=await renderPage(page, 12e6), k=R2.scale, words=[];
+    tc.items.forEach(function(it){ if(!it.str||!it.str.trim()) return; var m=lib.Util.transform(vp.transform,it.transform); if(Math.abs(m[1])>0.01*Math.abs(m[0])) return;
+      var fs=Math.hypot(m[2],m[3]), wd=(it.width||0)*(Math.hypot(m[0],m[1])/Math.hypot(it.transform[0],it.transform[1])||1);
+      it.str.trim().split(/\s+/).forEach(function(tok,ti,arr){ var share=wd/Math.max(1,it.str.length), off=it.str.indexOf(tok)*share;
+        words.push({t:tok, x:(m[4]+off)*k, y:(m[5]-fs)*k, w:tok.length*share*k, h:fs*1.2*k, c:100}); }); });
+    var T=parseTable(words);
+    if(T){ var S={w:R2.w,h:R2.h,canvas:R2.canvas,thumb:R2.thumb,big:R2.big}, holder={id:++phSeq, src:pt.src, collect:true};
+      await buildTable(holder, S, T, false, true); R2.canvas.width=0;
+      if(holder.tbl) holder.tbl.label=name+(doc.numPages>1?' · page '+pn:'');
+      made=made.concat(holder.out||[]); continue; }
+    R2.canvas.width=0;
+  }
+  var at=phPoints.indexOf(pt); if(at<0) at=phPoints.length;
+  if(made.length){ phPoints.splice.apply(phPoints,[at,1].concat(made)); made.forEach(function(m){ if(m.state==='wait') phQueue.push(m); }); }
+  else { pt.state='done'; pt.step=''; pt.err='No points found in this PDF — it needs labels like “N 1951387.37 / E 2317588.29”, or a table with Northing/Easting columns.';
+    ['N','E','Z'].forEach(function(K){ pt[K]={v:'',conf:0,found:false}; }); pt.pdfEmpty=true; }
+  if(scanned.length) phSetStatus('');
+}
+function planPoint(g, r, p){
+  var c=g.pts[r];
+  p.state='done'; p.tableId=g.id; p.row=r; p.thumb=g.thumb; p.big=g.big; p.snip=c.crop;
+  p.N={v:c.N,conf:100,base:100,found:true}; p.E={v:c.E,conf:100,base:100,found:true};
+  if(!g.labels.length) p.Z={v:'',conf:100,base:100,found:false,ok:true,none:true};
+  else if(!g.zLabel) p.Z={v:'',conf:100,base:100,found:false,ok:true,none:true};
+  else if(c.el[g.zLabel]!=null) p.Z={v:c.el[g.zLabel],conf:100,base:100,found:true};
+  else p.Z={v:'',conf:0,base:0,found:false,missing:true};
+  if(!p.dTouched) p.d = g.dFrom==='plan' && c.desc ? c.desc : null;
+  return p;
+}
+function planHeaderHTML(g, n){
+  var rep=0, seen={}; phPoints.forEach(function(p){ if(p.tableId===g.id){ var k=p.N.v+','+p.E.v; if(seen[k]) rep++; seen[k]=1; } });
+  var zopt='<option value=""'+(!g.zLabel?' selected':'')+'>(none)</option>'+g.labels.map(function(l){ return '<option'+(l===g.zLabel?' selected':'')+'>'+escH(l)+'</option>'; }).join('');
+  return '<div class="pcard tcard" data-tid="'+g.id+'"><div class="ph"><img src="'+g.thumb+'" data-tzoom="1" alt=""><b>'+escH(g.name)+(g.pages>1?' · page '+g.page:'')+'<br><span class="muted" style="font-weight:600;font-size:13px">Plan · '+n+' point'+(n===1?'':'s')+' · read exactly from the PDF</span></b>'+
+    '<button class="x" data-tdel="1" title="Remove all these points">✕</button></div>'+
+    (g.labels.length?'<div class="row"><div class="field"><label>Elevation from</label><select class="inp" data-pz="1">'+zopt+'</select></div>':'<div class="muted" style="font-size:13px;margin-bottom:8px">No elevations labeled next to these points — elevation is left blank (fill it later with Bulk Edit if you need to).</div><div class="row">')+
+    '<div class="field"><label>Description</label><select class="inp" data-pd="1"><option value="plan"'+(g.dFrom==='plan'?' selected':'')+'>From plan labels</option><option value="setting"'+(g.dFrom!=='plan'?' selected':'')+'>Use Description above</option></select></div></div>'+
+    (g.lonely?'<div class="helpnote">⚠ '+g.lonely+' coordinate label'+(g.lonely===1?'':'s')+' had no matching N/E partner and '+(g.lonely===1?'was':'were')+' skipped.</div>':'')+
+    (rep?'<div class="warn" style="color:#b07c00">⚠ '+rep+' point'+(rep===1?' is':'s are')+' labeled more than once on the plan <button class="sug" data-prep="1">Remove repeats</button></div>':'')+
+    '</div>';
 }
 
 /* --- batch check across photos: points from one job share their leading digits and digit count.
@@ -1648,8 +1821,9 @@ function batchHints(){
 /* --- queue --- */
 function phAddFiles(files){
   Array.prototype.forEach.call(files||[], function(f){
-    if(!/^image\//.test(f.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(f.name)) return;
-    var p={id:++phSeq, src:f, state:'wait', prog:0, step:'Waiting…'}; phPoints.push(p); phQueue.push(p);
+    var isPdf=f.type==='application/pdf' || /\.pdf$/i.test(f.name);
+    if(!isPdf && !/^image\//.test(f.type) && !/\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(f.name)) return;
+    var p={id:++phSeq, src:f, pdf:isPdf, state:'wait', prog:0, step:'Waiting…'}; phPoints.push(p); phQueue.push(p);
   });
   phRender(); phPump();
 }
@@ -1658,12 +1832,14 @@ async function phPump(){
   while(phQueue.length){
     var p=phQueue.shift(); if(phPoints.indexOf(p)<0) continue;
     p.state='busy'; phRender();
-    try{ await readPhoto(p); }
+    try{ if(p.pdf) await readPdf(p); else await readPhoto(p); }
     catch(e){
       try{ console.warn('photo read failed', e); }catch(x){}
       p.state='done'; p.step='';
       ['N','E','Z'].forEach(function(K){ p[K]={v:'',conf:0,found:false}; });
-      p.err = /offline/.test(String(e&&e.message)) ? 'Couldn’t download the reader — needs internet the first time. Type the values or try again with signal.' : 'Couldn’t read this photo — type the values in.';
+      p.err = /pdflib/.test(String(e&&e.message)) ? 'Couldn’t load the PDF reader — open the app once with internet, then try again.' :
+              p.pdf ? 'Couldn’t open this PDF (it may be password-protected or damaged).' :
+              /offline/.test(String(e&&e.message)) ? 'Couldn’t download the reader — needs internet the first time. Type the values or try again with signal.' : 'Couldn’t read this photo — type the values in.';
     }
     batchHints(); phSetStatus(''); phRender();
   }
@@ -1683,16 +1859,18 @@ function phRender(){
   var seenT={};
   phPoints.forEach(function(p,idx){
     var num=p.pn!=null?p.pn:String(start+idx), tb=p.tableId?phTables[p.tableId]:null;
-    if(tb && !seenT[tb.id]){ seenT[tb.id]=1; h+=tableHeaderHTML(tb, phPoints.filter(function(x){ return x.tableId===tb.id; }).length); }
+    if(tb && !seenT[tb.id]){ seenT[tb.id]=1; var tn=phPoints.filter(function(x){ return x.tableId===tb.id; }).length; h+=tb.type==='plan'?planHeaderHTML(tb,tn):tableHeaderHTML(tb,tn); }
     h+='<div class="pcard'+(tb?' trow':'')+'" data-id="'+p.id+'"><div class="ph">'+(tb?'':(p.thumb?'<img src="'+p.thumb+'" data-zoom="'+p.id+'" alt="">':'<div class="spin" style="width:28px;height:28px"></div>'))+
-       '<b>'+(tb?'Row '+(p.row+1)+' · ':'')+'Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b>'+(p.manual||tb||p.state!=='done'?'':'<button class="x" data-retake="1" aria-label="Retake this photo" title="Retake this photo">📷</button>')+'<button class="x" data-del="'+p.id+'" aria-label="Remove">✕</button></div>';
+       '<b>'+(tb&&tb.type!=='plan'?'Row '+(p.row+1)+' · ':'')+'Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b>'+(p.manual||tb||p.state!=='done'?'':'<button class="x" data-retake="1" aria-label="Retake this photo" title="Retake this photo">📷</button>')+'<button class="x" data-del="'+p.id+'" aria-label="Remove">✕</button></div>';
     if(p.state!=='done'){
       h+='<div class="muted">'+escH(p.step||'Waiting…')+'</div><div class="pbar"><i style="width:'+Math.round((p.prog||0)*100)+'%"></i></div></div>'; return;
     }
     ready++;
+    if(p.snip) h+='<img class="crop snip" src="'+p.snip+'" alt="The label on the plan">';
+    if(p.fromPdf) h+='<div class="muted" style="font-size:12.5px;margin:-4px 0 6px">From '+escH(p.fromPdf)+' (scanned page — read from the picture)</div>';
     if(p.err) h+='<div class="result sub" style="margin:4px 0 0">'+escH(p.err)+'</div>';
-    var needHelp=!p.manual && !tb && (p.err || ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); }));
-    if(tb && ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); })) h+='<div class="helpnote" style="margin:0 0 6px">Unsure about this row — check it, or use “Try harder” / “Retake” on the table above.</div>';
+    var needHelp=!p.manual && !tb && !p.pdfEmpty && !p.pdf && (p.err || ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); }));
+    if(tb && tb.type!=='plan' && !tb.exact && ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); })) h+='<div class="helpnote" style="margin:0 0 6px">Unsure about this row — check it, or use “Try harder” / “Retake” on the table above.</div>';
     if(needHelp){
       h+='<div class="help"><button class="hard" data-hard="1">🔍 '+(p.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-retake="1">📷 Retake this photo</button></div>'+
          '<div class="helpnote">'+(p.hardDone?'Still unsure after trying hard — a retake usually fixes it: hold the phone square to the screen, closer, and keep it steady.':'Couldn’t read everything clearly. “Try harder” sharpens the photo and tries more angles (takes longer). Or retake just this photo.')+'</div>';
@@ -1701,15 +1879,17 @@ function phRender(){
        '<div class="field"><label>Description</label><input class="inp" data-f="d" value="'+escH(p.d!=null?p.d:$('#phDesc').value)+'"></div></div>';
     ['N','E','Z'].forEach(function(K){
       var f=p[K]||{v:'',conf:0}, cl=confClass(f), pct=f.ok?100:f.conf;
+      if(f.none){ h+='<div class="vf ok"><div class="lab"><span>'+FIELD_NAME[K]+'</span><span class="muted" style="font-size:12px">left blank</span></div><input class="inp num" data-f="'+K+'" value="'+escH(f.v)+'" inputmode="decimal" placeholder="(blank)"></div>'; return; }
       if(cl!=='ok') toVerify++;
       h+='<div class="vf '+cl+'"><div class="lab"><span>'+FIELD_NAME[K]+'</span>'+
          '<span class="meter" style="flex:none"><span class="m"><i style="width:'+pct+'%"></i></span>'+(f.ok?'✓ Verified':pct+'%')+'</span></div>';
       if(f.crop && !f.ok) h+='<img class="crop" src="'+f.crop+'" alt="What the photo shows">';
       h+='<input class="inp num" data-f="'+K+'" value="'+escH(f.v)+'" inputmode="decimal" placeholder="'+(f.found===false?'Not found — type it':'')+'">';
       if(!f.ok && cl!=='ok'){
-        h+='<div class="warn">⚠ '+(f.v?'Verify this number':'Couldn’t read — type it in or check the photo')+(f.v?'<button class="yes" data-ok="'+K+'">✓ It’s right</button>':'')+
+        h+='<div class="warn">⚠ '+(f.v?'Verify this number':f.missing?'This point has no “'+escH(tb&&tb.zLabel||'EL')+'” on the plan — type it or pick another elevation above':'Couldn’t read — type it in or check the photo')+(f.v?'<button class="yes" data-ok="'+K+'">✓ It’s right</button>':'')+
            (f.sug?'<button class="sug" data-sug="'+K+'">Other photos say '+escH(f.sug.split('.')[0])+'… → use '+escH(f.sug)+'</button>':'')+
-           (f.zsug?'<button class="sug" data-zsug="1">Other photos have '+escH(f.zsug)+' → use it</button>':'')+'</div>';
+           (f.zsug?'<button class="sug" data-zsug="1">Other photos have '+escH(f.zsug)+' → use it</button>':'')+
+           (f.missing?'<button class="sug" data-zblank="1">Leave blank</button>':'')+'</div>';
       }
       h+='</div>';
     });
@@ -1738,6 +1918,7 @@ $('#phList').addEventListener('click', function(e){
   if(tb){
     if(t.closest('[data-tzoom]')){ var zz=document.createElement('div'); zz.className='zoom'; zz.innerHTML='<img src="'+tb.big+'">'; zz.onclick=function(){ zz.remove(); }; document.body.appendChild(zz); return; }
     if(t.closest('[data-thard]')){ phRedoTable(tb, true); return; }
+    if(t.closest('[data-prep]')){ var seenK={}; phPoints=phPoints.filter(function(x){ if(x.tableId!==tb.id) return true; var k=x.N.v+','+x.E.v; if(seenK[k]) return false; seenK[k]=1; return true; }); batchHints(); phRender(); return; }
     if(t.closest('[data-tswap]')){ var tmp=tb.roles.N; tb.roles.N=tb.roles.E; tb.roles.E=tmp; tb.roles.guessed=false;
       phPoints.forEach(function(p){ if(p.tableId===tb.id){ var z=p.Z; tablePoint(tb,p.row,p); if(z&&z.ok) p.Z=z; } }); batchHints(); phRender(); return; }
     if(t.closest('[data-tretake]')){ retakeTable=tb; $('#phRetakeIn').value=''; $('#phRetakeIn').click(); return; }
@@ -1752,11 +1933,18 @@ $('#phList').addEventListener('click', function(e){
   if(t.closest('[data-hard]')){ p.hard=true; p.state='wait'; p.step='Waiting to try hard…'; p.prog=0; phQueue.unshift(p); phRender(); phPump(); return; }
   if(t.closest('[data-retake]')){ retakeId=p.id; $('#phRetakeIn').value=''; $('#phRetakeIn').click(); return; }
   var ok=t.closest('[data-ok]'); if(ok){ p[ok.getAttribute('data-ok')].ok=true; batchHints(); phRender(); return; }
+  if(t.closest('[data-zblank]')){ p.Z={v:'',conf:100,base:100,found:false,ok:true,none:true}; phRender(); return; }
   if(t.closest('[data-zsug]')){ p.Z.v=p.Z.zsug; p.Z.zsug=null; p.Z.ok=true; p.Z.found=true; batchHints(); phRender(); return; }
   var sg=t.closest('[data-sug]'); if(sg){ var K=sg.getAttribute('data-sug'); p[K].v=p[K].sug; p[K].sug=null; p[K].ok=true; phRender(); }
 });
 $('#phList').addEventListener('change', function(e){
   var t=e.target, tb=phTableOf(t);
+  if(tb && tb.type==='plan'){
+    if(t.getAttribute('data-pz')!=null) tb.zLabel=t.value;
+    if(t.getAttribute('data-pd')!=null) tb.dFrom=t.value;
+    phPoints.forEach(function(p){ if(p.tableId===tb.id){ var keepZ=p.Z&&p.Z.ok&&!p.Z.none&&t.getAttribute('data-pz')==null?p.Z:null; if(t.getAttribute('data-pd')!=null) p.dTouched=false; planPoint(tb,p.row,p); if(keepZ) p.Z=keepZ; } });
+    batchHints(); phRender(); return;
+  }
   if(tb){
     if(t.getAttribute('data-tz')) tb.zCol=+t.value;
     if(t.getAttribute('data-tp')) tb.pFrom=t.value;
