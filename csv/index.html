@@ -93,6 +93,35 @@ input,select{font:inherit;color:var(--ink)}
 .qt span{font-size:12px;color:var(--muted)}
 .qt.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px}
 .qt.wide .oi{margin:0}
+.phbar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:5}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px}
+.pcard .ph{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.pcard .ph img{width:64px;height:64px;object-fit:cover;border-radius:10px;flex:none;cursor:zoom-in;background:var(--panel2)}
+.pcard .ph b{font-size:16px;flex:1}
+.pcard .x{border:0;background:var(--panel2);border-radius:8px;width:34px;height:34px;cursor:pointer;color:var(--muted);font-size:16px}
+.pbar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin:6px 0 2px}
+.pbar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.vf{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.vf .lab{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px}
+.vf .lab span{flex:1}
+.meter{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800}
+.meter .m{width:64px;height:8px;border-radius:4px;background:var(--panel2);overflow:hidden}
+.meter .m i{display:block;height:100%}
+.vf.ok .meter{color:var(--good)} .vf.ok .meter i{background:var(--good)}
+.vf.mid .meter{color:#c48a00} .vf.mid .meter i{background:#e8b21b}
+.vf.low .meter{color:var(--bad)} .vf.low .meter i{background:var(--bad)}
+.vf.mid .inp{border-color:#e8b21b} .vf.low .inp{border-color:var(--bad)}
+.vf.ok .inp{border-color:color-mix(in srgb,var(--good) 60%,var(--line))}
+.crop{display:block;max-width:100%;max-height:54px;border-radius:6px;margin:6px 0;border:1px solid var(--line);background:#fff}
+.warn{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:700;margin-top:6px}
+.vf.mid .warn{color:#b07c00} .vf.low .warn{color:var(--bad)}
+.warn button{border:0;border-radius:8px;padding:7px 11px;font-weight:800;cursor:pointer;font-size:13px}
+.warn .yes{background:var(--good);color:#fff}
+.warn .sug{background:var(--panel2);color:var(--ink)}
+.spin{width:18px;height:18px;border:3px solid var(--panel2);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.zoom{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:70;display:flex;align-items:center;justify-content:center;padding:20px}
+.zoom img{max-width:100%;max-height:100%;border-radius:8px}
 .linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:14px;cursor:pointer;width:100%}
 
 /* grid */
@@ -222,6 +251,7 @@ select.inp{font-size:15px;padding:10px}
         <div class="small">or pick one from Files</div>
         <button class="btn primary" id="pickBtn">+ Add file</button>
       </div>
+      <button class="btn block mt" data-go="photos" style="background:var(--panel);border:1px solid var(--line);padding:16px"><svg width="22" height="22" style="color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Create CSV from photos</button>
       <p class="muted" style="text-align:center;margin-top:14px">Works with PNEZD / PENZD point files. Everything stays on your phone.</p>
     </div>
 
@@ -242,7 +272,8 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt" data-go="dups"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div><b>Find Duplicates</b><span>Renumber or fix copies</span></button>
         <button class="qt" data-go="renum"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h2v6M4 12h4M14 6h6M14 12h6M14 18h6M4 16c0-1 1-2 2-2s2 1 2 2c0 2-4 2-4 4h4"/></svg></div><b>Renumber</b><span>1, 2, 3… to 9999999</span></button>
         <button class="qt" data-go="bulk"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><b>Bulk Edit</b><span>Overwrite, Pile 1, 2, 3…</span></button>
-        <button class="qt" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
+        <button class="qt" data-go="photos"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div><b>From Photos</b><span>Snap screens → points</span></button>
+        <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
       </div>
       <div class="row mt">
         <button class="btn block" id="undoHome" style="flex:1">↶ Undo</button>
@@ -274,6 +305,33 @@ select.inp{font-size:15px;padding:10px}
   <div class="hint">Drag a column header to move it · tap a header to set what it is · tap a cell to edit</div>
   <div id="gscroll"><div id="ginner"><div class="ghead" id="ghead"></div><div id="grows"></div></div></div>
 </section>
+
+<!-- ============ PHOTOS → CSV ============ -->
+<section class="screen" id="photoScreen">
+  <div class="topbar">
+    <button class="iconbtn" id="phBack">‹ Back</button>
+    <h1>CSV from photos</h1>
+  </div>
+  <div class="scroll"><div class="wrap">
+    <div class="row">
+      <button class="btn primary block" style="flex:1;padding:16px 10px" id="phCam"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Take photo</button>
+      <button class="btn block" style="flex:1;padding:16px 10px;background:var(--panel);border:1px solid var(--line)" id="phLib">🖼 Choose photos</button>
+    </div>
+    <p class="muted" style="margin:8px 2px 14px">Take a photo of a screen showing Northing, Easting and Elevation — one point per photo, as many photos as you want. Hold the phone square to the screen and keep it sharp for the best reading.</p>
+    <div class="card"><h3>Settings</h3>
+      <div class="row"><div class="field"><label>First point #</label><input class="inp num" id="phStart" inputmode="numeric" value="1"></div>
+      <div class="field" style="flex:1.4"><label>Description (all points)</label><input class="inp" id="phDesc" placeholder="e.g. PILE"></div></div>
+      <div class="field mt"><label>If labels can’t be read, the screen lists</label><select class="inp" id="phOrder"><option value="EN">Easting, then Northing (Civil 3D)</option><option value="NE">Northing, then Easting</option></select></div>
+    </div>
+    <div id="phStatus"></div>
+    <div id="phList"></div>
+    <button class="btn block mt" id="phAdd" hidden>+ Add a point by hand</button>
+    <div style="height:90px"></div>
+  </div></div>
+  <div class="phbar" id="phBar" hidden><div class="wrap"><div id="phSum" class="muted" style="margin-bottom:8px;text-align:center"></div><button class="btn primary block" id="phGo">Create CSV</button></div></div>
+</section>
+<input type="file" id="phCamIn" accept="image/*" capture="environment" hidden>
+<input type="file" id="phLibIn" accept="image/*" multiple hidden>
 
 <!-- ============ SHEETS ============ -->
 <div class="veil" id="veil"><div class="sheet" id="sheet">
@@ -395,7 +453,7 @@ $('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); undo()
 
 /* ---------------- screens ---------------- */
 function showHome(){
-  $('#gridScreen').classList.remove('on'); $('#home').classList.add('on');
+  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#home').classList.add('on');
   $('#noFile').hidden = !!file; $('#hasFile').hidden = !file;
   if(file){
     $('#fName').textContent = file.name;
@@ -411,12 +469,13 @@ function showHome(){
   updUndo();
 }
 function showGrid(){
-  $('#home').classList.remove('on'); $('#gridScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
   $('#gTitle').textContent = file.name; layoutGrid(); updUndo();
 }
 function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); else showHome(); }
 
 function go(where){
+  if(where==='photos'){ showPhotos(); return; }
   if(!file && where!=='home') return;
   if(where==='grid') showGrid();
   else if(where==='fix') openFix();
@@ -1178,10 +1237,382 @@ function dl(m){
   toast('Saved '+m.n, true);
 }
 
+/* ---------------- CSV from photos (on-phone text reading) ----------------
+   Each photo: clean up (grey, blur away screen pattern, invert light-on-dark, stretch contrast) → estimate tilt →
+   read at the estimate and ±4° (each angle: 2 black/white versions, every long number re-read "digits only") →
+   votes decide each value; agreement across reads = the confidence %. */
+var TESS_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+var ocrW=null, ocrLoad=null, phPoints=[], phQueue=[], phBusy=false, phSeq=0;
+var GOOD_XY=/^\d{5,8}\.\d{2,4}$/, GOOD_Z=/^-?\d{1,5}\.\d{1,4}$/;
+var LAB_RX={E:/eas|ast|sting|mng|anny|tenng|reng|ening|nating|camung|canny|enng/i, N:/nor|orth|wort|thing|hing|mon|ton|non|nort|nonh/i, Z:/elev|elv/i};
+
+function loadTess(){
+  if(window.Tesseract) return Promise.resolve();
+  if(ocrLoad) return ocrLoad;
+  ocrLoad=new Promise(function(res,rej){ var s=document.createElement('script'); s.src=TESS_URL; s.onload=res; s.onerror=function(){ ocrLoad=null; rej(new Error('offline')); }; document.head.appendChild(s); });
+  return ocrLoad;
+}
+async function getOcr(){
+  await loadTess();
+  if(!ocrW) ocrW=await Tesseract.createWorker('eng',1,{logger:function(m){ if(m.status && /load|init/.test(m.status) && m.progress<1) phSetStatus('Getting the reader ready (first time only)… '+Math.round(m.progress*100)+'%'); }});
+  return ocrW;
+}
+var curPsm='';
+async function ocrRun(canvas, mode){
+  var w=await getOcr();
+  if(mode!==curPsm){
+    await w.setParameters(mode==='digits' ? {tessedit_pageseg_mode:'7', tessedit_char_whitelist:'0123456789.-'} : {tessedit_pageseg_mode:'11', tessedit_char_whitelist:''});
+    curPsm=mode;
+  }
+  var r=await w.recognize(canvas);
+  return r.data;
+}
+
+/* --- image helpers (grey = Float32Array 0..255) --- */
+function boxBlur(src,w,h,r){
+  var tmp=new Float32Array(w*h), out=new Float32Array(w*h), d=2*r+1, x, y, acc, i;
+  for(y=0;y<h;y++){ var row=y*w; acc=0;
+    for(x=-r;x<=r;x++) acc+=src[row+Math.min(w-1,Math.max(0,x))];
+    for(x=0;x<w;x++){ tmp[row+x]=acc/d; acc+=src[row+Math.min(w-1,x+r+1)]-src[row+Math.max(0,x-r)]; } }
+  for(x=0;x<w;x++){ acc=0;
+    for(y=-r;y<=r;y++) acc+=tmp[Math.min(h-1,Math.max(0,y))*w+x];
+    for(y=0;y<h;y++){ out[y*w+x]=acc/d; acc+=tmp[Math.min(h-1,y+r+1)*w+x]-tmp[Math.max(0,y-r)*w+x]; } }
+  return out;
+}
+function greyOf(canvas){
+  var w=canvas.width,h=canvas.height,d=canvas.getContext('2d').getImageData(0,0,w,h).data,g=new Float32Array(w*h);
+  for(var i=0,j=0;i<g.length;i++,j+=4) g[i]=0.299*d[j]+0.587*d[j+1]+0.114*d[j+2];
+  return g;
+}
+function canvasOf(g,w,h){
+  var c=document.createElement('canvas'); c.width=w; c.height=h;
+  var ctx=c.getContext('2d'), im=ctx.createImageData(w,h), d=im.data;
+  for(var i=0,j=0;i<g.length;i++,j+=4){ var v=g[i]<0?0:g[i]>255?255:g[i]; d[j]=d[j+1]=d[j+2]=v; d[j+3]=255; }
+  ctx.putImageData(im,0,0); return c;
+}
+function adaptive(g,w,h,r,c){ var m=boxBlur(g,w,h,r), o=new Float32Array(w*h); for(var i=0;i<o.length;i++) o[i]=g[i]<m[i]-c?0:255; return o; }
+function loadImg(file){
+  return new Promise(function(res,rej){ var u=URL.createObjectURL(file), im=new Image();
+    im.onload=function(){ res(im); setTimeout(function(){ URL.revokeObjectURL(u); },2000); }; im.onerror=function(){ rej(new Error('img')); }; im.src=u; });
+}
+function prepPhoto(img){
+  var MAX=1700, sc=Math.min(1, MAX/Math.max(img.naturalWidth,img.naturalHeight));
+  var w=Math.round(img.naturalWidth*sc), h=Math.round(img.naturalHeight*sc);
+  var c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+  var t=document.createElement('canvas'), ts=Math.min(1,360/Math.max(w,h)); t.width=Math.round(w*ts); t.height=Math.round(h*ts);
+  t.getContext('2d').drawImage(c,0,0,t.width,t.height);
+  var g=greyOf(c);
+  g=boxBlur(boxBlur(g,w,h,2),w,h,2);                       // blur away the screen pattern
+  // light text on a dark screen? flip so text is dark on light
+  var cs=[], x, y;
+  for(y=Math.floor(h*.25);y<h*.75;y+=4) for(x=Math.floor(w*.25);x<w*.75;x+=4) cs.push(g[y*w+x]);
+  // text covers less area than its background: split the middle of the photo into light/dark (Otsu);
+  // if the light side is the smaller one, the text is light → flip it
+  var ch=new Float64Array(256); cs.forEach(function(v){ ch[Math.max(0,Math.min(255,v|0))]++; });
+  var tot=cs.length, sumAll=0, k; for(k=0;k<256;k++) sumAll+=k*ch[k];
+  var wB=0, sB=0, bestT=128, bestV=-1;
+  for(k=0;k<256;k++){ wB+=ch[k]; if(!wB) continue; var wF=tot-wB; if(!wF) break; sB+=k*ch[k];
+    var mB=sB/wB, mF=(sumAll-sB)/wF, v=wB*wF*(mB-mF)*(mB-mF); if(v>bestV){ bestV=v; bestT=k; } }
+  var nLight=0; cs.forEach(function(v){ if(v>bestT) nLight++; });
+  var inv=nLight<tot/2, hist=new Uint32Array(256), i;
+  for(i=0;i<g.length;i++){ if(inv) g[i]=255-g[i]; hist[g[i]|0]++; }
+  var lo=0, hi=255, acc=0, cut=g.length*0.02;
+  for(i=0;i<256;i++){ acc+=hist[i]; if(acc>cut){ lo=i; break; } }
+  acc=0; for(i=255;i>=0;i--){ acc+=hist[i]; if(acc>cut){ hi=i; break; } }
+  var span=Math.max(1,hi-lo); for(i=0;i<g.length;i++) g[i]=(g[i]-lo)*255/span;
+  return {w:w,h:h,g:g,canvas:canvasOf(g,w,h),thumb:t.toDataURL('image/jpeg',0.75),big:c.toDataURL('image/jpeg',0.7)};
+}
+function estimateTilt(P){
+  var sw=400, sh=Math.round(400*P.h/P.w), s=document.createElement('canvas'); s.width=sw; s.height=sh;
+  s.getContext('2d').drawImage(P.canvas,0,0,sw,sh);
+  var g=greyOf(s), m=boxBlur(g,sw,sh,8), xs=[], ys=[], x, y;
+  var y0=Math.floor(sh*.2), y1=Math.floor(sh*.8), x0=Math.floor(sw*.2), x1=Math.floor(sw*.8);
+  for(y=y0;y<y1;y++) for(x=x0;x<x1;x++){ var i=y*sw+x; if(g[i]<m[i]-12){ xs.push(x-x0); ys.push(y-y0); } }
+  var best=0, bestSc=-1, n=xs.length;
+  for(var a=-35;a<=35;a+=0.5){
+    var t=a*Math.PI/180, sn=Math.sin(t), cs=Math.cos(t), off=Math.ceil((x1-x0)*Math.abs(sn))+2, rows=new Float64Array((y1-y0)+(x1-x0)+off*2+4);
+    for(var k=0;k<n;k++) rows[Math.round(-xs[k]*sn+ys[k]*cs)+off]++;
+    var sc=0; for(var r=1;r<rows.length;r++){ var d=rows[r]-rows[r-1]; sc+=d*d; }
+    if(sc>bestSc){ bestSc=sc; best=a; }
+  }
+  return best;
+}
+function rotated(P, deg){
+  var t=deg*Math.PI/180, c=Math.abs(Math.cos(t)), s=Math.abs(Math.sin(t));
+  var W=Math.ceil(P.w*c+P.h*s), H=Math.ceil(P.w*s+P.h*c), cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  var ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  ctx.translate(W/2,H/2); ctx.rotate(-t); ctx.drawImage(P.canvas,-P.w/2,-P.h/2);
+  return {w:W,h:H,canvas:cv,g:greyOf(cv)};
+}
+function normNum(t, z){
+  var d=String(t).replace(/[^\d.\-]/g,''), neg=/^-/.test(d); d=d.replace(/-/g,'');
+  var dots=(d.match(/\./g)||[]).length;
+  if(dots>1){ var last=d.lastIndexOf('.'); d=d.slice(0,last).replace(/\./g,'')+d.slice(last); }
+  if(d.indexOf('.')<0){ if(!z && d.length>=9) d=d.slice(0,-4)+'.'+d.slice(-4); else if(z && d.length>=5) d=d.slice(0,-4)+'.'+d.slice(-4); }
+  return (neg?'-':'')+d;
+}
+
+async function readAngle(R, order){
+  var entries=[], scale=R.w/1300;
+  var passes=[[Math.round(31*Math.max(.6,scale)),12],[Math.round(21*Math.max(.6,scale)),8]];
+  for(var p=0;p<passes.length;p++){
+    var bin=canvasOf(adaptive(R.g,R.w,R.h,passes[p][0],passes[p][1]),R.w,R.h);
+    var data=await ocrRun(bin,'page');
+    var words=(data.words||[]).filter(function(w){ return w.text && w.text.trim(); }).map(function(w){ return {t:w.text, x:w.bbox.x0, y:w.bbox.y0, w:w.bbox.x1-w.bbox.x0, h:w.bbox.y1-w.bbox.y0}; });
+    var cands=words.filter(function(w){ return (w.t.match(/\d/g)||[]).length>=5 && w.h>=12; }).sort(function(a,b){ return a.y-b.y; });
+    var coordIdx=0, zDone=false;
+    for(var ci=0;ci<cands.length;ci++){
+      var wd=cands[ci], cy=wd.y+wd.h/2;
+      var lab=words.filter(function(o){ return o!==wd && Math.abs(o.y+o.h/2-cy)<wd.h*0.7 && o.x<wd.x; }).sort(function(a,b){return a.x-b.x;}).map(function(o){return o.t;}).join(' ');
+      var kind=null; ['E','N','Z'].forEach(function(K){ if(!kind && LAB_RX[K].test(lab)) kind=K; });
+      // re-read just this number, digits only, enlarged
+      var pad=Math.round(wd.h*0.35), sx=Math.max(0,wd.x-pad), sy=Math.max(0,wd.y-pad), sw=Math.min(R.w-sx,wd.w+2*pad), sh=Math.min(R.h-sy,wd.h+2*pad);
+      var cc=document.createElement('canvas'); cc.width=sw*2; cc.height=sh*2;
+      var cx=cc.getContext('2d'); cx.imageSmoothingQuality='high'; cx.drawImage(R.canvas,sx,sy,sw,sh,0,0,sw*2,sh*2);
+      var cg=greyOf(cc), cb=canvasOf(adaptive(cg,cc.width,cc.height,25,10),cc.width,cc.height);
+      var dd=await ocrRun(cb,'digits');
+      var raw=[dd.text||'', wd.t], isZ=kind==='Z';
+      var vals=raw.map(function(t){ return normNum(t,false); });
+      var short=vals.every(function(v){ return (v.split('.')[0]||'').replace('-','').length<5; });
+      if(!kind && short && coordIdx===2 && !zDone && /^\s*-?\d{1,5}[.,]\d{2,4}/.test(wd.t)) isZ=true;
+      if(isZ){ vals=raw.map(function(t){ return normNum(t,true); }).filter(function(v){ return GOOD_Z.test(v); }); zDone=true; }
+      else vals=vals.filter(function(v){ return GOOD_XY.test(v); });
+      if(window.__ocrDebug) window.__ocrDebug.push({lab:lab,kind:kind,raw:raw,vals:vals,isZ:isZ,ci:coordIdx});
+      if(!vals.length) continue;
+      var pos=null;
+      if(!isZ){ pos=(order==='NE'?['N','E','N','E']:['E','N','E','N'])[coordIdx%4]; coordIdx++; }
+      entries.push({kind:isZ?'Z':kind, pos:pos, vals:vals, w:raw.map(function(_,j){ return j===0?2:1; }).slice(0,vals.length), crop:cc});
+    }
+  }
+  return entries;
+}
+/* unlabeled numbers: Northings and Eastings start with different digits, so the labeled ones teach us which is which */
+function classifyEntries(es){
+  var pref={E:{},N:{}}, any=false;
+  es.forEach(function(e){ if(e.kind==='E'||e.kind==='N'){ any=true; e.vals.forEach(function(v){ var p=v.slice(0,3); pref[e.kind][p]=(pref[e.kind][p]||0)+1; }); } });
+  es.forEach(function(e){
+    if(e.kind) return;
+    var sc={E:0,N:0}; e.vals.forEach(function(v){ var p=v.slice(0,3); sc.E+=pref.E[p]||0; sc.N+=pref.N[p]||0; });
+    var hasE=Object.keys(pref.E).length>0, hasN=Object.keys(pref.N).length>0;
+    if(sc.E>sc.N) e.kind='E';
+    else if(sc.N>sc.E) e.kind='N';
+    else if(sc.E===0 && hasN && !hasE) e.kind='E';      // only Northings were labeled — a different-looking number is the Easting
+    else if(sc.E===0 && hasE && !hasN) e.kind='N';
+    else if(!any || sc.E>0) e.kind=e.pos;               // no labels at all, or a tie: fall back to row order
+    else e.kind=null;
+  });
+}
+
+async function readPhoto(pt){
+  var img=await loadImg(pt.file); var P=prepPhoto(img); pt.thumb=P.thumb; pt.big=P.big; pt.file=null; phRender();
+  var a0=estimateTilt(P), angles=[a0,a0-4,a0+4], extra=[a0-2,a0+2,a0-6,a0+6], entsAll=[], order=$('#phOrder').value, res, ai=0;
+  while(ai<angles.length){
+    pt.step=(ai<3?'Reading… ':'Hard to read — trying more angles… ')+(ai+1)+' of '+angles.length; pt.prog=(ai+.5)/angles.length; phRender();
+    var es=await readAngle(rotated(P,angles[ai]), order);
+    es.forEach(function(e){ e.ang=ai; }); entsAll=entsAll.concat(es); ai++;
+    if(ai===angles.length && angles.length===3){
+      res=tallyPhoto(entsAll, angles.length);
+      if(['E','N'].some(function(K){ return res[K].conf<60; })) angles=angles.concat(extra);
+    }
+  }
+  res=tallyPhoto(entsAll, angles.length);
+  ['N','E','Z'].forEach(function(K){ pt[K]=res[K]; });
+  pt.state='done'; pt.step='';
+}
+function tallyPhoto(ents0, nAng){
+  var ents=ents0.map(function(e){ return {kind:e.kind, pos:e.pos, vals:e.vals.slice(), w:e.w.slice(), crop:e.crop, ang:e.ang}; });
+  classifyEntries(ents);
+  // within a photo, a coordinate should have the usual digit count and first digits for its kind — drop clear misreads
+  ['E','N'].forEach(function(K){
+    var lens={}, prefs={};
+    ents.forEach(function(e){ if(e.kind!==K) return; e.vals.forEach(function(v,j){ var ip=v.split('.')[0]; lens[ip.length]=(lens[ip.length]||0)+e.w[j]; prefs[ip.slice(0,3)]=(prefs[ip.slice(0,3)]||0)+e.w[j]; }); });
+    var mL=null, mP=null, b=0; Object.keys(lens).forEach(function(k){ if(lens[k]>b){ b=lens[k]; mL=+k; } });
+    b=0; Object.keys(prefs).forEach(function(k){ if(prefs[k]>b){ b=prefs[k]; mP=k; } });
+    ents.forEach(function(e){ if(e.kind!==K) return;
+      var keep=[], kw=[]; e.vals.forEach(function(v,j){ var ip=v.split('.')[0]; if(ip.length===mL && ip.slice(0,3)===mP){ keep.push(v); kw.push(e.w[j]); } });
+      e.vals=keep; e.w=kw; });
+  });
+  var all={E:{},N:{},Z:{}}, top={E:{},N:{},Z:{}}, crops={E:{},N:{},Z:{}}, out={};
+  for(var ai=0;ai<nAng;ai++){
+    var per={E:{},N:{},Z:{}};
+    ents.forEach(function(e){ if(e.ang!==ai || !e.kind) return; e.vals.forEach(function(v,j){ per[e.kind][v]=(per[e.kind][v]||0)+e.w[j]; all[e.kind][v]=(all[e.kind][v]||0)+e.w[j]; if(!crops[e.kind][v]) crops[e.kind][v]=e.crop; }); });
+    ['E','N','Z'].forEach(function(K){ var best=null, bw=0; Object.keys(per[K]).forEach(function(v){ if(per[K][v]>bw){ bw=per[K][v]; best=v; } }); if(best) top[K][best]=(top[K][best]||0)+1; });
+  }
+  var angRead={E:{},N:{},Z:{}}; ents.forEach(function(e){ if(e.kind && e.vals.length) angRead[e.kind][e.ang]=1; });
+  ['N','E','Z'].forEach(function(K){
+    var ks=Object.keys(all[K]); if(!ks.length){ out[K]={v:'',conf:0,base:0,found:false}; return; }
+    ks.sort(function(a,b){ return all[K][b]-all[K][a]; });
+    var v=ks[0], tot=0; ks.forEach(function(k){ tot+=all[K][k]; });
+    var nRead=Math.max(1,Object.keys(angRead[K]).length);
+    var conf=Math.round(100*(all[K][v]/tot)*Math.sqrt((top[K][v]||0)/Math.max(nRead,Math.min(3,nAng))));
+    if(K!=='Z' && !/^\d{6,7}\.\d{3,4}$/.test(v)) conf=Math.min(conf,50);
+    if(all[K][v]<3) conf=Math.min(conf,60);
+    out[K]={v:v,conf:conf,base:conf,found:true,cropC:crops[K][v],alts:ks.slice(1,6),allv:all[K],crops:crops[K]};
+  });
+  if(out.E.v && out.E.v===out.N.v){
+    var loser=(all.E[out.E.v]||0)>=(all.N[out.N.v]||0)?'N':'E', alt=(out[loser].alts||[]).filter(function(v){ return v!==out.E.v && /^\d{6,7}\.\d{3,4}$/.test(v); })[0];
+    out[loser]={v:alt||'',conf:alt?Math.min(30,out[loser].conf):0,base:alt?Math.min(30,out[loser].conf):0,found:!!alt,cropC:alt?crops[loser][alt]:null,alts:[]};
+  }
+  ['N','E','Z'].forEach(function(K){ var c=out[K].cropC; out[K].crop=c?c.toDataURL('image/jpeg',0.8):null; delete out[K].cropC; delete out[K].crops; delete out[K].allv; });
+  return out;
+}
+
+/* --- batch check across photos: points from one job share their leading digits and digit count.
+   A value that's off by one digit from what the other photos agree on gets a one-tap suggestion. --- */
+function batchHints(){
+  // elevation: if 2+ photos clearly read the same elevation, offer it where this photo's is missing or shaky
+  var zc={}; phPoints.forEach(function(p){ var f=p.Z; if(p.state==='done' && f && f.v && (f.ok || (f.base||0)>=60)) zc[f.v]=(zc[f.v]||0)+1; });
+  var zm=null, zn=0; Object.keys(zc).forEach(function(k){ if(zc[k]>zn){ zn=zc[k]; zm=k; } });
+  phPoints.forEach(function(p){ var f=p.Z; if(!f || p.state!=='done') return; f.zsug=null;
+    if(zm && zn>=2 && !f.ok && f.v!==zm && (!f.v || (f.base||0)<60)) f.zsug=zm; });
+  ['N','E'].forEach(function(K){
+    var w={}, lw={}, tot=0, strong=false;
+    phPoints.forEach(function(p){ var f=p[K]; if(p.state!=='done' || !f || !f.v) return;
+      var ip=f.v.split('.')[0], c=f.ok?100:(f.base||0); w[ip]=(w[ip]||0)+c; lw[ip.length]=(lw[ip.length]||0)+c; tot+=c; if(c>=60) strong=true; });
+    var mode=null, mw=0, mlen=null, ml=0;
+    Object.keys(w).forEach(function(k){ if(w[k]>mw){ mw=w[k]; mode=k; } });
+    Object.keys(lw).forEach(function(k){ if(lw[k]>ml){ ml=lw[k]; mlen=+k; } });
+    var n=phPoints.filter(function(p){ return p.state==='done' && p[K] && p[K].v; }).length;
+    phPoints.forEach(function(p){
+      var f=p[K]; if(!f) return; f.sug=null; if(f.base!=null && !f.ok) f.conf=f.base;
+      if(f.ok || !f.v || n<2) return;
+      var ip=f.v.split('.')[0], dec=f.v.split('.')[1]||'';
+      if(mlen && ip.length!==mlen && ml>tot/2){ f.conf=Math.min(f.conf,20); return; }
+      if(!mode || !strong || ip===mode || ip.length!==mode.length || mw<=tot/2) return;
+      var diff=0; for(var i=0;i<ip.length;i++) if(ip[i]!==mode[i]) diff++;
+      if(diff===1){ f.sug=mode+'.'+dec; f.conf=Math.min(f.conf,35); }
+    });
+  });
+}
+
+/* --- queue --- */
+function phAddFiles(files){
+  Array.prototype.forEach.call(files||[], function(f){
+    if(!/^image\//.test(f.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(f.name)) return;
+    var p={id:++phSeq, file:f, state:'wait', prog:0, step:'Waiting…'}; phPoints.push(p); phQueue.push(p);
+  });
+  phRender(); phPump();
+}
+async function phPump(){
+  if(phBusy) return; phBusy=true;
+  while(phQueue.length){
+    var p=phQueue.shift(); if(phPoints.indexOf(p)<0) continue;
+    p.state='busy'; phRender();
+    try{ await readPhoto(p); }
+    catch(e){
+      try{ console.warn('photo read failed', e); }catch(x){}
+      p.state='done'; p.step='';
+      ['N','E','Z'].forEach(function(K){ p[K]={v:'',conf:0,found:false}; });
+      p.err = /offline/.test(String(e&&e.message)) ? 'Couldn’t download the reader — needs internet the first time. Type the values or try again with signal.' : 'Couldn’t read this photo — type the values in.';
+    }
+    batchHints(); phSetStatus(''); phRender();
+  }
+  phBusy=false;
+}
+function phSetStatus(t){ var s=$('#phStatus'); if(!s) return; s.innerHTML=t?'<div class="result" style="display:flex;gap:10px;align-items:center"><div class="spin"></div><span>'+escH(t)+'</span></div>':''; }
+
+/* --- review list --- */
+var FIELD_NAME={N:'Northing',E:'Easting',Z:'Elevation'};
+function confClass(f){ return f.ok||f.conf>=100 ? 'ok' : f.conf>=60 ? 'mid' : 'low'; }
+function phRender(){
+  // keep whatever box you're typing in (and where the cursor is) through the redraw
+  var ae=document.activeElement, keep=null;
+  if(ae && ae.closest && ae.closest('#phList') && ae.getAttribute('data-f')){ var cd=ae.closest('.pcard'); keep={id:cd&&cd.getAttribute('data-id'), f:ae.getAttribute('data-f'), v:ae.value, a:ae.selectionStart, b:ae.selectionEnd}; }
+  var start=parseInt($('#phStart').value,10); if(isNaN(start)) start=1;
+  var h='', toVerify=0, ready=0;
+  phPoints.forEach(function(p,idx){
+    var num=p.pn!=null?p.pn:String(start+idx);
+    h+='<div class="pcard" data-id="'+p.id+'"><div class="ph">'+(p.thumb?'<img src="'+p.thumb+'" data-zoom="'+p.id+'" alt="">':'<div class="spin" style="width:28px;height:28px"></div>')+
+       '<b>Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b><button class="x" data-del="'+p.id+'" aria-label="Remove">✕</button></div>';
+    if(p.state!=='done'){
+      h+='<div class="muted">'+escH(p.step||'Waiting…')+'</div><div class="pbar"><i style="width:'+Math.round((p.prog||0)*100)+'%"></i></div></div>'; return;
+    }
+    ready++;
+    if(p.err) h+='<div class="result sub" style="margin:4px 0 0">'+escH(p.err)+'</div>';
+    h+='<div class="row"><div class="field" style="flex:.7"><label>Point #</label><input class="inp num" data-f="pn" value="'+escH(num)+'" inputmode="numeric"></div>'+
+       '<div class="field"><label>Description</label><input class="inp" data-f="d" value="'+escH(p.d!=null?p.d:$('#phDesc').value)+'"></div></div>';
+    ['N','E','Z'].forEach(function(K){
+      var f=p[K]||{v:'',conf:0}, cl=confClass(f), pct=f.ok?100:f.conf;
+      if(cl!=='ok') toVerify++;
+      h+='<div class="vf '+cl+'"><div class="lab"><span>'+FIELD_NAME[K]+'</span>'+
+         '<span class="meter" style="flex:none"><span class="m"><i style="width:'+pct+'%"></i></span>'+(f.ok?'✓ Verified':pct+'%')+'</span></div>';
+      if(f.crop && !f.ok) h+='<img class="crop" src="'+f.crop+'" alt="What the photo shows">';
+      h+='<input class="inp num" data-f="'+K+'" value="'+escH(f.v)+'" inputmode="decimal" placeholder="'+(f.found===false?'Not found — type it':'')+'">';
+      if(!f.ok && cl!=='ok'){
+        h+='<div class="warn">⚠ '+(f.v?'Verify this number':'Couldn’t read — type it in or check the photo')+(f.v?'<button class="yes" data-ok="'+K+'">✓ It’s right</button>':'')+
+           (f.sug?'<button class="sug" data-sug="'+K+'">Other photos say '+escH(f.sug.split('.')[0])+'… → use '+escH(f.sug)+'</button>':'')+
+           (f.zsug?'<button class="sug" data-zsug="1">Other photos have '+escH(f.zsug)+' → use it</button>':'')+'</div>';
+      }
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  $('#phList').innerHTML=h;
+  if(keep){ var el=document.querySelector('#phList .pcard[data-id="'+keep.id+'"] [data-f="'+keep.f+'"]'); if(el){ el.value=keep.v; el.focus(); try{ el.setSelectionRange(keep.a,keep.b); }catch(x){} } }
+  $('#phAdd').hidden=!phPoints.length;
+  $('#phBar').hidden=!phPoints.length;
+  var busy=phPoints.length-ready;
+  $('#phSum').innerHTML=phPoints.length+' point'+(phPoints.length===1?'':'s')+(busy?' · '+busy+' still reading':'')+(toVerify?' · <b style="color:#c48a00">'+toVerify+' number'+(toVerify===1?'':'s')+' to verify</b>':ready?' · <b style="color:var(--good)">all verified</b>':'');
+  $('#phGo').disabled=!ready;
+  $('#phGo').textContent='Create CSV ('+ready+' point'+(ready===1?'':'s')+')';
+}
+function phFind(el){ var c=el.closest('.pcard'); if(!c) return null; var id=+c.getAttribute('data-id'); return phPoints.filter(function(p){return p.id===id;})[0]; }
+$('#phList').addEventListener('click', function(e){
+  var t=e.target, p=phFind(t); if(!p) return;
+  if(t.closest('[data-del]')){ phPoints.splice(phPoints.indexOf(p),1); batchHints(); phRender(); return; }
+  if(t.closest('[data-zoom]')){ var z=document.createElement('div'); z.className='zoom'; z.innerHTML='<img src="'+(p.big||p.thumb)+'">'; z.onclick=function(){ z.remove(); }; document.body.appendChild(z);
+    // show the big version when available
+    return; }
+  var ok=t.closest('[data-ok]'); if(ok){ p[ok.getAttribute('data-ok')].ok=true; batchHints(); phRender(); return; }
+  if(t.closest('[data-zsug]')){ p.Z.v=p.Z.zsug; p.Z.zsug=null; p.Z.ok=true; p.Z.found=true; batchHints(); phRender(); return; }
+  var sg=t.closest('[data-sug]'); if(sg){ var K=sg.getAttribute('data-sug'); p[K].v=p[K].sug; p[K].sug=null; p[K].ok=true; phRender(); }
+});
+$('#phList').addEventListener('change', function(e){
+  var t=e.target, p=phFind(t); if(!p || !t.getAttribute('data-f')) return;
+  var f=t.getAttribute('data-f');
+  if(f==='pn') p.pn=t.value; else if(f==='d'){ p.d=t.value; p.dTouched=true; }
+  else { var v=t.value.trim(); if(!p[f]) p[f]={}; if(v!==p[f].v){ p[f].v=v; p[f].ok=!!v; p[f].sug=null; } }
+  batchHints(); phRender();
+});
+$('#phStart').addEventListener('change', phRender);
+$('#phDesc').addEventListener('input', function(){ phPoints.forEach(function(p){ if(!p.dTouched) p.d=null; }); phRender(); });
+$('#phCam').onclick=function(){ $('#phCamIn').value=''; $('#phCamIn').click(); };
+$('#phLib').onclick=function(){ $('#phLibIn').value=''; $('#phLibIn').click(); };
+$('#phCamIn').onchange=function(){ phAddFiles(this.files); };
+$('#phLibIn').onchange=function(){ phAddFiles(this.files); };
+$('#phAdd').onclick=function(){ phPoints.push({id:++phSeq,state:'done',manual:true,N:{v:'',conf:0,found:false},E:{v:'',conf:0,found:false},Z:{v:'',conf:0,found:false}}); phRender(); };
+$('#phBack').onclick=function(){
+  if(phPoints.length && !confirm('Leave? The photo points that haven’t been made into a CSV will be lost.')) return;
+  phPoints=[]; phQueue=[]; showHome();
+};
+$('#phGo').onclick=function(){
+  var done=phPoints.filter(function(p){ return p.state==='done'; });
+  var unv=0; done.forEach(function(p){ ['N','E','Z'].forEach(function(K){ if(p[K] && confClass(p[K])!=='ok') unv++; }); });
+  if(unv && !confirm(unv+' number'+(unv===1?' isn’t':'s aren’t')+' verified yet. Make the CSV anyway?')) return;
+  var start=parseInt($('#phStart').value,10); if(isNaN(start)) start=1;
+  var rows=done.map(function(p){ var idx=phPoints.indexOf(p); return [p.pn!=null?String(p.pn):String(start+idx), p.N.v||'', p.E.v||'', p.Z.v||'', p.d!=null?p.d:$('#phDesc').value]; });
+  var addTo = file && confirm('Add these '+rows.length+' points to the open file “'+file.name+'”?\n\nOK = add to it · Cancel = make a new CSV');
+  if(addTo){
+    snap();
+    rows.forEach(function(r){ var nr=file.roles.map(function(){ return ''; }); ['P','N','E','Z','D'].forEach(function(R,k){ var c=col(R); if(c>=0) nr[c]=r[k]; }); file.rows.push(nr); });
+  } else {
+    var d=new Date(), nm='photo-points-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.csv';
+    file={name:nm, delim:',', header:null, rows:rows, roles:['P','N','E','Z','D']}; hist=[];
+  }
+  save(); phPoints=[]; phQueue=[]; showGrid();
+  toast((addTo?'Added ':'Created ')+rows.length+' points — check them, then Export', true);
+};
+function showPhotos(){
+  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
+  if(file){ var mx=maxPoint(); if(mx) $('#phStart').value=mx+1; }
+  phRender();
+  loadTess().catch(function(){});   // start downloading the reader early
+}
+
 /* ---------------- boot ---------------- */
 try{ var s=ls.get('csvfix.file'); if(s) file=JSON.parse(s); }catch(e){ file=null; }
 showHome();
-window.CSVFix={ loadText:loadText, get file(){return file;} }; // for testing
+window.CSVFix={ loadText:loadText, get file(){return file;}, _ocr:{loadImg:loadImg,prepPhoto:prepPhoto,estimateTilt:estimateTilt,rotated:rotated,adaptive:adaptive,canvasOf:canvasOf} }; // for testing
 if('serviceWorker' in navigator && location.protocol==='https:'){
   // check for a newer version every time the app opens or comes back to the front; reload once when it arrives
   var hadSW=!!navigator.serviceWorker.controller, reloaded=false;
