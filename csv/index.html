@@ -3215,7 +3215,9 @@ function tpOverview(){ if(!TPX) return; var e=TPX.M.ext, w=(e[2]-e[0])||1, h=(e[
   tpRender({c:c, s:so, tx:-e[0]*so, ty:e[3]*so, W:ow, H:oh, dpr:1}); tpBackPos(); }
 function tpBackPos(){ var o=TPX&&TPX.ov; if(!o) return; var c=$('#tpOv'), k=TPX.s/o.so; c.style.transform='translate('+(o.e0*TPX.s+TPX.tx)+'px,'+(-o.n1*TPX.s+TPX.ty)+'px) scale('+k+')'; }
 function tpOvSig(){ var o=TPX.lops; return [Object.keys(TPX.hide).join(','), JSON.stringify(o.into), Object.keys(o.drop).join(','), JSON.stringify(o.clear), Object.keys(o.edit).map(function(k){ return k+':'+(o.edit[k].rgb||''); }).join(','), Object.keys(o.dupDrop).length, !!TPX.cutDone, TPX.dark].join('|'); }
+function tpBB(a,n){ var b=[1e18,1e18,-1e18,-1e18]; for(var k=0;k<n;k++){ var x=a[k*2], y=a[k*2+1]; if(x<b[0]) b[0]=x; if(y<b[1]) b[1]=y; if(x>b[2]) b[2]=x; if(y>b[3]) b[3]=y; } return b; }
 function tpRender(ov){
+  var t0=ov?0:performance.now();
   if(!ov){ tpScaleBar();
     if(!(TPX.s>0) || !isFinite(TPX.s) || !isFinite(TPX.tx) || !isFinite(TPX.ty)) tpFit(); }
   var M=TPX.M, c=ov?ov.c:$('#tpCanvas'), x=c.getContext('2d'), dpr=ov?ov.dpr:TPX.dpr, s=ov?ov.s:TPX.s, tx=ov?ov.tx:TPX.tx, ty=ov?ov.ty:TPX.ty, W=ov?ov.W:TPX.W, H=ov?ov.H:TPX.H, fin={};
@@ -3226,13 +3228,13 @@ function tpRender(ov){
   var view=[ (0-tx)/s, -(H-ty)/s, (W-tx)/s, -(0-ty)/s ];             // E0,N0,E1,N1
   var dark=getComputedStyle(document.body).backgroundColor; x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--panel')||'#fff'; x.fillRect(0,0,W,H);
   // surfaces: outline loops (worked out once), tinted inside
-  M.surfaces.forEach(function(S,si){ if(TPX.cutDone&&TPX.plan&&!TPX.plan.surfaces[si].kept) return; if(!S.loops) S.loops=tpLoops(S); var hue=(si*67)%360; x.beginPath();
+  M.surfaces.forEach(function(S,si){ if(TPX.cutDone&&TPX.plan&&!TPX.plan.surfaces[si].kept) return; if(!S.bb) S.bb=tpBB(S.V,S.vc); if(S.bb[2]<view[0]||S.bb[0]>view[2]||S.bb[3]<view[1]||S.bb[1]>view[3]) return; if(!S.loops) S.loops=tpLoops(S); var hue=(si*67)%360; x.beginPath();
     S.loops.forEach(function(L){ for(var k=0;k<L.length;k++){ var px=S.V[L[k]*2]*s+tx, py=-S.V[L[k]*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.closePath(); });
     x.fillStyle='hsla('+hue+',60%,55%,0.2)'; x.fill('evenodd'); x.strokeStyle='hsla('+hue+',60%,45%,0.7)'; x.lineWidth=1; x.stroke(); });
   // lines
   x.lineWidth=1.2; x.lineJoin='round';
   var cutP=TPX.cutDone&&TPX.plan;
-  M.lines.forEach(function(l,li){ var f=finL[l.layer]; if(f==null || (cutP&&!cutP.lines[li])) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
+  M.lines.forEach(function(l,li){ var f=finL[l.layer]; if(f==null || (cutP&&!cutP.lines[li])) return; if(!l.bb) l.bb=tpBB(l.xy,l.n); if(l.bb[2]<view[0]||l.bb[0]>view[2]||l.bb[3]<view[1]||l.bb[1]>view[3]) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
     for(var k=0;k<l.n;k++){ var px=l.xy[k*2]*s+tx, py=-l.xy[k*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); });
   // points (batched by layer)
   var r=Math.max(1.2, Math.min(5, s*0.25)), by={}, dd=TPX.lops.dupDrop, visI=[];
@@ -3261,13 +3263,17 @@ function tpRender(ov){
   $('#tpLost').hidden=vis;
   if(TPX.pickLine!=null){ var pl=M.lines[TPX.pickLine]; x.save(); x.strokeStyle='rgba(225,29,72,.45)'; x.lineWidth=7; x.lineCap='round'; x.beginPath(); for(var q2=0;q2<pl.n;q2++){ var lx=pl.xy[q2*2]*s+tx, ly=-pl.xy[q2*2+1]*s+ty; if(q2) x.lineTo(lx,ly); else x.moveTo(lx,ly); } x.stroke(); x.restore(); }
   if(TPX.pick!=null){ var pi=TPX.pick; x.strokeStyle='#e11d48'; x.lineWidth=2.5; x.beginPath(); x.arc(M.pE[pi]*s+tx,-M.pN[pi]*s+ty,9,0,7); x.stroke(); }
+  TPX.rMs=performance.now()-t0; // how heavy this view is → decides live drawing vs the blurry stand-in while moving
 }
 /* ---- gestures: transform the canvas while moving, redraw when you let go (cheap on battery) ---- */
 (function(){
   var wrap=$('#tpWrap'), ptr=new Map(), st=null, pinch=null, drag=null, rt=null;
-  function live(){ tpScaleBar(); tpBackPos(); var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
+  var LIVE_MS=14; // a view that draws faster than this is redrawn sharp while you move (little on screen); heavier views use the blurry stand-in
+  function live(){ tpScaleBar(); tpBackPos();
+    if(TPX.rMs!=null && TPX.rMs<LIVE_MS){ if(!TPX.raf) TPX.raf=requestAnimationFrame(function(){ TPX.raf=0; if(TPX) tpRender(); }); return; }
+    var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
   function begin(){ var c=$('#tpCanvas'); c.style.transition='none'; c.style.opacity=1; } // what's drawn is tracked by tpRender itself, so a redraw mid-gesture can't knock the view off
-  function settle(){ clearTimeout(rt); rt=setTimeout(function(){ if(!TPX) return; var c=$('#tpCanvas'), fade=!document.documentElement.classList.contains('rm');
+  function settle(){ clearTimeout(rt); rt=setTimeout(function(){ if(!TPX) return; var c=$('#tpCanvas'), fade=!document.documentElement.classList.contains('rm') && !(c.style.transform===''||c.style.transform==='none');
     tpRender(); if(fade){ c.style.transition='none'; c.style.opacity=.15; void c.offsetWidth; c.style.transition='opacity .22s ease-out'; c.style.opacity=1; } }, 60); }
   wrap.addEventListener('pointerdown', function(e){ if(!TPX) return; if(e.isPrimary){ ptr.clear(); pinch=null; } clearTimeout(rt); try{ wrap.setPointerCapture(e.pointerId); }catch(_){}  /* a new first finger = a new gesture: forget any finger iPhone never reported lifting */ ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
     if(ptr.size===1){ st={x:e.clientX,y:e.clientY,t:Date.now(),moved:false,bx:TPX.tx,by:TPX.ty}; begin();
