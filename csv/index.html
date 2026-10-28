@@ -98,6 +98,10 @@ input,select{font:inherit;color:var(--ink)}
 .pcard .ph{display:flex;gap:12px;align-items:center;margin-bottom:10px}
 .pcard .ph img{width:64px;height:64px;object-fit:cover;border-radius:10px;flex:none;cursor:zoom-in;background:var(--panel2)}
 .pcard .ph b{font-size:16px;flex:1}
+.help{display:flex;gap:8px;margin-top:10px}
+.help button{flex:1;border:0;border-radius:10px;padding:11px 8px;font-weight:750;font-size:14px;cursor:pointer}
+.help .hard{background:var(--accent);color:#fff} .help .rt{background:var(--panel2);color:var(--ink)}
+.helpnote{font-size:12.5px;color:var(--muted);margin-top:6px}
 .pcard .x{border:0;background:var(--panel2);border-radius:8px;width:34px;height:34px;cursor:pointer;color:var(--muted);font-size:16px}
 .pbar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin:6px 0 2px}
 .pbar i{display:block;height:100%;background:var(--accent);transition:width .3s}
@@ -332,6 +336,7 @@ select.inp{font-size:15px;padding:10px}
 </section>
 <input type="file" id="phCamIn" accept="image/*" capture="environment" hidden>
 <input type="file" id="phLibIn" accept="image/*" multiple hidden>
+<input type="file" id="phRetakeIn" accept="image/*" capture="environment" hidden>
 
 <!-- ============ SHEETS ============ -->
 <div class="veil" id="veil"><div class="sheet" id="sheet">
@@ -1295,8 +1300,8 @@ function loadImg(file){
   return new Promise(function(res,rej){ var u=URL.createObjectURL(file), im=new Image();
     im.onload=function(){ res(im); setTimeout(function(){ URL.revokeObjectURL(u); },2000); }; im.onerror=function(){ rej(new Error('img')); }; im.src=u; });
 }
-function prepPhoto(img){
-  var MAX=1700, sc=Math.min(1, MAX/Math.max(img.naturalWidth,img.naturalHeight));
+function prepPhoto(img, hard){
+  var MAX=hard?2400:1700, sc=Math.min(1, MAX/Math.max(img.naturalWidth,img.naturalHeight));
   var w=Math.round(img.naturalWidth*sc), h=Math.round(img.naturalHeight*sc);
   var c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
   var t=document.createElement('canvas'), ts=Math.min(1,360/Math.max(w,h)); t.width=Math.round(w*ts); t.height=Math.round(h*ts);
@@ -1320,6 +1325,9 @@ function prepPhoto(img){
   for(i=0;i<256;i++){ acc+=hist[i]; if(acc>cut){ lo=i; break; } }
   acc=0; for(i=255;i>=0;i--){ acc+=hist[i]; if(acc>cut){ hi=i; break; } }
   var span=Math.max(1,hi-lo); for(i=0;i<g.length;i++) g[i]=(g[i]-lo)*255/span;
+  if(hard){ // sharpen: push each pixel away from its neighbourhood average so letter edges stand out
+    var sb=boxBlur(g,w,h,Math.max(2,Math.round(3*w/1700)));
+    for(i=0;i<g.length;i++){ var v=g[i]+1.2*(g[i]-sb[i]); g[i]=v<0?0:v>255?255:v; } }
   return {w:w,h:h,g:g,canvas:canvasOf(g,w,h),thumb:t.toDataURL('image/jpeg',0.75),big:c.toDataURL('image/jpeg',0.7)};
 }
 function estimateTilt(P){
@@ -1352,9 +1360,10 @@ function normNum(t, z){
   return (neg?'-':'')+d;
 }
 
-async function readAngle(R, order){
+async function readAngle(R, order, hard){
   var entries=[], scale=R.w/1300;
   var passes=[[Math.round(31*Math.max(.6,scale)),12],[Math.round(21*Math.max(.6,scale)),8]];
+  if(hard) passes.push([Math.round(41*Math.max(.6,scale)),15],[Math.round(15*Math.max(.6,scale)),6]);
   for(var p=0;p<passes.length;p++){
     var bin=canvasOf(adaptive(R.g,R.w,R.h,passes[p][0],passes[p][1]),R.w,R.h);
     var data=await ocrRun(bin,'page');
@@ -1404,20 +1413,27 @@ function classifyEntries(es){
 }
 
 async function readPhoto(pt){
-  var img=await loadImg(pt.file); var P=prepPhoto(img); pt.thumb=P.thumb; pt.big=P.big; pt.file=null; phRender();
-  var a0=estimateTilt(P), angles=[a0,a0-4,a0+4], extra=[a0-2,a0+2,a0-6,a0+6], entsAll=[], order=$('#phOrder').value, res, ai=0;
+  var hard=!!pt.hard;
+  var img=await loadImg(pt.src); var P=prepPhoto(img, hard); pt.thumb=P.thumb; pt.big=P.big; phRender();
+  var a0=estimateTilt(P), order=$('#phOrder').value, res, ai=0;
+  var base=(hard && pt.ents) ? pt.ents : [], off=(hard && pt.nAng) ? pt.nAng : 0, entsAll=base.slice();
+  var angles=hard?[0,-2,2,-4,4,-6,6,-8,8].map(function(d){ return a0+d; }):[a0,a0-4,a0+4], extra=[a0-2,a0+2,a0-6,a0+6];
+  var kept={}; ['N','E','Z'].forEach(function(K){ if(pt[K] && pt[K].ok) kept[K]=pt[K]; });   // never undo what you verified or typed
   while(ai<angles.length){
-    pt.step=(ai<3?'Reading… ':'Hard to read — trying more angles… ')+(ai+1)+' of '+angles.length; pt.prog=(ai+.5)/angles.length; phRender();
-    var es=await readAngle(rotated(P,angles[ai]), order);
-    es.forEach(function(e){ e.ang=ai; }); entsAll=entsAll.concat(es); ai++;
-    if(ai===angles.length && angles.length===3){
-      res=tallyPhoto(entsAll, angles.length);
+    pt.step=(hard?'Trying hard (sharpened, more angles)… ':ai<3?'Reading… ':'Hard to read — trying more angles… ')+(ai+1)+' of '+angles.length;
+    pt.prog=(ai+.5)/angles.length; phRender();
+    var es=await readAngle(rotated(P,angles[ai]), order, hard);
+    es.forEach(function(e){ e.ang=off+ai; }); entsAll=entsAll.concat(es); ai++;
+    if(!hard && ai===angles.length && angles.length===3){
+      res=tallyPhoto(entsAll, off+angles.length);
       if(['E','N'].some(function(K){ return res[K].conf<60; })) angles=angles.concat(extra);
     }
   }
-  res=tallyPhoto(entsAll, angles.length);
-  ['N','E','Z'].forEach(function(K){ pt[K]=res[K]; });
-  pt.state='done'; pt.step='';
+  res=tallyPhoto(entsAll, off+angles.length);
+  pt.ents=entsAll; pt.nAng=off+angles.length;
+  ['N','E','Z'].forEach(function(K){ pt[K]=kept[K]||res[K]; });
+  if(hard) pt.hardDone=true;
+  pt.hard=false; pt.err=null; pt.state='done'; pt.step='';
 }
 function tallyPhoto(ents0, nAng){
   var ents=ents0.map(function(e){ return {kind:e.kind, pos:e.pos, vals:e.vals.slice(), w:e.w.slice(), crop:e.crop, ang:e.ang}; });
@@ -1442,11 +1458,16 @@ function tallyPhoto(ents0, nAng){
   ['N','E','Z'].forEach(function(K){
     var ks=Object.keys(all[K]); if(!ks.length){ out[K]={v:'',conf:0,base:0,found:false}; return; }
     ks.sort(function(a,b){ return all[K][b]-all[K][a]; });
-    var v=ks[0], tot=0; ks.forEach(function(k){ tot+=all[K][k]; });
+    var v=ks[0], tot=0, footFix=false; ks.forEach(function(k){ tot+=all[K][k]; });
+    // the foot mark after a number (2723') often gets read as a 7 (27237 → 2727): if another reading is
+    // identical except for a final non-7 digit and has real support, prefer it
+    if(/7$/.test(v)){ var twin=ks.filter(function(k){ return k!==v && k.length===v.length && k.slice(0,-1)===v.slice(0,-1) && !/7$/.test(k) && all[K][k]>=all[K][v]*0.25; })[0];
+      if(twin){ v=twin; footFix=true; } }
     var nRead=Math.max(1,Object.keys(angRead[K]).length);
     var conf=Math.round(100*(all[K][v]/tot)*Math.sqrt((top[K][v]||0)/Math.max(nRead,Math.min(3,nAng))));
     if(K!=='Z' && !/^\d{6,7}\.\d{3,4}$/.test(v)) conf=Math.min(conf,50);
     if(all[K][v]<3) conf=Math.min(conf,60);
+    if(footFix) conf=Math.min(Math.max(conf,30),55);
     out[K]={v:v,conf:conf,base:conf,found:true,cropC:crops[K][v],alts:ks.slice(1,6),allv:all[K],crops:crops[K]};
   });
   if(out.E.v && out.E.v===out.N.v){
@@ -1489,7 +1510,7 @@ function batchHints(){
 function phAddFiles(files){
   Array.prototype.forEach.call(files||[], function(f){
     if(!/^image\//.test(f.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(f.name)) return;
-    var p={id:++phSeq, file:f, state:'wait', prog:0, step:'Waiting…'}; phPoints.push(p); phQueue.push(p);
+    var p={id:++phSeq, src:f, state:'wait', prog:0, step:'Waiting…'}; phPoints.push(p); phQueue.push(p);
   });
   phRender(); phPump();
 }
@@ -1523,12 +1544,17 @@ function phRender(){
   phPoints.forEach(function(p,idx){
     var num=p.pn!=null?p.pn:String(start+idx);
     h+='<div class="pcard" data-id="'+p.id+'"><div class="ph">'+(p.thumb?'<img src="'+p.thumb+'" data-zoom="'+p.id+'" alt="">':'<div class="spin" style="width:28px;height:28px"></div>')+
-       '<b>Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b><button class="x" data-del="'+p.id+'" aria-label="Remove">✕</button></div>';
+       '<b>Point '+escH(num)+(p.manual?' <span class="muted">(typed)</span>':'')+'</b>'+(p.manual||p.state!=='done'?'':'<button class="x" data-retake="1" aria-label="Retake this photo" title="Retake this photo">📷</button>')+'<button class="x" data-del="'+p.id+'" aria-label="Remove">✕</button></div>';
     if(p.state!=='done'){
       h+='<div class="muted">'+escH(p.step||'Waiting…')+'</div><div class="pbar"><i style="width:'+Math.round((p.prog||0)*100)+'%"></i></div></div>'; return;
     }
     ready++;
     if(p.err) h+='<div class="result sub" style="margin:4px 0 0">'+escH(p.err)+'</div>';
+    var needHelp=!p.manual && (p.err || ['N','E','Z'].some(function(K){ var f=p[K]; return !f || (!f.ok && (!f.v || f.conf<60)); }));
+    if(needHelp){
+      h+='<div class="help"><button class="hard" data-hard="1">🔍 '+(p.hardDone?'Try harder again':'Try harder')+'</button><button class="rt" data-retake="1">📷 Retake this photo</button></div>'+
+         '<div class="helpnote">'+(p.hardDone?'Still unsure after trying hard — a retake usually fixes it: hold the phone square to the screen, closer, and keep it steady.':'Couldn’t read everything clearly. “Try harder” sharpens the photo and tries more angles (takes longer). Or retake just this photo.')+'</div>';
+    }
     h+='<div class="row"><div class="field" style="flex:.7"><label>Point #</label><input class="inp num" data-f="pn" value="'+escH(num)+'" inputmode="numeric"></div>'+
        '<div class="field"><label>Description</label><input class="inp" data-f="d" value="'+escH(p.d!=null?p.d:$('#phDesc').value)+'"></div></div>';
     ['N','E','Z'].forEach(function(K){
@@ -1563,6 +1589,8 @@ $('#phList').addEventListener('click', function(e){
   if(t.closest('[data-zoom]')){ var z=document.createElement('div'); z.className='zoom'; z.innerHTML='<img src="'+(p.big||p.thumb)+'">'; z.onclick=function(){ z.remove(); }; document.body.appendChild(z);
     // show the big version when available
     return; }
+  if(t.closest('[data-hard]')){ p.hard=true; p.state='wait'; p.step='Waiting to try hard…'; p.prog=0; phQueue.unshift(p); phRender(); phPump(); return; }
+  if(t.closest('[data-retake]')){ retakeId=p.id; $('#phRetakeIn').value=''; $('#phRetakeIn').click(); return; }
   var ok=t.closest('[data-ok]'); if(ok){ p[ok.getAttribute('data-ok')].ok=true; batchHints(); phRender(); return; }
   if(t.closest('[data-zsug]')){ p.Z.v=p.Z.zsug; p.Z.zsug=null; p.Z.ok=true; p.Z.found=true; batchHints(); phRender(); return; }
   var sg=t.closest('[data-sug]'); if(sg){ var K=sg.getAttribute('data-sug'); p[K].v=p[K].sug; p[K].sug=null; p[K].ok=true; phRender(); }
@@ -1580,6 +1608,13 @@ $('#phCam').onclick=function(){ $('#phCamIn').value=''; $('#phCamIn').click(); }
 $('#phLib').onclick=function(){ $('#phLibIn').value=''; $('#phLibIn').click(); };
 $('#phCamIn').onchange=function(){ phAddFiles(this.files); };
 $('#phLibIn').onchange=function(){ phAddFiles(this.files); };
+var retakeId=null;
+$('#phRetakeIn').onchange=function(){
+  var f=this.files&&this.files[0], p=phPoints.filter(function(x){ return x.id===retakeId; })[0]; retakeId=null;
+  if(!f || !p) return;
+  p.src=f; p.ents=null; p.nAng=0; p.thumb=null; p.big=null; p.hard=false; p.hardDone=false; p.err=null; p.state='wait'; p.step='Waiting…'; p.prog=0;
+  phQueue.unshift(p); phRender(); phPump();
+};
 $('#phAdd').onclick=function(){ phPoints.push({id:++phSeq,state:'done',manual:true,N:{v:'',conf:0,found:false},E:{v:'',conf:0,found:false},Z:{v:'',conf:0,found:false}}); phRender(); };
 $('#phBack').onclick=function(){
   if(phPoints.length && !confirm('Leave? The photo points that haven’t been made into a CSV will be lost.')) return;
