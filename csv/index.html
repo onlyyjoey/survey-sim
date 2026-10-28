@@ -170,6 +170,10 @@ html,body{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:1
 .lacts button{border:0;width:88px;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer}
 .lacts .la-clr{background:#e8930c}.lacts .la-del{background:var(--bad);transition:width .18s}.lacts .la-del.full{width:100vw}
 .lrow.gone{opacity:0}
+.srow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:6px}.srow.off{opacity:.55}
+.srow .mn{flex:1;min-width:0}.srow .mn b{display:block;font-size:14.5px}.srow .mn>span{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.ssw{flex:none;width:22px;height:22px;border-radius:6px;opacity:.55;margin-top:2px}
+.sact{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.sact button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:6px 10px;font:inherit;font-size:13px;font-weight:650;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:5px}.sact button.bad{color:var(--bad)}
 .tppop{position:absolute;z-index:4;width:min(300px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:10px;animation:fxIn .14s ease-out}
 .tpp-h{display:flex;align-items:center;gap:10px}.tpp-h b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tpp-h span{font-size:12px;color:var(--muted)}
 .tpp-x{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--ink);flex:none}
@@ -515,6 +519,7 @@ select.inp{font-size:15px;padding:10px}
     <button class="chip" id="tpEditL"><i class="ic" data-ic="layers"></i> Edit layers</button>
     <button class="chip" id="tpUndo"><i class="ic" data-ic="undo"></i> Corner</button>
     <button class="chip" id="tpClear">Clear</button>
+    <button class="chip" id="tpSurfB"><i class="ic" data-ic="surface"></i> Surfaces</button>
     <button class="chip" id="tpLayersB"><i class="ic" data-ic="eye"></i> Show / units</button>
     <button class="chip" id="tpFitB">Fit</button>
   </div>
@@ -575,6 +580,7 @@ var ICP={
   scissors:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.6 20 18M8.6 16.4 20 6"/>',
   eraser:'<path d="M20 20H9.5L4.2 14.7a1.5 1.5 0 0 1 0-2.1l8.5-8.5a1.5 1.5 0 0 1 2.1 0l4.7 4.7a1.5 1.5 0 0 1 0 2.1L11 19.4"/><path d="m8 9.5 6.5 6.5"/>',
   'pin-x':'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><path d="m10 8 4 4M14 8l-4 4"/>',
+  surface:'<path d="M3 15.5 8.5 7l5 5 3-3.5 4.5 7z"/><path d="m8.5 7 3 9.5M13.5 12l3 4.5M16.5 8.5l-5 8"/>',
   square:'<rect x="4" y="4" width="16" height="16" rx="3"/>',
   grip:'<path d="M5 8h14M5 12h14M5 16h14"/>',
   'move-h':'<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'
@@ -3141,7 +3147,7 @@ async function openTp3(f){
   try{
     var M=TP3.parse(await f.arrayBuffer());
     TPX={file:f, M:M, poly:[], closed:false, mode:'look', buffer:0, opts:{lines:'touch', surfaces:'trim', control:'keep'}, hide:{}, units:ls.get('csvfix.tpUnits')||'usft', z:1,
-      lops:{order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}}};
+      lops:{order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}, surfDrop:{}}, sHide:{}};
     TPX.dark=tpDarkBg(); tpSizeCanvas(); tpFit(); tpRender(); tpStatus(); tpInfo();
   }catch(e){ try{ console.warn(e); }catch(x){} $('#tpStatus').innerHTML='<span class="danger">Couldn’t read this file as a Topcon TP3 project'+(e&&e.message?' ('+escH(e.message)+')':'')+'.</span>'; }
 }
@@ -3178,7 +3184,7 @@ function tpNumberNames(){ // put 01 02 03… in front of the names so the order 
   tpEditor(true); setTimeout(function(){ toast('Numbered '+(o.order.length-1)+' layers in this order', true, tpUndoTo(snap)); },40); }
 function tpUnnumber(){ var snap=tpSnap(), o=TPX.lops, n=0; o.order.forEach(function(id){ var nm=tpName(id), b=nm.replace(/^\d{2,3}[ _-]+/,''); if(b!==nm){ n++; var e=o.edit[id]=o.edit[id]||{}; if(TPX.M.layers[id] && b===TPX.M.layers[id].name) delete e.name; else e.name=b; } });
   tpEditor(true); setTimeout(function(){ toast('Removed numbers from '+n+' layers', true, tpUndoTo(snap)); },40); }
-function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.dupDrop).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
+function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.surfDrop||{}).length||Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.dupDrop).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
 function tpEnt(lid,kind){ var f=tpFinal(lid); if(f==null) return null; var c=TPX.lops.clear[lid]; if(c==='all'||(c==='pts'&&kind==='p')) return null; return f; } // where an item on layer lid ends up (null = removed)
 function tpCutCounts(){ // per-layer counts of what the applied boundary cut keeps (and the doubles still removed inside it)
   var M=TPX.M, P=TPX.plan, C={}; M.layerList.forEach(function(L){ C[L.id]={pts:0,lines:0,labels:0,dup:0}; });
@@ -3214,7 +3220,7 @@ function tpOverview(){ if(!TPX) return; var e=TPX.M.ext, w=(e[2]-e[0])||1, h=(e[
   c.width=ow; c.height=oh; c.style.width=ow+'px'; c.style.height=oh+'px'; TPX.ov={so:so, e0:e[0], n1:e[3]};
   tpRender({c:c, s:so, tx:-e[0]*so, ty:e[3]*so, W:ow, H:oh, dpr:1}); tpBackPos(); }
 function tpBackPos(){ var o=TPX&&TPX.ov; if(!o) return; var c=$('#tpOv'), k=TPX.s/o.so; c.style.transform='translate('+(o.e0*TPX.s+TPX.tx)+'px,'+(-o.n1*TPX.s+TPX.ty)+'px) scale('+k+')'; }
-function tpOvSig(){ var o=TPX.lops; return [Object.keys(TPX.hide).join(','), JSON.stringify(o.into), Object.keys(o.drop).join(','), JSON.stringify(o.clear), Object.keys(o.edit).map(function(k){ return k+':'+(o.edit[k].rgb||''); }).join(','), Object.keys(o.dupDrop).length, !!TPX.cutDone, TPX.dark].join('|'); }
+function tpOvSig(){ var o=TPX.lops; return [Object.keys(TPX.sHide).join(','), Object.keys(o.surfDrop).join(','), Object.keys(TPX.hide).join(','), JSON.stringify(o.into), Object.keys(o.drop).join(','), JSON.stringify(o.clear), Object.keys(o.edit).map(function(k){ return k+':'+(o.edit[k].rgb||''); }).join(','), Object.keys(o.dupDrop).length, !!TPX.cutDone, TPX.dark].join('|'); }
 function tpBB(a,n){ var b=[1e18,1e18,-1e18,-1e18]; for(var k=0;k<n;k++){ var x=a[k*2], y=a[k*2+1]; if(x<b[0]) b[0]=x; if(y<b[1]) b[1]=y; if(x>b[2]) b[2]=x; if(y>b[3]) b[3]=y; } return b; }
 function tpRender(ov){
   var t0=ov?0:performance.now();
@@ -3228,7 +3234,7 @@ function tpRender(ov){
   var view=[ (0-tx)/s, -(H-ty)/s, (W-tx)/s, -(0-ty)/s ];             // E0,N0,E1,N1
   var dark=getComputedStyle(document.body).backgroundColor; x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--panel')||'#fff'; x.fillRect(0,0,W,H);
   // surfaces: outline loops (worked out once), tinted inside
-  M.surfaces.forEach(function(S,si){ if(TPX.cutDone&&TPX.plan&&!TPX.plan.surfaces[si].kept) return; if(!S.bb) S.bb=tpBB(S.V,S.vc); if(S.bb[2]<view[0]||S.bb[0]>view[2]||S.bb[3]<view[1]||S.bb[1]>view[3]) return; if(!S.loops) S.loops=tpLoops(S); var hue=(si*67)%360; x.beginPath();
+  M.surfaces.forEach(function(S,si){ if(TPX.cutDone&&TPX.plan&&!TPX.plan.surfaces[si].kept) return; if(TPX.sHide[si]||TPX.lops.surfDrop[si]) return; if(!S.bb) S.bb=tpBB(S.V,S.vc); if(S.bb[2]<view[0]||S.bb[0]>view[2]||S.bb[3]<view[1]||S.bb[1]>view[3]) return; if(!S.loops) S.loops=tpLoops(S); var hue=(si*67)%360; x.beginPath();
     S.loops.forEach(function(L){ for(var k=0;k<L.length;k++){ var px=S.V[L[k]*2]*s+tx, py=-S.V[L[k]*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.closePath(); });
     x.fillStyle='hsla('+hue+',60%,55%,0.2)'; x.fill('evenodd'); x.strokeStyle='hsla('+hue+',60%,45%,0.7)'; x.lineWidth=1; x.stroke(); });
   // lines
@@ -3310,6 +3316,11 @@ function tpTap(px,py){
       for(var k=1;k<l.n;k++){ var ax=l.xy[k*2-2], ay=l.xy[k*2-1], bx=l.xy[k*2], by2=l.xy[k*2+1]; if(Math.min(ax,bx)-tol>W0[0]||Math.max(ax,bx)+tol<W0[0]||Math.min(ay,by2)-tol>W0[1]||Math.max(ay,by2)+tol<W0[1]) continue;
         var vx=bx-ax, vy=by2-ay, L2=vx*vx+vy*vy, t=L2?Math.max(0,Math.min(1,((W0[0]-ax)*vx+(W0[1]-ay)*vy)/L2)):0, d2=Math.hypot(ax+t*vx-W0[0], ay+t*vy-W0[1])*TPX.s; if(d2<ld){ ld=d2; bl=li; } } }); }
   TPX.pick=best>=0?best:null; TPX.pickLine=bl>=0?bl:null; tpRender(); tpInfo();
+  if(best<0&&bl<0){ var W1=tpW(px,py), hitS=-1; M.surfaces.forEach(function(S,si){ if(hitS>=0||TPX.sHide[si]||TPX.lops.surfDrop[si]||(cut&&!cut.surfaces[si].kept)) return; if(!S.loops) S.loops=tpLoops(S); if(!S.bb) S.bb=tpBB(S.V,S.vc);
+      if(W1[0]<S.bb[0]||W1[0]>S.bb[2]||W1[1]<S.bb[1]||W1[1]>S.bb[3]) return; var inside=false;
+      S.loops.forEach(function(L){ for(var a=0,b=L.length-1;a<L.length;b=a++){ var xa=S.V[L[a]*2], ya=S.V[L[a]*2+1], xb=S.V[L[b]*2], yb=S.V[L[b]*2+1]; if(((ya>W1[1])!==(yb>W1[1])) && (W1[0]<(xb-xa)*(W1[1]-ya)/(yb-ya)+xa)) inside=!inside; } });
+      if(inside) hitS=si; });
+    if(hitS>=0){ tpSurfPop(px,py,hitS); return; } }
   if(best>=0||bl>=0) tpPop(px,py); else tpPopClose();
 }
 /* ---- tap a point or line: a menu like the data collector's (layer settings, show/hide labels, delete) ---- */
@@ -3338,6 +3349,42 @@ function tpPop(px,py){
     if(a==='delpt'){ TPX.lops.dupDrop[i]=1; TPX.lops.dupN[M.pL[i]]=(TPX.lops.dupN[M.pL[i]]||0)+1; if(TPX.cutDone&&TPX.plan) tpCutCounts(); TPX.pick=null; tpPopClose(); tpRender(); tpInfo(); toast('Point '+(tpPtName(i)||'')+' deleted', true, tpUndoTo(snap, function(){})); return; }
     if(a==='empty'){ tpClearNow(id,'all'); TPX.pick=null; TPX.pickLine=null; tpPopClose(); return; }
     if(a==='del'){ tpDeleteNow([id]); TPX.pick=null; TPX.pickLine=null; tpPopClose(); return; } }; });
+}
+/* ---- surfaces: list, zoom to, hide on this map, delete from the file ---- */
+function tpSurfInfo(si){ var S=TPX.M.surfaces[si]; if(S.info) return S.info; var a=0;
+  for(var t=0;t<S.tc;t++){ var i=S.TR[t*6]*2, j=S.TR[t*6+1]*2, k=S.TR[t*6+2]*2; a+=Math.abs((S.V[j]-S.V[i])*(S.V[k+1]-S.V[i+1])-(S.V[k]-S.V[i])*(S.V[j+1]-S.V[i+1]))/2; }
+  return S.info={acres:a/4046.8564224}; }
+function tpAc(a){ return (a>=10?a.toFixed(0):a.toFixed(1))+' ac'; }
+function tpSurfZoom(si){ var S=TPX.M.surfaces[si]; if(!S.bb) S.bb=tpBB(S.V,S.vc); var b=S.bb, w=(b[2]-b[0])||1, h=(b[3]-b[1])||1, s=Math.min(TPX.W/w, TPX.H/h)*0.85;
+  TPX.s=s; TPX.tx=TPX.W/2-(b[0]+w/2)*s; TPX.ty=TPX.H/2+(b[1]+h/2)*s; tpRender(); }
+function tpSurfColor(si){ return 'hsl('+((si*67)%360)+',60%,50%)'; }
+function tpSurfDel(si){ var snap=tpSnap(), nm=TPX.M.surfaces[si].name; TPX.lops.surfDrop[si]=1; tpPopClose(); tpRender(); tpInfo(); setTimeout(function(){ toast('Surface “'+nm+'” deleted', true, tpUndoTo(snap, function(){ tpSurfaces(); })); },40); }
+function tpSurfaces(){
+  var M=TPX.M, o=TPX.lops, list=M.surfaces.map(function(S,si){ return si; }).filter(function(si){ return !o.surfDrop[si]; });
+  var h='<p class="muted" style="margin:0 0 10px">The design surfaces in this job. <b>Hide</b> only hides it on this map. <b>Delete</b> takes it out of the file you save — big surfaces you don’t need slow the data collector down the most.</p>'+
+    '<div class="row" style="gap:6px;margin-bottom:10px"><button class="chip" id="sfAllOff"><i class="ic" data-ic="eye"></i> Hide all on map</button><button class="chip" id="sfAllOn">Show all</button></div>';
+  list.forEach(function(si){ var S=M.surfaces[si], inf=tpSurfInfo(si), hid=TPX.sHide[si], cut=TPX.cutDone&&TPX.plan&&TPX.plan.surfaces[si];
+    h+='<div class="srow'+(hid?' off':'')+'"><span class="ssw" style="background:'+tpSurfColor(si)+'"></span><div class="mn"><b>'+escH(S.name||'(no name)')+'</b><span>'+S.tc.toLocaleString()+' triangles · '+S.vc.toLocaleString()+' points · '+tpAc(inf.acres)+(cut&&cut.kept<S.tc?' · <span class="danger">'+(cut.kept?'trimmed by the cut':'outside the cut')+'</span>':'')+'</span>'+
+      '<div class="sact"><button data-sz="'+si+'"><i class="ic" data-ic="expand"></i> View</button><button data-sh="'+si+'"><i class="ic" data-ic="eye"></i> '+(hid?'Show':'Hide')+'</button><button data-sd="'+si+'" class="bad"><i class="ic" data-ic="trash"></i> Delete</button></div></div></div>'; });
+  var nd=Object.keys(o.surfDrop).length; if(nd) h+='<p class="muted" style="margin:10px 2px 0">'+nd+' surface'+(nd>1?'s':'')+' deleted. <button class="linkbtn" id="sfUndel" style="display:inline;margin:0;padding:0">Bring back</button></p>';
+  if(!list.length) h+='<p class="muted">No surfaces left in this job.</p>';
+  openSheet('Surfaces ('+list.length+')', h, function(){ tpRender(); tpInfo(); });
+  document.querySelectorAll('[data-sz]').forEach(function(b){ b.onclick=function(){ var si=+b.getAttribute('data-sz'); delete TPX.sHide[si]; closeSheet(); tpSurfZoom(si); }; });
+  document.querySelectorAll('[data-sh]').forEach(function(b){ b.onclick=function(){ var si=+b.getAttribute('data-sh'); if(TPX.sHide[si]) delete TPX.sHide[si]; else TPX.sHide[si]=1; tpSurfaces(); }; });
+  document.querySelectorAll('[data-sd]').forEach(function(b){ b.onclick=function(){ tpSurfDel(+b.getAttribute('data-sd')); tpSurfaces(); }; });
+  $('#sfAllOff').onclick=function(){ M.surfaces.forEach(function(S,si){ TPX.sHide[si]=1; }); tpSurfaces(); };
+  $('#sfAllOn').onclick=function(){ TPX.sHide={}; tpSurfaces(); };
+  if($('#sfUndel')) $('#sfUndel').onclick=function(){ TPX.lops.surfDrop={}; tpSurfaces(); };
+}
+function tpSurfPop(px,py,si){
+  var S=TPX.M.surfaces[si], inf=tpSurfInfo(si), el=$('#tpPop');
+  el.innerHTML='<div class="tpp-h"><span class="ssw" style="background:'+tpSurfColor(si)+'"></span><div style="flex:1;min-width:0"><b>'+escH(S.name||'Surface')+'</b><span>Surface · '+S.tc.toLocaleString()+' triangles · '+tpAc(inf.acres)+'</span></div><button class="tpp-x" id="tppX" aria-label="Close"><i class="ic" data-ic="x"></i></button></div>'+
+    '<div class="tpp-a"><button data-sp="zoom"><i class="ic" data-ic="expand"></i> View whole surface</button><button data-sp="hide"><i class="ic" data-ic="eye"></i> Hide on this map</button><button data-sp="all"><i class="ic" data-ic="surface"></i> All surfaces…</button><button data-sp="del" class="bad"><i class="ic" data-ic="trash"></i> Delete surface</button></div>';
+  el.hidden=false; var W=TPX.W, H=TPX.H, w=el.offsetWidth, hh=el.offsetHeight, x=Math.max(8,Math.min(W-w-8,px-w/2)), y=(py+18+hh<=H-8)?py+18:Math.max(8,py-18-hh); el.style.left=x+'px'; el.style.top=y+'px';
+  el.onpointerdown=function(e){ e.stopPropagation(); };
+  $('#tppX').onclick=function(){ tpPopClose(); };
+  el.querySelectorAll('[data-sp]').forEach(function(b){ b.onclick=function(){ var a=b.getAttribute('data-sp'); tpPopClose();
+    if(a==='zoom') tpSurfZoom(si); else if(a==='hide'){ TPX.sHide[si]=1; tpRender(); toast('Surface hidden on this map', true, function(){ delete TPX.sHide[si]; tpRender(); }); } else if(a==='all') tpSurfaces(); else tpSurfDel(si); }; });
 }
 function tpLoops(S){ // boundary edges = edges used by only one triangle; chain them into closed loops
   var cnt=new Map(), K=S.vc+1, t, j;
@@ -3376,7 +3423,7 @@ function tpInfo(){
       '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
   }
   if(tpLayerChanged()){ var o=TPX.lops, nd=Object.keys(o.drop).length, nc=Object.keys(o.into).length;
-    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', (o.order.length===M.layerList.length&&o.order.every(function(id,k){ return id===M.layerList[k].id; }))?'':'order changed'].filter(Boolean).join(' · ')+'</span></div>';
+    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[Object.keys(o.surfDrop).length?Object.keys(o.surfDrop).length+' surface'+(Object.keys(o.surfDrop).length>1?'s':'')+' deleted':'', nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', (o.order.length===M.layerList.length&&o.order.every(function(id,k){ return id===M.layerList[k].id; }))?'':'order changed'].filter(Boolean).join(' · ')+'</span></div>';
     if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave"><i class="ic" data-ic="save"></i> Save TP3 with layer changes</button>'; }
   var cutView=TPX.plan&&TPX.cutDone;
   $('#tpInfo').innerHTML=h;
@@ -3396,7 +3443,8 @@ function tpShare(name, blob, type){ var f; try{ f=new File([blob],name,{type:typ
 function tpSave(){
   var b=$('#tpSave')||$('#tpSaveTop'), bt=b.innerHTML; b.disabled=true; b.textContent='Building…';
   setTimeout(function(){ try{
-    var M=TPX.M, P=TPX.plan||TP3.keepAll(M), lc=tpLayerChanged(), ops=lc?TPX.lops:null;
+    var M=TPX.M, P=TPX.plan||TP3.keepAll(M), lc=tpLayerChanged(), ops=lc?TPX.lops:null, sd=TPX.lops.surfDrop||{};
+    if(Object.keys(sd).length){ P=Object.assign({}, P, {surfaces:P.surfaces.map(function(x,i){ return sd[i]?{keep:new Uint8Array(M.surfaces[i].tc), kept:0}:x; })}); }
     if(ops) ops=Object.assign({}, ops, {dropPoints:ops.dupDrop});
     var out=TP3.build(M, P, ops), check=TP3.parse(out.buffer), ep=0, el=0;
     for(var i=0;i<M.pE.length;i++) if(P.points[i] && tpKeepPt(i)) ep++;
@@ -3440,6 +3488,7 @@ $('#tpClear').onclick=function(){ if(!TPX) return; TPX.poly=[]; TPX.closed=false
 $('#tpLayersB').onclick=function(){ if(TPX) tpOpenLayers(); };
 $('#tpFitB').onclick=function(){ if(TPX){ tpFit(); tpRender(); } };
 $('#tpOpenB').onclick=pickTp3;
+$('#tpSurfB').onclick=function(){ if(TPX) tpSurfaces(); };
 $('#tpLost').onclick=function(){ if(TPX){ tpFit(); tpRender(); } };
 $('#tpFitFab').onclick=function(){ if(TPX){ tpFit(); tpRender(); } };
 $('#tpSaveTop').onclick=function(){ if(!TPX) return; if(!TPX.plan && !tpLayerChanged() && !TPX.poly.length){ toast('Nothing to change yet — draw a boundary or edit the layers first', true); return; } if(TPX.poly.length&&!TPX.closed){ toast('Close the boundary first (tap its first corner), or Clear it', true); return; } tpSave(); };
@@ -3478,7 +3527,7 @@ function tpEditor(keepScroll){
   $('#leLab').onclick=function(){ tpLabelsSheet(tpSel&&Object.keys(tpSel).length?Object.keys(tpSel).map(Number):o.order.slice()); };
   $('#leNum').onclick=function(){ if(/Renumber/.test(this.textContent)){ if(confirm('Renumber in the current order?\n\nOK = renumber · Cancel = remove the numbers')) tpNumberNames(); else tpUnnumber(); } else tpNumberNames(); };
   document.querySelectorAll('#leList [data-fl]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); var id=+b.closest('.lrow').getAttribute('data-lid'), k=b.getAttribute('data-fl'), on=!tpOn(id,k); tpSetOn(id,k,on); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); });
-  if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}}; tpSel=null; tpEditor(); };
+  if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}, dupDrop:{}, attrFrom:{}, dupN:{}, surfDrop:{}}; tpSel=null; tpEditor(); };
   if($('#leUndel')) $('#leUndel').onclick=function(){ Object.keys(o.drop).forEach(function(k){ delete o.drop[k]; o.order.push(+k); }); tpEditor(true); };
   document.querySelectorAll('#leList .lrow').forEach(function(r){ r.addEventListener('click', function(e){ if(e.target.closest('.lh')||e.target.closest('.lacts')) return; var id=+r.getAttribute('data-lid');
     if(r._swiped){ r._swiped=false; return; } if(r.classList.contains('open')){ var fg=r.querySelector('.lfg'); fg.style.transition='transform .22s'; fg.style.transform=''; r._x=0; r.classList.remove('open','swiping'); return; }
@@ -3624,7 +3673,7 @@ function tpCombineAsk(ids){
 function tpKind(id){ var c=tpCounts(id), k=c.pts&&c.lines?'both':c.pts?'pts':c.lines?'lines':c.labels?'lbl':'empty';
   return '<em class="kind k-'+k+'">'+({both:'Points + lines',pts:'Points',lines:'Lines',lbl:'Labels',empty:'Empty'})[k]+'</em>'; }
 function tpSnap(){ var o=TPX.lops, e={}; Object.keys(o.edit).forEach(function(k){ e[k]=Object.assign({},o.edit[k]); });
-  return {order:o.order.slice(), into:Object.assign({},o.into), drop:Object.assign({},o.drop), clear:Object.assign({},o.clear), edit:e, dupDrop:Object.assign({},o.dupDrop), attrFrom:Object.assign({},o.attrFrom), dupN:Object.assign({},o.dupN)}; }
+  return {order:o.order.slice(), into:Object.assign({},o.into), drop:Object.assign({},o.drop), clear:Object.assign({},o.clear), edit:e, dupDrop:Object.assign({},o.dupDrop), attrFrom:Object.assign({},o.attrFrom), dupN:Object.assign({},o.dupN), surfDrop:Object.assign({},o.surfDrop||{})}; }
 function tpUndoTo(snap,reopen){ return function(){ if(!TPX) return; TPX.lops=snap; tpRender(); tpInfo(); if($('#veil').classList.contains('on')) (reopen||tpEditor)(true); toast('Undone', true); }; }
 function tpDeleteNow(ids){ // delete layer(s) + everything on them; Undo in the toast
   ids=ids.filter(function(x){ return x!==0; }); if(!ids.length) return; var snap=tpSnap(), nm=tpName(ids[0]);
