@@ -165,6 +165,14 @@ input,select{font:inherit;color:var(--ink)}
 .lacts button{border:0;width:88px;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer}
 .lacts .la-clr{background:#e8930c}.lacts .la-del{background:var(--bad);transition:width .18s}.lacts .la-del.full{width:100vw}
 .lrow.gone{opacity:0}
+.tppop{position:absolute;z-index:4;width:min(300px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:10px;animation:fxIn .14s ease-out}
+.tpp-h{display:flex;align-items:center;gap:10px}.tpp-h b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tpp-h span{font-size:12px;color:var(--muted)}
+.tpp-x{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--ink);flex:none}
+.tpp-pt{margin:8px 0 2px;font-size:13px}.tpp-pt .num{font-size:12px;color:var(--muted);margin-top:2px;white-space:pre}
+.tpp-l{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.tppop .lfl{margin-top:5px}.tppop .fl{font-size:12.5px;padding:6px 9px}
+.tpp-a{display:flex;flex-direction:column;margin-top:8px;border-top:1px solid var(--line)}
+.tpp-a button{border:0;border-bottom:1px solid var(--line);background:none;text-align:left;padding:11px 4px;font:inherit;font-size:14.5px;font-weight:650;color:var(--ink);cursor:pointer}.tpp-a button:last-child{border-bottom:0}.tpp-a button.bad{color:var(--bad)}
 .lfl{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
 .fl{border:1px solid var(--line);background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:750;padding:3px 7px;border-radius:7px;cursor:pointer;text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent)}
 .fl.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent);text-decoration:none}
@@ -505,7 +513,7 @@ select.inp{font-size:15px;padding:10px}
     <button class="chip" id="tpFitB">Fit</button>
   </div>
   <div id="tpStatus" class="pvstatus"></div>
-  <div id="tpWrap"><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden>↺ Job is off screen — tap to bring it back</button><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job">⤢</button></div>
+  <div id="tpWrap"><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden>↺ Job is off screen — tap to bring it back</button><div class="tppop" id="tpPop" hidden></div><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job">⤢</button></div>
   <div id="tpInfo" class="pvinfo"></div>
 </section>
 
@@ -3166,9 +3174,16 @@ function tpRender(){
   M.lines.forEach(function(l,li){ var f=finL[l.layer]; if(f==null || (cutP&&!cutP.lines[li])) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
     for(var k=0;k<l.n;k++){ var px=l.xy[k*2]*s+tx, py=-l.xy[k*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); });
   // points (batched by layer)
-  var r=Math.max(1.2, Math.min(3, s*0.25)), by={}, dd=TPX.lops.dupDrop;
-  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null || dd[i] || (cutP&&!cutP.points[i])) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
+  var r=Math.max(1.2, Math.min(5, s*0.25)), by={}, dd=TPX.lops.dupDrop, visI=[];
+  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null || dd[i] || (cutP&&!cutP.points[i])) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); if(visI.length<=700) visI.push(i); }
   Object.keys(by).forEach(function(lid){ var a=by[lid]; x.fillStyle=col[lid]||'#666'; for(var j=0;j<a.length;j+=2) x.fillRect(a[j]-r/2,a[j+1]-r/2,r,r); });
+  // labels, like the data collector: each layer's Show point names / descriptions / elevations (only when zoomed in enough)
+  if(visI.length && visI.length<=700){ var U=tpU(), lf={}; x.font='700 11.5px -apple-system,system-ui,sans-serif'; x.textBaseline='top'; x.lineJoin='round'; x.lineWidth=3;
+    x.strokeStyle=TPX.dark?'rgba(0,0,0,.85)':'rgba(255,255,255,.9)'; var ink=TPX.dark?'#f2f2f2':'#141414';
+    visI.forEach(function(i){ var f=finP[M.pL[i]]; var F=lf[f]||(lf[f]={n:tpOn(f,'names'), d:tpOn(f,'desc'), z:tpOn(f,'elev')}); if(!F.n&&!F.d&&!F.z) return;
+      var px=M.pE[i]*s+tx+5, py=-M.pN[i]*s+ty+4, t=[];
+      if(F.n){ var nm=tpPtName(i); if(nm) t.push(nm); } if(F.d){ var cd=tpPtCode(i); if(cd) t.push(cd); } if(F.z) t.push((M.pZ[i]*U.k).toFixed(3)+(U.lab==='m'?' m':"'"));
+      t.forEach(function(line,k){ x.strokeText(line,px,py+k*13); x.fillStyle=ink; x.fillText(line,px,py+k*13); }); }); }
   // control points
   x.fillStyle='#e11d48'; M.control.forEach(function(cp){ var px=cp.E*s+tx, py=-cp.N*s+ty; x.beginPath(); x.moveTo(px,py-6); x.lineTo(px+5,py+4); x.lineTo(px-5,py+4); x.closePath(); x.fill(); });
   // boundary
@@ -3182,6 +3197,7 @@ function tpRender(){
   // lost the job off-screen? offer a way back
   var e=M.ext, vis=!(e[2]<view[0]||e[0]>view[2]||e[3]<view[1]||e[1]>view[3]) && (e[2]-e[0])*s>8;
   $('#tpLost').hidden=vis;
+  if(TPX.pickLine!=null){ var pl=M.lines[TPX.pickLine]; x.save(); x.strokeStyle='rgba(225,29,72,.45)'; x.lineWidth=7; x.lineCap='round'; x.beginPath(); for(var q2=0;q2<pl.n;q2++){ var lx=pl.xy[q2*2]*s+tx, ly=-pl.xy[q2*2+1]*s+ty; if(q2) x.lineTo(lx,ly); else x.moveTo(lx,ly); } x.stroke(); x.restore(); }
   if(TPX.pick!=null){ var pi=TPX.pick; x.strokeStyle='#e11d48'; x.lineWidth=2.5; x.beginPath(); x.arc(M.pE[pi]*s+tx,-M.pN[pi]*s+ty,9,0,7); x.stroke(); }
 }
 /* ---- gestures: transform the canvas while moving, redraw when you let go (cheap on battery) ---- */
@@ -3194,11 +3210,11 @@ function tpRender(){
     if(ptr.size===1){ st={x:e.clientX,y:e.clientY,t:Date.now(),moved:false,bx:TPX.tx,by:TPX.ty}; begin();
       // grab a boundary corner to move it
       var hit=-1; if(!TPX.cutDone) TPX.poly.forEach(function(p,i){ if(Math.hypot(tpX(p[0])-(e.clientX-r.left),tpY(p[1])-(e.clientY-r.top))<18) hit=i; }); drag=hit>=0?hit:null; }
-    if(ptr.size===2){ var a=Array.from(ptr.values()); pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), s:TPX.s, tx:TPX.tx, ty:TPX.ty, cx:(a[0].x+a[1].x)/2-r.left, cy:(a[0].y+a[1].y)/2-r.top}; drag=null; if(st) st.moved=true; } });
+    if(ptr.size===2){ tpPopClose(); var a=Array.from(ptr.values()); pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), s:TPX.s, tx:TPX.tx, ty:TPX.ty, cx:(a[0].x+a[1].x)/2-r.left, cy:(a[0].y+a[1].y)/2-r.top}; drag=null; if(st) st.moved=true; } });
   wrap.addEventListener('pointermove', function(e){ if(!ptr.has(e.pointerId)) return; ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
     if(ptr.size===2&&pinch){ var a=Array.from(ptr.values()), d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), f=d/pinch.d, cx=(a[0].x+a[1].x)/2-r.left, cy=(a[0].y+a[1].y)/2-r.top;
       TPX.s=pinch.s*f; TPX.tx=cx-(pinch.cx-pinch.tx)*f; TPX.ty=cy-(pinch.cy-pinch.ty)*f; live(); return; }
-    if(!st) return; var dx=e.clientX-st.x, dy=e.clientY-st.y; if(Math.hypot(dx,dy)>6) st.moved=true; if(!st.moved) return;
+    if(!st) return; var dx=e.clientX-st.x, dy=e.clientY-st.y; if(Math.hypot(dx,dy)>6){ if(!st.moved) tpPopClose(); st.moved=true; } if(!st.moved) return;
     if(drag!=null){ TPX.poly[drag]=tpW(e.clientX-r.left,e.clientY-r.top); tpRender(); return; }
     TPX.tx=st.bx+dx; TPX.ty=st.by+dy; live(); });
   function end(e){ if(!ptr.has(e.pointerId)) return; ptr.delete(e.pointerId); if(ptr.size<2) pinch=null;
@@ -3207,9 +3223,9 @@ function tpRender(){
       if(drag!=null){ drag=null; if(s0.moved){ tpChanged(); return; } }
       if(!s0.moved && Date.now()-s0.t<700) tpTap(e.clientX-r.left, e.clientY-r.top); else settle(); } }
   wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
-  wrap.addEventListener('wheel', function(e){ if(!TPX) return; e.preventDefault(); var r=wrap.getBoundingClientRect(), f=Math.exp(-e.deltaY*0.0015), px=e.clientX-r.left, py=e.clientY-r.top;
+  wrap.addEventListener('wheel', function(e){ if(!TPX) return; e.preventDefault(); tpPopClose(); var r=wrap.getBoundingClientRect(), f=Math.exp(-e.deltaY*0.0015), px=e.clientX-r.left, py=e.clientY-r.top;
     if(!TPX.wheel){ begin(); TPX.wheel=1; } TPX.s*=f; TPX.tx=px-(px-TPX.tx)*f; TPX.ty=py-(py-TPX.ty)*f; live(); clearTimeout(rt); rt=setTimeout(function(){ TPX.wheel=0; tpRender(); },120); }, {passive:false});
-  var ro=function(){ if(!TPX || !$('#tpScreen').classList.contains('on')) return; var W0=TPX.W, H0=TPX.H; tpSizeCanvas(); if(W0&&H0){ TPX.tx+=(TPX.W-W0)/2; TPX.ty+=(TPX.H-H0)/2; } tpRender(); };
+  var ro=function(){ if(!TPX || !$('#tpScreen').classList.contains('on')) return; var W0=TPX.W; tpSizeCanvas(); if(W0) TPX.tx+=(TPX.W-W0)/2; tpRender(); var pp=$('#tpPop'); if(pp&&!pp.hidden) pp.style.top=Math.max(8,Math.min(TPX.H-pp.offsetHeight-8,parseFloat(pp.style.top)||8))+'px'; }; // keep the map where it is when the panel below grows / shrinks
   if(window.ResizeObserver) new ResizeObserver(function(){ clearTimeout(ro.t); ro.t=setTimeout(ro,50); }).observe(wrap); else window.addEventListener('resize', ro);
 })();
 function tpTap(px,py){
@@ -3218,8 +3234,41 @@ function tpTap(px,py){
     var P=TPX.poly; if(P.length>=3 && Math.hypot(tpX(P[0][0])-px,tpY(P[0][1])-py)<20){ TPX.closed=true; TPX.mode='look'; tpModeChips(); tpChanged(); toast('Boundary closed — check the preview, then save', true); return; }
     P.push(tpW(px,py)); tpRender(); tpInfo(); return; }
   // look: nearest point
-  var best=-1, bd=16; for(var i=0;i<M.pE.length;i++){ var dx=M.pE[i]*TPX.s+TPX.tx-px; if(dx>bd||dx<-bd) continue; var dy=-M.pN[i]*TPX.s+TPX.ty-py; var d=Math.hypot(dx,dy); if(d<bd){ bd=d; best=i; } }
-  TPX.pick=best>=0?best:null; tpRender(); tpInfo();
+  var best=-1, bd=16, cut=TPX.cutDone&&TPX.plan;
+  for(var i=0;i<M.pE.length;i++){ var dx=M.pE[i]*TPX.s+TPX.tx-px; if(dx>bd||dx<-bd) continue; var f=tpEnt(M.pL[i],'p'); if(f==null||TPX.hide[f]||TPX.lops.dupDrop[i]||(cut&&!cut.points[i])) continue; var dy=-M.pN[i]*TPX.s+TPX.ty-py; var d=Math.hypot(dx,dy); if(d<bd){ bd=d; best=i; } }
+  var bl=-1; if(best<0){ var ld=12, W0=tpW(px,py), tol=12/TPX.s;
+    M.lines.forEach(function(l,li){ var f2=tpEnt(l.layer,'l'); if(f2==null||TPX.hide[f2]||(cut&&!cut.lines[li])) return;
+      for(var k=1;k<l.n;k++){ var ax=l.xy[k*2-2], ay=l.xy[k*2-1], bx=l.xy[k*2], by2=l.xy[k*2+1]; if(Math.min(ax,bx)-tol>W0[0]||Math.max(ax,bx)+tol<W0[0]||Math.min(ay,by2)-tol>W0[1]||Math.max(ay,by2)+tol<W0[1]) continue;
+        var vx=bx-ax, vy=by2-ay, L2=vx*vx+vy*vy, t=L2?Math.max(0,Math.min(1,((W0[0]-ax)*vx+(W0[1]-ay)*vy)/L2)):0, d2=Math.hypot(ax+t*vx-W0[0], ay+t*vy-W0[1])*TPX.s; if(d2<ld){ ld=d2; bl=li; } } }); }
+  TPX.pick=best>=0?best:null; TPX.pickLine=bl>=0?bl:null; tpRender(); tpInfo();
+  if(best>=0||bl>=0) tpPop(px,py); else tpPopClose();
+}
+/* ---- tap a point or line: a menu like the data collector's (layer settings, show/hide labels, delete) ---- */
+function tpPopClose(){ var p=$('#tpPop'); if(p) p.hidden=true; }
+function tpPop(px,py){
+  var M=TPX.M, U=tpU(), el=$('#tpPop'), isPt=TPX.pick!=null, i=TPX.pick, li=TPX.pickLine;
+  var id=isPt?tpEnt(M.pL[i],'p'):tpEnt(M.lines[li].layer,'l'); if(id==null){ tpPopClose(); return; }
+  var c=tpCounts(id), h='<div class="tpp-h">'+tpSwatch(id)+'<div style="flex:1;min-width:0"><b>'+escH(tpName(id)||'(no name)')+'</b><span>'+tpKind(id)+' '+[c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':''].filter(Boolean).join(' · ')+'</span></div><button class="tpp-x" id="tppX" aria-label="Close">✕</button></div>';
+  if(isPt) h+='<div class="tpp-pt"><b>'+escH(tpPtName(i)||'Point')+'</b>'+(tpPtCode(i)?' · '+escH(tpPtCode(i)):'')+'<div class="num">N '+tpFmt(M.pN[i])+'  E '+tpFmt(M.pE[i])+'  Z '+tpFmt(M.pZ[i])+'</div></div>';
+  else h+='<div class="tpp-pt"><b>Line</b> · '+M.lines[li].n+' vertices</div>';
+  h+='<div class="tpp-l">On the data collector</div>'+tpFlagChips(id)+
+    '<div class="tpp-a"><button data-pa="set">⚙ Layer settings</button><button data-pa="hide">👁 Hide on this map</button>'+
+    (isPt?'<button data-pa="delpt">Delete this point</button>':'')+
+    (id!==0?'<button data-pa="empty">Empty layer</button><button data-pa="del" class="bad">🗑 Delete layer</button>':'')+'</div>';
+  el.innerHTML=h; el.hidden=false;
+  var W=TPX.W, H=TPX.H, w=el.offsetWidth, hh=el.offsetHeight, x=px+14, y=py-hh/2; if(x+w>W-8) x=px-14-w;
+  if(x<8){ x=Math.max(8,Math.min(W-w-8,px-w/2)); y=(py+18+hh<=H-8)?py+18:(py-18-hh>=8?py-18-hh:(py>H/2?8:H-hh-8)); } // no room beside it: go above or below so the point stays visible
+  y=Math.max(8,Math.min(H-hh-8,y));
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.onpointerdown=function(e){ e.stopPropagation(); };
+  $('#tppX').onclick=function(){ TPX.pick=null; TPX.pickLine=null; tpPopClose(); tpRender(); };
+  el.querySelectorAll('[data-fl]').forEach(function(b){ b.onclick=function(){ var k=b.getAttribute('data-fl'), on=!tpOn(id,k); tpSetOn(id,k,on); b.classList.toggle('on',on); tpRender(); tpInfo(); }; });
+  el.querySelectorAll('[data-pa]').forEach(function(b){ b.onclick=function(){ var a=b.getAttribute('data-pa'), snap=tpSnap();
+    if(a==='set'){ tpPopClose(); tpLayerOpen(id,true); return; }
+    if(a==='hide'){ TPX.hide[id]=true; TPX.pick=null; TPX.pickLine=null; tpPopClose(); tpRender(); toast('“'+tpName(id)+'” hidden on this map (👁 Show / units to bring it back)', true, function(){ delete TPX.hide[id]; tpRender(); }); return; }
+    if(a==='delpt'){ TPX.lops.dupDrop[i]=1; TPX.lops.dupN[M.pL[i]]=(TPX.lops.dupN[M.pL[i]]||0)+1; if(TPX.cutDone&&TPX.plan) tpCutCounts(); TPX.pick=null; tpPopClose(); tpRender(); tpInfo(); toast('Point '+(tpPtName(i)||'')+' deleted', true, tpUndoTo(snap, function(){})); return; }
+    if(a==='empty'){ tpClearNow(id,'all'); TPX.pick=null; TPX.pickLine=null; tpPopClose(); return; }
+    if(a==='del'){ tpDeleteNow([id]); TPX.pick=null; TPX.pickLine=null; tpPopClose(); return; } }; });
 }
 function tpLoops(S){ // boundary edges = edges used by only one triangle; chain them into closed loops
   var cnt=new Map(), K=S.vc+1, t, j;
@@ -3236,12 +3285,12 @@ function tpChanged(){ TPX.plan=null; if(TPX.closed && TPX.poly.length>=3){ TPX.p
 function tpFmt(v){ return (v*tpU().k).toFixed(2); }
 function tpInfo(){
   var M=TPX.M, h='', U=tpU();
-  if(TPX.pick!=null && TPX.mode!=='draw'){ var i=TPX.pick, fl=tpFinal(M.pL[i]), L=fl==null?null:{name:tpName(fl)};
+  if(false){ var i=TPX.pick, fl=tpFinal(M.pL[i]), L=fl==null?null:{name:tpName(fl)};
     h+='<div class="pvread" style="margin-bottom:8px"><div><span>Point '+escH(tpPtName(i))+'</span><b class="num" style="font-size:15px">N '+tpFmt(M.pN[i])+'<br>E '+tpFmt(M.pE[i])+'</b></div><div><span>'+escH(L?L.name:'')+'</span><b class="num" style="font-size:15px">Z '+tpFmt(M.pZ[i])+'<br>'+escH(tpPtCode(i)||'—')+'</b></div></div>'; }
   if(!TPX.closed){
     h+='<div class="muted" style="font-size:13.5px">'+(TPX.mode==='draw'
       ? (TPX.poly.length? '<b>'+TPX.poly.length+' corner'+(TPX.poly.length===1?'':'s')+'</b> — keep tapping around the area to keep. Tap the <b>first corner</b> to close it. Drag a corner to adjust.' : 'Tap the corners of the area you want to <b>keep</b>, going around it. Pinch / drag to move the map.')
-      : 'Tap <b>✏ Boundary</b>, then tap around the area to keep. Everything outside — every layer — gets removed from the copy you save. Tap a point to see it.')+'</div>';
+      : 'Tap <b>✏ Boundary</b>, then tap around the area to keep. Everything outside — every layer — gets removed from the copy you save. Tap a point or line for its layer menu.')+'</div>';
   } else if(TPX.plan && TPX.cutDone){
     var S0=TPX.plan.summary;
     h+='<div class="row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><b style="font-size:14px">✂ Boundary cut applied</b><div class="muted" style="font-size:12.5px">Keeps '+S0.points[0].toLocaleString()+' of '+S0.points[1].toLocaleString()+' points · '+S0.lines[0].toLocaleString()+' lines · '+S0.surfaces[0]+' surfaces. Tap <b>Save</b> when you’re ready.</div></div><button class="btn" id="tpCutEdit">Change</button></div>';
@@ -3258,7 +3307,7 @@ function tpInfo(){
       '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
   }
   if(tpLayerChanged()){ var o=TPX.lops, nd=Object.keys(o.drop).length, nc=Object.keys(o.into).length;
-    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', 'order set'].filter(Boolean).join(' · ')+'</span></div>';
+    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.dupDrop).length?Object.keys(o.dupDrop).length.toLocaleString()+' double points removed':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', (o.order.length===M.layerList.length&&o.order.every(function(id,k){ return id===M.layerList[k].id; }))?'':'order changed'].filter(Boolean).join(' · ')+'</span></div>';
     if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave">💾 Save TP3 with layer changes</button>'; }
   var cutView=TPX.plan&&TPX.cutDone;
   $('#tpInfo').innerHTML=h;
@@ -3390,7 +3439,7 @@ function tpDragList(){
       hd.addEventListener('pointermove',mv); hd.addEventListener('pointerup',up); hd.addEventListener('pointercancel',up); });
   });
 }
-function tpLayerOpen(id){
+function tpLayerOpen(id,fromMap){
   var M=TPX.M, o=TPX.lops, c=tpCounts(id), rgb=tpRgb(id), sym=tpSym(id), fixed=id===0, pos=o.order.indexOf(id);
   var h='<div class="card"><h3>Name</h3><input class="inp" id="lnName" maxlength="63" value="'+escH(tpName(id))+'"'+(fixed?' disabled':'')+'>'+
       '<p class="muted" style="margin:6px 0 0">'+([c.pts?c.pts.toLocaleString()+' points':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'Empty layer')+' · position '+(pos+1)+' of '+o.order.length+'</p></div>'+
@@ -3407,7 +3456,7 @@ function tpLayerOpen(id){
       (Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?'<button class="btn block mt" id="lnUnclr">↺ Bring back what was emptied</button>':'')+
       '<button class="btn block mt" id="lnDel" style="color:var(--bad)">🗑 Delete layer'+(c.pts||c.lines||c.labels?' and everything on it':'')+'</button></div>';
   h+='<button class="btn primary block mt" id="lnBack">‹ All layers</button>';
-  openSheet(tpName(id)||'(no name)', h, tpBackToList);
+  openSheet(tpName(id)||'(no name)', h, fromMap?function(){ tpRender(); tpInfo(); }:tpBackToList);
   function ed(){ return o.edit[id]=o.edit[id]||{}; }
   document.querySelectorAll('[data-lf]').forEach(function(cb){ cb.onchange=function(){ tpSetOn(id,cb.getAttribute('data-lf'),cb.checked); }; });
   if(!fixed) $('#lnName').onchange=function(){ var v=this.value.trim(); if(!v){ this.value=tpName(id); return; } if(v===M.layers[id].name) delete ed().name; else ed().name=v; $('#shTitle').textContent=v; };
