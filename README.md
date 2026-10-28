@@ -14,3 +14,6 @@ On iPhone: open in Safari → Share → **Add to Home Screen**. Add a .csv point
 
 ### Plan viewer (PDF)
 Drop or pick a PDF and choose **Open plan**: georeference it from known points (auto from the N/E callout leaders, or tap exact spots), tap anywhere for Northing/Easting, pick linework layers (named from the plan legend where it's clear) and export them as a DXF (R12, X = Easting, Y = Northing) in real coordinates.
+
+### TP3 Fix (Topcon project)
+Drop or pick a `.tp3` (Topcon Pocket-3D / Magnet project export): see all points, lines, surfaces and control on a map, tap a boundary around the area to keep, and save a `-clean.tp3` with everything outside removed on **every** layer (points, lines, surface triangles, labels; control optional; optional buffer). The rest of the file is kept as-is and the result is re-read as a self-check before saving. Also exports the kept points to CSV and the lines to DXF. Test the clean file on a copy in the controller and keep the original.

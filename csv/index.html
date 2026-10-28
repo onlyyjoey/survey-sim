@@ -147,6 +147,10 @@ input,select{font:inherit;color:var(--ink)}
 .qt span{font-size:12px;color:var(--muted)}
 .qt.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px}
 .qt.wide .oi{margin:0}
+#tpWrap{flex:1;position:relative;overflow:hidden;background:var(--panel);touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;min-height:200px}
+#tpCanvas{position:absolute;left:0;top:0;display:block}
+.tprow{display:flex;gap:6px;align-items:baseline;font-size:14px;padding:2px 0}.tprow>span:first-child{width:72px;color:var(--muted);font-weight:650}
+#tpScreen [data-tpm].on{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 #pvWrap{flex:1;position:relative;overflow:hidden;background:#8a8a85;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
 #pvContent{position:absolute;left:0;top:0;transform-origin:0 0;box-shadow:0 2px 18px rgba(0,0,0,.35)}
 #pvContent canvas{position:absolute;left:0;top:0;display:block}
@@ -329,12 +333,13 @@ select.inp{font-size:15px;padding:10px}
     <div id="noFile">
       <div class="drop" id="drop">
         <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
-        <div class="big">Drop a CSV, photo, screenshot or PDF here</div>
+        <div class="big">Drop a CSV, photo, screenshot, PDF or TP3 here</div>
         <div class="small">or pick one from Files — photos &amp; PDFs get read into points</div>
         <button class="btn primary" id="pickBtn">+ Add file</button>
       </div>
       <button class="btn block mt" data-go="photos" style="background:var(--panel);border:1px solid var(--line);padding:16px"><svg width="22" height="22" style="color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg> Create CSV from photos or PDF</button>
       <button class="btn block mt" data-go="plan" style="background:var(--panel);border:1px solid var(--line);padding:16px">🗺 Open a plan PDF — tap for coordinates, export DXF</button>
+      <button class="btn block mt" data-go="tp3" style="background:var(--panel);border:1px solid var(--line);padding:16px">✂ TP3 Fix — cut a Topcon job to a boundary</button>
       <p class="muted" style="text-align:center;margin-top:14px">Works with PNEZD / PENZD point files. Everything stays on your phone.</p>
     </div>
 
@@ -358,6 +363,7 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt" data-go="photos"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div><b>Photos / PDF</b><span>Points, plans, coordinates, DXF</span></button>
         <button class="qt wide" data-go="combine"><div class="oi">⧉</div><b>Combine CSV</b><span>Add a newer file on top — choose what happens to duplicate points</span></button>
         <button class="qt wide" data-go="plan"><div class="oi">🗺</div><b>Open a plan (PDF)</b><span>Georeference, tap for N/E, export linework DXF</span></button>
+        <button class="qt wide" data-go="tp3"><div class="oi">✂</div><b>TP3 Fix (Topcon)</b><span>Tap a boundary, delete everything outside it on every layer</span></button>
         <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><b>Save / Share</b><span>Export the CSV</span></button>
       </div>
       <div class="row mt">
@@ -443,6 +449,25 @@ select.inp{font-size:15px;padding:10px}
   <div id="pvInfo" class="pvinfo"></div>
 </section>
 
+<!-- ============ TP3 FIX ============ -->
+<section class="screen" id="tpScreen">
+  <div class="topbar">
+    <button class="iconbtn" id="tpBack">‹ Back</button>
+    <h1 id="tpTitle">TP3</h1>
+    <button class="iconbtn" id="tpOpenB">Open…</button>
+  </div>
+  <div class="toolrow">
+    <button class="chip" data-tpm="draw" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent)">✏ Boundary</button>
+    <button class="chip" id="tpUndo">↶ Corner</button>
+    <button class="chip" id="tpClear">Clear</button>
+    <button class="chip" id="tpLayersB">Layers / units</button>
+    <button class="chip" id="tpFitB">Fit</button>
+  </div>
+  <div id="tpStatus" class="pvstatus"></div>
+  <div id="tpWrap"><canvas id="tpCanvas"></canvas></div>
+  <div id="tpInfo" class="pvinfo"></div>
+</section>
+
 <!-- ============ SHEETS ============ -->
 <div class="veil" id="veil"><div class="sheet" id="sheet">
   <div class="sh"><h2 id="shTitle"></h2><button class="iconbtn" id="shClose">Done</button></div>
@@ -452,7 +477,7 @@ select.inp{font-size:15px;padding:10px}
 <div id="ghost"></div>
 <div id="dropFx"><div class="fxcard"><svg class="ring" aria-hidden="true"><rect x="1.5" y="1.5" rx="27" ry="27" width="calc(100% - 3px)" height="calc(100% - 3px)"/></svg><div class="fxicon" id="fxIcon">⬇</div><div class="fxt" id="fxT">Drop to open</div><div class="fxs" id="fxS"></div></div></div>
 <div id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
-<input type="file" id="fileIn" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel,image/*,application/pdf,.pdf" hidden>
+<input type="file" id="fileIn" accept=".csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel,image/*,application/pdf,.pdf,.tp3" hidden>
 
 <script>
 (function(){
@@ -641,7 +666,7 @@ $('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); undo()
 
 /* ---------------- screens ---------------- */
 function showHome(){
-  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#home').classList.add('on');
+  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#home').classList.add('on');
   $('#noFile').hidden = !!file; $('#hasFile').hidden = !file;
   if(file){
     $('#fName').textContent = file.name;
@@ -657,13 +682,14 @@ function showHome(){
   updUndo();
 }
 function showGrid(){
-  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
   $('#gTitle').textContent = file.name; layoutGrid(); updUndo();
 }
 function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); else showHome(); }
 
 function go(where){
   if(where==='photos'){ showPhotos(); return; }
+  if(where==='tp3'){ pickTp3(); return; }
   if(where==='plan'){ var pi=document.createElement('input'); pi.type='file'; pi.accept='application/pdf,.pdf'; pi.onchange=function(){ if(pi.files[0]) openPlan(pi.files[0]); }; pi.click(); return; }
   if(!file && where!=='home') return;
   if(where==='grid') showGrid();
@@ -683,7 +709,7 @@ document.addEventListener('click', function(e){
 $('#undoHome').onclick = undo; $('#undoGrid').onclick = undo;
 $('#pickBtn').onclick = $('#openOther').onclick = function(){ $('#fileIn').value=''; $('#fileIn').click(); };
 $('#fileIn').onchange = function(){ var fs=Array.prototype.slice.call(this.files||[]); if(!fs.length) return;
-  if(isPicOrPdf(fs[0])) routeFiles(fs.filter(isPicOrPdf)); else readFile(fs[0]); };
+  if(isTp3File(fs[0])) openTp3(fs[0]); else if(isPicOrPdf(fs[0])) routeFiles(fs.filter(isPicOrPdf)); else readFile(fs[0]); };
 $('#closeFile').onclick = function(){ if(confirm('Close this file? Save/Share it first if you need it.')){ file=null; hist=[]; save(); showHome(); } };
 
 // drag & drop anywhere
@@ -697,7 +723,7 @@ function fxShow(dt){
   if(pdf){ t='Drop to read the PDF'; sub='Get its points, or open it as a plan'; }
   else if(img){ t='Drop to read '+(n>1?n+' photos':'the photo'); sub='Every N/E it finds becomes a point'; }
   else if(file){ t='Drop to combine'; sub='Adds the points to '+file.name+' — you choose about duplicates'; }
-  else { t='Drop to open'; sub='CSV / TXT point file'; }
+  else { t='Drop to open'; sub='CSV / TXT point file, or a Topcon TP3'; }
   if(onPlan && !pdf){ t=t; }
   $('#fxIcon').textContent=ic; $('#fxT').textContent=t; $('#fxS').textContent=sub;
   clearTimeout(fxTimer); fx.classList.remove('got'); fx.classList.add('on');
@@ -709,6 +735,7 @@ window.addEventListener('dragleave', function(){ if(--dragDepth<=0){ dragDepth=0
 window.addEventListener('dragover', function(e){ e.preventDefault(); });
 window.addEventListener('drop', function(e){ e.preventDefault(); dragDepth=0; drop.classList.remove('over'); fxHide(true);
   var fs=Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files)||[]); if(!fs.length) return;
+  var tp=fs.filter(isTp3File); if(tp.length){ openTp3(tp[0]); return; }
   var pics=fs.filter(isPicOrPdf), csvs=fs.filter(function(f){ return !isPicOrPdf(f); });
   if(pics.length){ routeFiles(pics); return; }
   if(!csvs.length) return; if(file) askCsvDrop(csvs); else readFile(csvs[0]); });
@@ -2203,7 +2230,7 @@ $('#phGo').onclick=function(){
   toast((addTo?'Added ':'Created ')+rows.length+' points — check them, then Export', true);
 };
 function showPhotos(){
-  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
   if(file){ var mx=maxPoint(); if(mx) $('#phStart').value=mx+1; }
   phRender();
   loadTess().catch(function(){});   // start downloading the reader early
@@ -2224,7 +2251,7 @@ function askPdf(pdfs, others){
   $('#apPts').onclick=function(){ closeSheet(); if(!$('#photoScreen').classList.contains('on')) showPhotos(); phAddFiles(pdfs.concat(others||[])); };
   $('#apPlan').onclick=function(){ closeSheet(); openPlan(pdfs[0]); if(others&&others.length){ /* photos stay for later */ } };
 }
-function showPlanScreen(){ ['#home','#gridScreen','#photoScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#planScreen').classList.add('on'); }
+function showPlanScreen(){ ['#home','#gridScreen','#photoScreen','#tpScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#planScreen').classList.add('on'); }
 async function openPlan(f){
   showPlanScreen();
   PV={file:f, name:(f.name||'plan').replace(/\.pdf$/i,''), z:1, tx:0, ty:0, mode:'look', snap:true, grid:false, picks:[], ctrl:[], useAuto:true, show:{}, area:'auto', box:null, heal:1};
@@ -2748,6 +2775,370 @@ $('#pvFitB').onclick=function(){ if(PV&&PV.R) pvFitView(); };
 $('#pvGrid').onclick=function(){ if(!PV||!PV.R) return; if(!PV.T){ toast('Georeference first (🎯 Known point)', true); return; } PV.grid=!PV.grid; this.classList.toggle('on',PV.grid); pvDrawOverlay(); if(PV.grid) toast('Grid every '+(PV.gridStep||'')+' ft', true); };
 $('#pvSnapB').onclick=function(){ if(!PV) return; PV.snap=!PV.snap; this.textContent=PV.snap?'📌 Snap on':'📌 Snap off'; this.classList.toggle('on',PV.snap); };
 $('#pvPage').onchange=function(){ if(PV) { PV.picks=[]; PV.ctrl=[]; PV.pin=null; pvLoadPage(+this.value); } };
+
+/* ===================== TP3 (Topcon project) engine =====================
+   Layout (worked out from a real Pocket-3D export):
+   • header 0x760 bytes: "Topcon TP3", project name (UTF-16), table of contents at 0xC0
+     (u16 cap, then entries {u16 tableId, u32 0x12, u32 firstPageOffset}), record counts per table.
+   • every table = linked chain of pages: {u16 id, u16 0x12, u16 cap, u16 cnt, u16 recSize, u32 next, u32 prev}
+     + records. All pages full except the last, which is cut to its count.
+   • records point at each other with 6-byte refs {u16 table, u16 page, u16 slot} → index = page*cap + slot.
+   Tables: 01 points · 02 coordinates (E,N,Z doubles, meters, relative to the layer origin) · 05 point attributes
+   · 06–0A strings by length · 0B layers (origin E@138 N@146) · 0C lines · 0D arc bulges per line vertex
+   · 0E surface triangles (3 vertices + 3 neighbours, local) · 0F control points · 11 surfaces (origin E@160 N@168)
+   · 15 labels · 1F attribute value lists (groups of 4 string refs) · 23 / 24 project items. */
+var TP3=(function(){
+  var HDR=0x760, NULLP=0xfffe;
+  function u16(b,o){ return b[o]|(b[o+1]<<8); }
+  function u32(b,o){ return (b[o]|(b[o+1]<<8)|(b[o+2]<<16))+(b[o+3]*16777216); }
+  function w16(b,o,v){ b[o]=v&255; b[o+1]=(v>>8)&255; }
+  function w32(b,o,v){ b[o]=v&255; b[o+1]=(v>>>8)&255; b[o+2]=(v>>>16)&255; b[o+3]=(v>>>24)&255; }
+  function utf16(b,o,max){ var s=''; for(var i=0;i<max;i+=2){ var c=u16(b,o+i); if(!c) break; s+=String.fromCharCode(c); } return s; }
+
+  function parse(buf){
+    var b=new Uint8Array(buf), dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+    var sig=''; for(var i=0;i<10;i++) sig+=String.fromCharCode(b[i]);
+    if(sig!=='Topcon TP3') throw new Error('not a TP3 file');
+    var toc=[], p=0xC2;
+    while(p+10<=HDR){ var sid=u16(b,p), typ=u32(b,p+2), off=u32(b,p+6); if(typ!==0x12) break; toc.push({sid:sid, off:off}); p+=10; }
+    var T={};
+    toc.forEach(function(e){
+      var pages=[], q=e.off, cap=0, esz=0, n=0;
+      while(q>=0 && q+18<=b.length && pages.length<200000){
+        if(u16(b,q)!==e.sid || u16(b,q+2)!==0x12) throw new Error('bad page in table '+e.sid);
+        cap=u16(b,q+4); var cnt=u16(b,q+6); esz=u16(b,q+8); var nx=u32(b,q+10);
+        pages.push({off:q, cnt:cnt}); n+=cnt; if(nx===0xfffffffe) break; q=nx; }
+      var data=new Uint8Array(n*esz), k=0;
+      pages.forEach(function(pg){ data.set(b.subarray(pg.off+18, pg.off+18+pg.cnt*esz), k*esz); k+=pg.cnt; });
+      T[e.sid]={sid:e.sid, cap:cap, esz:esz, n:n, data:data};
+    });
+    // where each table's record count lives in the header
+    var countAt={}; Object.keys(T).forEach(function(s){ var n=T[s].n, hits=[]; for(var o=0x170;o<HDR-3;o+=2) if(u32(b,o)===n) hits.push(o); if(hits.length===1) countAt[s]=hits[0]; });
+    var M={buf:b, dv:dv, header:b.slice(0,HDR), toc:toc, T:T, countAt:countAt, name:utf16(b,0x1E,64)};
+    decode(M); return M;
+  }
+  function ref(M,rec,o){ var t=u16(rec,o), p=u16(rec,o+2), s=u16(rec,o+4); if(p===NULLP || !M.T[t]) return null; return {t:t, i:p*M.T[t].cap+s}; }
+  function rec(M,t,i){ var T=M.T[t]; return T.data.subarray(i*T.esz,(i+1)*T.esz); }
+  function f64(M,t,i,off){ var T=M.T[t]; var o=i*T.esz+off; return new DataView(T.data.buffer,T.data.byteOffset+o,8).getFloat64(0,true); }
+  function str(M,r){ if(!r) return ''; var T=M.T[r.t]; return utf16(T.data, r.i*T.esz, T.esz); }
+
+  function decode(M){
+    var T=M.T;
+    // layers
+    M.layers={}; M.layerList=[];
+    if(T[0x0b]) for(var i=0;i<T[0x0b].n;i++){ var r=rec(M,0x0b,i), id=u16(r,0), L={id:id, name:utf16(r,2,128), oe:f64(M,0x0b,i,138), on:f64(M,0x0b,i,146), pts:0, lines:0, labels:0}; M.layers[id]=L; M.layerList.push(L); }
+    var org=function(lid){ var L=M.layers[lid]; return L?[L.oe,L.on]:[0,0]; };
+    var C=T[0x02], cdv=new DataView(C.data.buffer,C.data.byteOffset,C.data.byteLength);
+    var cE=function(i){ return cdv.getFloat64(i*24,true); }, cN=function(i){ return cdv.getFloat64(i*24+8,true); }, cZ=function(i){ return cdv.getFloat64(i*24+16,true); };
+    // points
+    var P=T[0x01], n=P?P.n:0; M.pE=new Float64Array(n); M.pN=new Float64Array(n); M.pZ=new Float64Array(n); M.pL=new Uint16Array(n);
+    for(i=0;i<n;i++){ var r2=rec(M,1,i), c=ref(M,r2,0), lid=u16(r2,12), o=org(lid); M.pL[i]=lid; if(M.layers[lid]) M.layers[lid].pts++;
+      if(c){ M.pE[i]=cE(c.i)+o[0]; M.pN[i]=cN(c.i)+o[1]; M.pZ[i]=cZ(c.i); } }
+    // lines
+    var Ln=T[0x0c]; M.lines=[];
+    if(Ln) for(i=0;i<Ln.n;i++){ var r3=rec(M,0x0c,i), s=ref(M,r3,0), cnt=u32(r3,12), lid2=u16(r3,20), o2=org(lid2), xs=new Float64Array(cnt*2);
+      for(var k=0;k<cnt;k++){ xs[k*2]=cE(s.i+k)+o2[0]; xs[k*2+1]=cN(s.i+k)+o2[1]; }
+      M.lines.push({layer:lid2, n:cnt, xy:xs}); if(M.layers[lid2]) M.layers[lid2].lines++; }
+    // surfaces
+    var S=T[0x11]; M.surfaces=[];
+    if(S) for(i=0;i<S.n;i++){ var r4=rec(M,0x11,i), vs=ref(M,r4,0), ts=ref(M,r4,6), vc=u32(r4,18), tc=u32(r4,22), oe=f64(M,0x11,i,160), on=f64(M,0x11,i,168);
+      var V=new Float64Array(vc*2); for(k=0;k<vc;k++){ V[k*2]=cE(vs.i+k)+oe; V[k*2+1]=cN(vs.i+k)+on; }
+      var TR=new Int32Array(tc*6), tb=T[0x0e], tdv=new DataView(tb.data.buffer,tb.data.byteOffset,tb.data.byteLength);
+      for(k=0;k<tc*6;k++) TR[k]=tdv.getInt32((ts.i*6+k)*4,true);
+      M.surfaces.push({name:utf16(r4,30,128), vc:vc, tc:tc, V:V, TR:TR}); }
+    // labels (table 15)
+    var X=T[0x15]; M.labels=[];
+    if(X) for(i=0;i<X.n;i++){ var r5=rec(M,0x15,i), c5=ref(M,r5,6), lid5=u32(r5,12), o5=org(lid5); M.labels.push({E:cE(c5.i)+o5[0], N:cN(c5.i)+o5[1], layer:lid5}); if(M.layers[lid5]) M.layers[lid5].labels++; }
+    // control points (inline N@220 E@228 Z@236)
+    var CP=T[0x0f]; M.control=[];
+    if(CP) for(i=0;i<CP.n;i++){ var r6=rec(M,0x0f,i); M.control.push({name:utf16(r6,66,64), N:f64(M,0x0f,i,220), E:f64(M,0x0f,i,228), Z:f64(M,0x0f,i,236)}); }
+    // extents of real data (ignore 0,0 junk)
+    var e0=1e18,e1=-1e18,n0=1e18,n1=-1e18; for(i=0;i<n;i++){ var E=M.pE[i], N=M.pN[i]; if(Math.abs(E)<1&&Math.abs(N)<1) continue; if(E<e0)e0=E; if(E>e1)e1=E; if(N<n0)n0=N; if(N>n1)n1=N; }
+    M.lines.forEach(function(l){ for(var k=0;k<l.n;k++){ var E=l.xy[k*2], N=l.xy[k*2+1]; if(E<e0)e0=E; if(E>e1)e1=E; if(N<n0)n0=N; if(N>n1)n1=N; } });
+    M.ext=[e0,n0,e1,n1];
+  }
+  function pointName(M,i){ var a=ref(M,rec(M,1,i),6); return a?str(M,ref(M,rec(M,5,a.i),0)):''; }
+  function pointCode(M,i){ var a=ref(M,rec(M,1,i),6); return a?str(M,ref(M,rec(M,5,a.i),6)):''; }
+
+  function inPoly(poly,x,y){ var c=false; for(var i=0,j=poly.length-1;i<poly.length;j=i++){ var xi=poly[i][0], yi=poly[i][1], xj=poly[j][0], yj=poly[j][1];
+    if(((yi>y)!==(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
+  function segDist(px,py,ax,ay,bx,by){ var dx=bx-ax, dy=by-ay, l=dx*dx+dy*dy, t=l?((px-ax)*dx+(py-ay)*dy)/l:0; t=Math.max(0,Math.min(1,t)); var x=ax+t*dx-px, y=ay+t*dy-py; return Math.sqrt(x*x+y*y); }
+  function makeInside(poly, buf){
+    var xs=poly.map(function(p){return p[0];}), ys=poly.map(function(p){return p[1];}), bb=[Math.min.apply(null,xs)-buf, Math.min.apply(null,ys)-buf, Math.max.apply(null,xs)+buf, Math.max.apply(null,ys)+buf];
+    return function(x,y){ if(x<bb[0]||x>bb[2]||y<bb[1]||y>bb[3]) return false; if(inPoly(poly,x,y)) return true; if(!buf) return false;
+      for(var i=0,j=poly.length-1;i<poly.length;j=i++) if(segDist(x,y,poly[j][0],poly[j][1],poly[i][0],poly[i][1])<=buf) return true; return false; };
+  }
+  /* decide what stays. opts: {poly:[[E,N]..] meters, buffer:m, lines:'touch'|'inside', surfaces:'trim'|'touch'|'inside', control:'keep'|'clip'} */
+  function plan(M, opts){
+    var inside=makeInside(opts.poly, opts.buffer||0), P={};
+    var n=M.pE.length; P.points=new Uint8Array(n); var kp=0;
+    for(var i=0;i<n;i++){ if(inside(M.pE[i],M.pN[i])){ P.points[i]=1; kp++; } }
+    P.lines=M.lines.map(function(l){ var a=0; for(var k=0;k<l.n;k++) if(inside(l.xy[k*2],l.xy[k*2+1])) a++; return opts.lines==='inside' ? (a===l.n) : (a>0); });
+    P.surfaces=M.surfaces.map(function(s){
+      var keep=new Uint8Array(s.tc), kt=0;
+      for(var t=0;t<s.tc;t++){ var a=s.TR[t*6], b2=s.TR[t*6+1], c=s.TR[t*6+2], cx=(s.V[a*2]+s.V[b2*2]+s.V[c*2])/3, cy=(s.V[a*2+1]+s.V[b2*2+1]+s.V[c*2+1])/3; if(inside(cx,cy)){ keep[t]=1; kt++; } }
+      if(opts.surfaces==='touch' && kt) { keep.fill(1); kt=s.tc; }
+      if(opts.surfaces==='inside' && kt<s.tc) { keep.fill(0); kt=0; }
+      return {keep:keep, kept:kt}; });
+    P.labels=M.labels.map(function(l){ return inside(l.E,l.N); });
+    P.control=M.control.map(function(c){ return opts.control==='clip' ? inside(c.E,c.N) : true; });
+    P.summary={points:[kp,n], lines:[P.lines.filter(Boolean).length, M.lines.length],
+      surfaces:[P.surfaces.filter(function(s){return s.kept;}).length, M.surfaces.length], trimmed:P.surfaces.filter(function(s,i){ return s.kept && s.kept<M.surfaces[i].tc; }).length,
+      triangles:[P.surfaces.reduce(function(a,s){return a+s.kept;},0), M.surfaces.reduce(function(a,s){return a+s.tc;},0)],
+      labels:[P.labels.filter(Boolean).length, M.labels.length], control:[P.control.filter(Boolean).length, M.control.length]};
+    return P;
+  }
+  /* rebuild the project with only what stays. Two passes: mark every record still needed (in every table),
+     then renumber in the original order and rewrite each reference — so nothing dangles, and with nothing
+     removed the output is byte-for-byte the input. */
+  function write(M, P){
+    var T=M.T, K={}, i, k, t;
+    Object.keys(T).forEach(function(s){ K[s]=new Uint8Array(T[s].n); });
+    function mark(sid,idx){ K[sid][idx]=1; }
+    function markRun(sid,start,n){ for(var j=0;j<n;j++) K[sid][start+j]=1; }
+    function markStr(r,o){ var x=ref(M,r,o); if(x) mark(x.t,x.i); }
+    function markAttr(ai){ if(K[5][ai]) return; mark(5,ai); var r=rec(M,5,ai); markStr(r,0); markStr(r,6);
+      var cnt=u16(r,12), pg=u16(r,14), sl=u16(r,16);
+      if(pg!==NULLP && T[0x1f]){ var st=pg*T[0x1f].cap+sl; for(var j=0;j<cnt;j++){ mark(0x1f,st+j); markStr(rec(M,0x1f,st+j),0); } } }
+    // pass 1 — what stays
+    for(i=0;i<M.pE.length;i++) if(P.points[i]){ mark(1,i); var rp=rec(M,1,i); mark(2,ref(M,rp,0).i); markAttr(ref(M,rp,6).i); }
+    if(T[0x15]) for(i=0;i<T[0x15].n;i++) if(P.labels[i]){ mark(0x15,i); var r5=rec(M,0x15,i); markAttr(ref(M,r5,0).i); mark(2,ref(M,r5,6).i); }
+    if(T[0x23]) for(i=0;i<T[0x23].n;i++){ mark(0x23,i); var r23=rec(M,0x23,i); markStr(r23,0); var a23=ref(M,r23,6); if(a23) markAttr(a23.i); }
+    if(T[0x0c]) for(i=0;i<T[0x0c].n;i++) if(P.lines[i]){ mark(0x0c,i); var rl=rec(M,0x0c,i), n=u32(rl,12); if(n){ markRun(2,ref(M,rl,0).i,n); markRun(0x0d,ref(M,rl,6).i,n); } }
+    var surf=[];
+    if(T[0x11]) for(i=0;i<T[0x11].n;i++){ var ps=P.surfaces[i]; if(!ps.kept) continue; mark(0x11,i); var sr=rec(M,0x11,i), S=M.surfaces[i], vs=ref(M,sr,0).i, ts=ref(M,sr,6).i;
+      var used=new Uint8Array(S.vc); for(t=0;t<S.tc;t++) if(ps.keep[t]){ mark(0x0e,ts+t); for(k=0;k<3;k++) used[S.TR[t*6+k]]=1; }
+      if(ps.kept===S.tc) used.fill(1);                         // whole surface: keep every vertex as it was
+      for(k=0;k<S.vc;k++) if(used[k]) mark(2,vs+k);
+      surf.push({i:i, vs:vs, ts:ts, used:used, S:S, ps:ps}); }
+    if(T[0x0f]) for(i=0;i<T[0x0f].n;i++) if(P.control[i]) mark(0x0f,i);
+    [0x0b,0x24].forEach(function(s){ if(K[s]) K[s].fill(1); });
+    // pass 2 — new numbers, original order
+    var NI={}; Object.keys(T).forEach(function(s){ var m=new Int32Array(T[s].n), c=0; for(var j=0;j<T[s].n;j++) m[j]=K[s][j]?c++:-1; NI[s]=m; NI[s].count=c; });
+    function setRef(r,o,sid,idx){ var cap=T[sid].cap; w16(r,o,sid); w16(r,o+2,Math.floor(idx/cap)); w16(r,o+4,idx%cap); }
+    function fix(r,o){ var x=ref(M,r,o); if(x) setRef(r,o,x.t,NI[x.t][x.i]); }
+    var patch={};                                            // per table: function(record copy, old index)
+    patch[1]=function(r){ fix(r,0); fix(r,6); };
+    patch[5]=function(r){ fix(r,0); fix(r,6); var pg=u16(r,14), sl=u16(r,16); if(pg!==NULLP && T[0x1f]){ var ni=NI[0x1f][pg*T[0x1f].cap+sl]; w16(r,14,Math.floor(ni/T[0x1f].cap)); w16(r,16,ni%T[0x1f].cap); } };
+    patch[0x1f]=function(r){ fix(r,0); };
+    patch[0x15]=function(r){ fix(r,0); fix(r,6); };
+    patch[0x23]=function(r){ fix(r,0); fix(r,6); };
+    patch[0x0c]=function(r){ if(u32(r,12)){ fix(r,0); fix(r,6); } };
+    var sinfo={}; surf.forEach(function(x){ sinfo[x.i]=x; });
+    patch[0x11]=function(r,oi){ var x=sinfo[oi], S=x.S, nv=0, nt=0; for(var j=0;j<S.vc;j++) if(x.used[j]) nv++; nt=x.ps.kept;
+      setRef(r,0,2,NI[2][x.vs+firstSet(x.used)]); setRef(r,6,0x0e,NI[0x0e][x.ts+firstSet(x.ps.keep)]); w32(r,18,nv); w32(r,22,nt); };
+    function firstSet(a){ for(var j=0;j<a.length;j++) if(a[j]) return j; return 0; }
+    // triangles of trimmed surfaces: renumber vertex + neighbour indices (local to the surface)
+    var triFix={}; surf.forEach(function(x){ if(x.ps.kept===x.S.tc) return; var vm=new Int32Array(x.S.vc).fill(-1), c=0; for(var j=0;j<x.S.vc;j++) if(x.used[j]) vm[j]=c++;
+      var tm=new Int32Array(x.S.tc).fill(-1); c=0; for(j=0;j<x.S.tc;j++) if(x.ps.keep[j]) tm[j]=c++;
+      for(j=0;j<x.S.tc;j++) if(x.ps.keep[j]) triFix[x.ts+j]={vm:vm, tm:tm, t:j, S:x.S}; });
+    patch[0x0e]=function(r,oi){ var f=triFix[oi]; if(!f) return; var dv=new DataView(r.buffer,r.byteOffset,24);
+      for(var j=0;j<3;j++) dv.setInt32(j*4, f.vm[f.S.TR[f.t*6+j]], true);
+      for(j=3;j<6;j++){ var nb=f.S.TR[f.t*6+j]; dv.setInt32(j*4, nb>=0?f.tm[nb]:-1, true); } };
+    // serialize: header + each table's pages in a row
+    var tabs=M.toc.map(function(e){ var t2=T[e.sid], n2=NI[e.sid].count, full=Math.floor(n2/t2.cap), rest=n2%t2.cap; return {sid:e.sid, t:t2, n:n2, pages:full+(rest||!n2?1:0)}; });
+    var size=HDR; tabs.forEach(function(b){ var full=Math.floor(b.n/b.t.cap), rest=b.n%b.t.cap; size+=full*(18+b.t.cap*b.t.esz)+(rest||!b.n?18+rest*b.t.esz:0); });
+    var F=new Uint8Array(size); F.set(M.header,0);
+    var pos=HDR;
+    tabs.forEach(function(b,ti){
+      var t2=b.t, esz=t2.esz, all=new Uint8Array(b.n*esz), w=0, pf=patch[b.sid];
+      for(var j=0;j<t2.n;j++){ if(!K[b.sid][j]) continue; var r=t2.data.slice(j*esz,(j+1)*esz); if(pf) pf(r,j); all.set(r,w*esz); w++; }
+      w32(F,0xC2+ti*10+6,pos);
+      var prev=0xfffffffe;
+      for(var pg=0;pg<b.pages;pg++){
+        var cnt=Math.max(0,Math.min(t2.cap, b.n-pg*t2.cap)), last=pg===b.pages-1, psz=18+(last?cnt:t2.cap)*esz;
+        w16(F,pos,b.sid); w16(F,pos+2,0x12); w16(F,pos+4,t2.cap); w16(F,pos+6,cnt); w16(F,pos+8,esz);
+        w32(F,pos+10,last?0xfffffffe:pos+psz); w32(F,pos+14,prev);
+        F.set(all.subarray(pg*t2.cap*esz,(pg*t2.cap+cnt)*esz), pos+18);
+        prev=pos; pos+=psz; }
+      if(M.countAt[b.sid]!=null) w32(F,M.countAt[b.sid],b.n);
+    });
+    return F;
+  }
+  return {parse:parse, plan:plan, write:write, pointName:pointName, pointCode:pointCode, inPoly:inPoly};
+})();
+
+
+/* ---------------- TP3 Fix screen: open a Topcon project, tap a boundary, keep only what's inside ---------------- */
+var TPX=null;
+var TP_UNITS={usft:{k:3937/1200, lab:'US ft'}, ft:{k:1/0.3048, lab:'ft'}, m:{k:1, lab:'m'}};
+function tpU(){ return TP_UNITS[(TPX&&TPX.units)||'usft']; }
+function isTp3File(f){ return /\.tp3$/i.test(f.name||''); }
+function pickTp3(){ var i=document.createElement('input'); i.type='file'; i.accept='.tp3,application/octet-stream,*/*'; i.onchange=function(){ if(i.files[0]) openTp3(i.files[0]); }; i.click(); }
+function showTpScreen(){ ['#home','#gridScreen','#photoScreen','#planScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#tpScreen').classList.add('on'); }
+async function openTp3(f){
+  showTpScreen(); $('#tpTitle').textContent=f.name.replace(/\.tp3$/i,'');
+  $('#tpStatus').innerHTML='<div class="spin"></div><span>Opening '+escH(f.name)+' ('+(f.size/1e6).toFixed(1)+' MB)…</span>'; $('#tpInfo').innerHTML='';
+  await new Promise(function(r){ setTimeout(r,30); });
+  try{
+    var M=TP3.parse(await f.arrayBuffer());
+    TPX={file:f, M:M, poly:[], closed:false, mode:'look', buffer:0, opts:{lines:'touch', surfaces:'trim', control:'keep'}, hide:{}, units:ls.get('csvfix.tpUnits')||'usft', z:1};
+    M.layerList.forEach(function(L,i){ L.color=tpLayerColor(i); });
+    tpSizeCanvas(); tpFit(); tpRender(); tpStatus(); tpInfo();
+  }catch(e){ try{ console.warn(e); }catch(x){} $('#tpStatus').innerHTML='<span class="danger">Couldn’t read this file as a Topcon TP3 project'+(e&&e.message?' ('+escH(e.message)+')':'')+'.</span>'; }
+}
+function tpLayerColor(i){ var h=(i*137.508)%360; return 'hsl('+h.toFixed(0)+',70%,'+(document.documentElement.getAttribute('data-theme')==='dark'||matchMedia('(prefers-color-scheme: dark)').matches?'62%':'42%')+')'; }
+function tpStatus(){
+  var M=TPX.M, zero=0; for(var i=0;i<M.pE.length;i++) if(Math.abs(M.pE[i])<1&&Math.abs(M.pN[i])<1) zero++;
+  $('#tpStatus').innerHTML='<span><b>'+M.pE.length.toLocaleString()+'</b> points · <b>'+M.lines.length.toLocaleString()+'</b> lines · <b>'+M.surfaces.length+'</b> surfaces · '+M.control.length+' control · '+M.layerList.length+' layers'+(zero?' · <span class="danger">'+zero+' at 0,0</span>':'')+' · '+(TPX.file.size/1e6).toFixed(1)+' MB</span>';
+}
+/* ---- view ---- */
+function tpSizeCanvas(){ var w=$('#tpWrap'), r=w.getBoundingClientRect(), dpr=Math.min(2, window.devicePixelRatio||1), c=$('#tpCanvas');
+  c.width=Math.max(1,Math.round(r.width*dpr)); c.height=Math.max(1,Math.round(r.height*dpr)); c.style.width=r.width+'px'; c.style.height=r.height+'px'; TPX.dpr=dpr; TPX.W=r.width; TPX.H=r.height; }
+function tpFit(){ var e=TPX.M.ext, w=e[2]-e[0]||1, h=e[3]-e[1]||1, s=Math.min(TPX.W/w, TPX.H/h)*0.92; TPX.s=s; TPX.tx=TPX.W/2-(e[0]+w/2)*s; TPX.ty=TPX.H/2+(e[1]+h/2)*s; }
+function tpX(E){ return E*TPX.s+TPX.tx; } function tpY(N){ return -N*TPX.s+TPX.ty; }
+function tpW(x,y){ return [(x-TPX.tx)/TPX.s, -(y-TPX.ty)/TPX.s]; }
+function tpRender(){
+  var M=TPX.M, c=$('#tpCanvas'), x=c.getContext('2d'), dpr=TPX.dpr, s=TPX.s, tx=TPX.tx, ty=TPX.ty, W=TPX.W, H=TPX.H;
+  c.style.transform=''; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,W,H);
+  var view=[ (0-tx)/s, -(H-ty)/s, (W-tx)/s, -(0-ty)/s ];             // E0,N0,E1,N1
+  var dark=getComputedStyle(document.body).backgroundColor; x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--panel')||'#fff'; x.fillRect(0,0,W,H);
+  // surfaces: outline loops (worked out once), tinted inside
+  M.surfaces.forEach(function(S,si){ if(!S.loops) S.loops=tpLoops(S); var hue=(si*67)%360; x.beginPath();
+    S.loops.forEach(function(L){ for(var k=0;k<L.length;k++){ var px=S.V[L[k]*2]*s+tx, py=-S.V[L[k]*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.closePath(); });
+    x.fillStyle='hsla('+hue+',60%,55%,0.2)'; x.fill('evenodd'); x.strokeStyle='hsla('+hue+',60%,45%,0.7)'; x.lineWidth=1; x.stroke(); });
+  // lines
+  x.lineWidth=1.2; x.lineJoin='round';
+  M.lines.forEach(function(l){ var L=M.layers[l.layer]; if(TPX.hide[l.layer]) return; x.strokeStyle=L?L.color:'#888'; x.beginPath();
+    for(var k=0;k<l.n;k++){ var px=l.xy[k*2]*s+tx, py=-l.xy[k*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); });
+  // points (batched by layer)
+  var r=Math.max(1.2, Math.min(3, s*0.25)), by={};
+  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=M.pL[i]; if(TPX.hide[lid]) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
+  Object.keys(by).forEach(function(lid){ var L=M.layers[lid], a=by[lid]; x.fillStyle=L?L.color:'#666'; for(var j=0;j<a.length;j+=2) x.fillRect(a[j]-r/2,a[j+1]-r/2,r,r); });
+  // control points
+  x.fillStyle='#e11d48'; M.control.forEach(function(cp){ var px=cp.E*s+tx, py=-cp.N*s+ty; x.beginPath(); x.moveTo(px,py-6); x.lineTo(px+5,py+4); x.lineTo(px-5,py+4); x.closePath(); x.fill(); });
+  // boundary
+  var P=TPX.poly; if(P.length){
+    var acc=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#2563eb';
+    if(TPX.closed){ x.fillStyle='rgba(0,0,0,0.38)'; x.beginPath(); x.rect(0,0,W,H); x.moveTo(tpX(P[0][0]),tpY(P[0][1])); for(var q=1;q<P.length;q++) x.lineTo(tpX(P[q][0]),tpY(P[q][1])); x.closePath(); x.fill('evenodd'); }
+    if(TPX.closed && TPX.buffer>0){ x.save(); x.setLineDash([6,5]); x.strokeStyle=acc; x.lineWidth=TPX.buffer*2*s; x.globalAlpha=0.18; x.beginPath(); x.moveTo(tpX(P[0][0]),tpY(P[0][1])); for(q=1;q<P.length;q++) x.lineTo(tpX(P[q][0]),tpY(P[q][1])); x.closePath(); x.stroke(); x.restore(); }
+    x.strokeStyle=acc; x.lineWidth=2.5; x.setLineDash(TPX.closed?[]:[8,6]); x.beginPath(); x.moveTo(tpX(P[0][0]),tpY(P[0][1])); for(q=1;q<P.length;q++) x.lineTo(tpX(P[q][0]),tpY(P[q][1])); if(TPX.closed) x.closePath(); x.stroke(); x.setLineDash([]);
+    P.forEach(function(p,qi){ var px=tpX(p[0]), py=tpY(p[1]); x.fillStyle=qi===0&&!TPX.closed?acc:'#fff'; x.strokeStyle=acc; x.lineWidth=2.5; x.beginPath(); x.arc(px,py,qi===0&&!TPX.closed?9:7,0,7); x.fill(); x.stroke(); });
+  }
+  if(TPX.pick!=null){ var pi=TPX.pick; x.strokeStyle='#e11d48'; x.lineWidth=2.5; x.beginPath(); x.arc(M.pE[pi]*s+tx,-M.pN[pi]*s+ty,9,0,7); x.stroke(); }
+}
+/* ---- gestures: transform the canvas while moving, redraw when you let go (cheap on battery) ---- */
+(function(){
+  var wrap=$('#tpWrap'), ptr=new Map(), st=null, pinch=null, drag=null, rt=null;
+  function live(){ var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
+  function begin(){ TPX.s0=TPX.s; TPX.tx0=TPX.tx; TPX.ty0=TPX.ty; }
+  function settle(){ clearTimeout(rt); rt=setTimeout(function(){ if(TPX) tpRender(); }, 60); }
+  wrap.addEventListener('pointerdown', function(e){ if(!TPX) return; wrap.setPointerCapture(e.pointerId); ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
+    if(ptr.size===1){ st={x:e.clientX,y:e.clientY,t:Date.now(),moved:false}; begin();
+      // grab a boundary corner to move it
+      var hit=-1; TPX.poly.forEach(function(p,i){ if(Math.hypot(tpX(p[0])-(e.clientX-r.left),tpY(p[1])-(e.clientY-r.top))<18) hit=i; }); drag=hit>=0?hit:null; }
+    if(ptr.size===2){ var a=Array.from(ptr.values()); pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), s:TPX.s, tx:TPX.tx, ty:TPX.ty, cx:(a[0].x+a[1].x)/2-r.left, cy:(a[0].y+a[1].y)/2-r.top}; drag=null; if(st) st.moved=true; } });
+  wrap.addEventListener('pointermove', function(e){ if(!ptr.has(e.pointerId)) return; ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
+    if(ptr.size===2&&pinch){ var a=Array.from(ptr.values()), d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), f=d/pinch.d, cx=(a[0].x+a[1].x)/2-r.left, cy=(a[0].y+a[1].y)/2-r.top;
+      TPX.s=pinch.s*f; TPX.tx=cx-(pinch.cx-pinch.tx)*f; TPX.ty=cy-(pinch.cy-pinch.ty)*f; live(); return; }
+    if(!st) return; var dx=e.clientX-st.x, dy=e.clientY-st.y; if(Math.hypot(dx,dy)>6) st.moved=true; if(!st.moved) return;
+    if(drag!=null){ TPX.poly[drag]=tpW(e.clientX-r.left,e.clientY-r.top); tpRender(); return; }
+    TPX.tx=TPX.tx0+dx; TPX.ty=TPX.ty0+dy; live(); });
+  function end(e){ if(!ptr.has(e.pointerId)) return; ptr.delete(e.pointerId); if(ptr.size<2) pinch=null;
+    if(ptr.size===0&&st){ var s0=st; st=null; var r=wrap.getBoundingClientRect();
+      if(drag!=null){ drag=null; if(s0.moved){ tpChanged(); return; } }
+      if(!s0.moved && Date.now()-s0.t<700) tpTap(e.clientX-r.left, e.clientY-r.top); else settle(); } }
+  wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('wheel', function(e){ if(!TPX) return; e.preventDefault(); var r=wrap.getBoundingClientRect(), f=Math.exp(-e.deltaY*0.0015), px=e.clientX-r.left, py=e.clientY-r.top;
+    if(!TPX.wheel){ begin(); TPX.wheel=1; } TPX.s*=f; TPX.tx=px-(px-TPX.tx)*f; TPX.ty=py-(py-TPX.ty)*f; live(); clearTimeout(rt); rt=setTimeout(function(){ TPX.wheel=0; tpRender(); },120); }, {passive:false});
+  var ro=function(){ if(!TPX || !$('#tpScreen').classList.contains('on')) return; var W0=TPX.W, H0=TPX.H; tpSizeCanvas(); if(W0&&H0){ TPX.tx+=(TPX.W-W0)/2; TPX.ty+=(TPX.H-H0)/2; } tpRender(); };
+  if(window.ResizeObserver) new ResizeObserver(function(){ clearTimeout(ro.t); ro.t=setTimeout(ro,50); }).observe(wrap); else window.addEventListener('resize', ro);
+})();
+function tpTap(px,py){
+  var M=TPX.M;
+  if(TPX.mode==='draw' && !TPX.closed){
+    var P=TPX.poly; if(P.length>=3 && Math.hypot(tpX(P[0][0])-px,tpY(P[0][1])-py)<20){ TPX.closed=true; TPX.mode='look'; tpModeChips(); tpChanged(); toast('Boundary closed — check the preview, then save', true); return; }
+    P.push(tpW(px,py)); tpRender(); tpInfo(); return; }
+  // look: nearest point
+  var best=-1, bd=16; for(var i=0;i<M.pE.length;i++){ var dx=M.pE[i]*TPX.s+TPX.tx-px; if(dx>bd||dx<-bd) continue; var dy=-M.pN[i]*TPX.s+TPX.ty-py; var d=Math.hypot(dx,dy); if(d<bd){ bd=d; best=i; } }
+  TPX.pick=best>=0?best:null; tpRender(); tpInfo();
+}
+function tpLoops(S){ // boundary edges = edges used by only one triangle; chain them into closed loops
+  var cnt=new Map(), K=S.vc+1, t, j;
+  for(t=0;t<S.tc;t++) for(j=0;j<3;j++){ var a=S.TR[t*6+j], b=S.TR[t*6+(j+1)%3], key=a<b?a*K+b:b*K+a; cnt.set(key,(cnt.get(key)||0)+1); }
+  var nxt=new Map();
+  for(t=0;t<S.tc;t++) for(j=0;j<3;j++){ var a2=S.TR[t*6+j], b2=S.TR[t*6+(j+1)%3], k2=a2<b2?a2*K+b2:b2*K+a2; if(cnt.get(k2)===1){ var l=nxt.get(a2); if(l) l.push(b2); else nxt.set(a2,[b2]); } }
+  var loops=[];
+  nxt.forEach(function(_,start){ while(nxt.has(start)&&nxt.get(start).length){ var L=[start], v=start, guard=0;
+    while(guard++<1e6){ var o=nxt.get(v); if(!o||!o.length) break; var w=o.pop(); if(!o.length) nxt.delete(v); if(w===start) break; L.push(w); v=w; }
+    if(L.length>2) loops.push(L); } });
+  return loops; }
+function tpModeChips(){ document.querySelectorAll('#tpScreen [data-tpm]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tpm')===TPX.mode); }); }
+function tpChanged(){ TPX.plan=null; if(TPX.closed && TPX.poly.length>=3){ TPX.plan=TP3.plan(TPX.M,{poly:TPX.poly, buffer:TPX.buffer, lines:TPX.opts.lines, surfaces:TPX.opts.surfaces, control:TPX.opts.control}); } tpRender(); tpInfo(); }
+function tpFmt(v){ return (v*tpU().k).toFixed(2); }
+function tpInfo(){
+  var M=TPX.M, h='', U=tpU();
+  if(TPX.pick!=null && TPX.mode!=='draw'){ var i=TPX.pick, L=M.layers[M.pL[i]];
+    h+='<div class="pvread" style="margin-bottom:8px"><div><span>Point '+escH(TP3.pointName(M,i))+'</span><b class="num" style="font-size:15px">N '+tpFmt(M.pN[i])+'<br>E '+tpFmt(M.pE[i])+'</b></div><div><span>'+escH(L?L.name:'')+'</span><b class="num" style="font-size:15px">Z '+tpFmt(M.pZ[i])+'<br>'+escH(TP3.pointCode(M,i)||'—')+'</b></div></div>'; }
+  if(!TPX.closed){
+    h+='<div class="muted" style="font-size:13.5px">'+(TPX.mode==='draw'
+      ? (TPX.poly.length? '<b>'+TPX.poly.length+' corner'+(TPX.poly.length===1?'':'s')+'</b> — keep tapping around the area to keep. Tap the <b>first corner</b> to close it. Drag a corner to adjust.' : 'Tap the corners of the area you want to <b>keep</b>, going around it. Pinch / drag to move the map.')
+      : 'Tap <b>✏ Boundary</b>, then tap around the area to keep. Everything outside — every layer — gets removed from the copy you save. Tap a point to see it.')+'</div>';
+  } else if(TPX.plan){
+    var S=TPX.plan.summary, line=function(lab,a,extra){ var gone=a[1]-a[0]; return '<div class="tprow"><span>'+lab+'</span><b>'+a[0].toLocaleString()+'</b><span class="muted"> of '+a[1].toLocaleString()+(gone?' · <span class="danger">'+gone.toLocaleString()+' removed</span>':'')+(extra||'')+'</span></div>'; };
+    h+='<div class="card" style="margin:0 0 8px;padding:10px 12px"><h3 style="margin-bottom:6px">Keeps</h3>'+
+      line('Points',S.points)+line('Lines',S.lines)+line('Surfaces',S.surfaces,S.trimmed?' · '+S.trimmed+' trimmed':'')+line('Labels',S.labels)+line('Control',S.control)+'</div>'+
+      '<div class="row" style="gap:6px"><div class="field"><label>Buffer outside ('+U.lab+')</label><input class="inp num" id="tpBuf" inputmode="decimal" value="'+(TPX.buffer?+(TPX.buffer*U.k).toFixed(2):0)+'"></div>'+
+      '<div class="field"><label>Lines crossing the edge</label><select class="inp" id="tpLines"><option value="touch"'+(TPX.opts.lines==='touch'?' selected':'')+'>Keep them</option><option value="inside"'+(TPX.opts.lines==='inside'?' selected':'')+'>Remove them</option></select></div></div>'+
+      '<div class="row mt" style="gap:6px"><div class="field"><label>Surfaces</label><select class="inp" id="tpSurf"><option value="trim"'+(TPX.opts.surfaces==='trim'?' selected':'')+'>Trim to boundary</option><option value="touch"'+(TPX.opts.surfaces==='touch'?' selected':'')+'>Keep whole if inside at all</option><option value="inside"'+(TPX.opts.surfaces==='inside'?' selected':'')+'>Remove if partly outside</option></select></div>'+
+      '<div class="field"><label>Control points</label><select class="inp" id="tpCtl"><option value="keep"'+(TPX.opts.control==='keep'?' selected':'')+'>Always keep</option><option value="clip"'+(TPX.opts.control==='clip'?' selected':'')+'>Remove if outside</option></select></div></div>'+
+      '<button class="btn primary block mt" id="tpSave">💾 Save clean TP3</button>'+
+      '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
+  }
+  $('#tpInfo').innerHTML=h;
+  if(TPX.plan){
+    $('#tpBuf').onchange=function(){ var v=parseFloat(this.value); TPX.buffer=isNaN(v)||v<0?0:v/U.k; tpChanged(); };
+    $('#tpLines').onchange=function(){ TPX.opts.lines=this.value; tpChanged(); };
+    $('#tpSurf').onchange=function(){ TPX.opts.surfaces=this.value; tpChanged(); };
+    $('#tpCtl').onchange=function(){ TPX.opts.control=this.value; tpChanged(); };
+    $('#tpSave').onclick=tpSave; $('#tpCsv').onclick=tpCsv; $('#tpDxf').onclick=tpDxf;
+  }
+}
+function tpShare(name, blob, type){ var f; try{ f=new File([blob],name,{type:type}); }catch(e){ f=null; }
+  if(f && navigator.canShare && navigator.canShare({files:[f]})) navigator.share({files:[f]}).catch(function(err){ if(err&&err.name!=='AbortError') dl({n:name, blob:blob}); }); else dl({n:name, blob:blob}); }
+function tpSave(){
+  var b=$('#tpSave'); b.disabled=true; b.textContent='Building…';
+  setTimeout(function(){ try{
+    var out=TP3.write(TPX.M, TPX.plan), check=TP3.parse(out.buffer), S=TPX.plan.summary;
+    if(check.pE.length!==S.points[0] || check.lines.length!==S.lines[0] || check.surfaces.length!==S.surfaces[0]) throw new Error('self-check failed');
+    var nm=TPX.file.name.replace(/\.tp3$/i,'')+'-clean.tp3';
+    toast('Built '+nm+' — '+(out.length/1e6).toFixed(1)+' MB (was '+(TPX.file.size/1e6).toFixed(1)+' MB)', true);
+    tpShare(nm, new Blob([out],{type:'application/octet-stream'}), 'application/octet-stream');
+  }catch(e){ try{ console.warn(e); }catch(x){} toast('Couldn’t build the TP3: '+(e&&e.message||e), true); }
+  b.disabled=false; b.textContent='💾 Save clean TP3'; }, 30);
+}
+function tpCsv(){ var M=TPX.M, U=tpU(), rows=[];
+  for(var i=0;i<M.pE.length;i++) if(TPX.plan.points[i]) rows.push([TP3.pointName(M,i)||String(i+1), tpFmt(M.pN[i]), tpFmt(M.pE[i]), tpFmt(M.pZ[i]), TP3.pointCode(M,i)]);
+  var go=confirm('Open the '+rows.length.toLocaleString()+' kept points in the CSV editor?\n\nOK = open here · Cancel = save the CSV file');
+  if(go){ file={name:TPX.file.name.replace(/\.tp3$/i,'')+'-points.csv', delim:',', header:null, rows:rows, roles:['P','N','E','Z','D']}; hist=[]; save(); showGrid(); return; }
+  var txt=rows.map(function(r){ return r.map(function(v){ return /[",\n]/.test(v)?'"'+String(v).replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n')+'\r\n';
+  tpShare(TPX.file.name.replace(/\.tp3$/i,'')+'-points.csv', new Blob([txt],{type:'text/csv'}), 'text/csv'); }
+function tpDxf(){ var M=TPX.M, k=tpU().k, L=['0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','0','ENDSEC','0','SECTION','2','TABLES','0','TABLE','2','LAYER','70','0'], used={}, E=[];
+  M.lines.forEach(function(l,i){ if(!TPX.plan.lines[i]) return; var nm=dxfName((M.layers[l.layer]||{}).name||'LINES'); used[nm]=1;
+    E.push('0','POLYLINE','8',nm,'66','1','10','0.0','20','0.0','30','0.0','70','0'); for(var j=0;j<l.n;j++) E.push('0','VERTEX','8',nm,'10',(l.xy[j*2]*k).toFixed(4),'20',(l.xy[j*2+1]*k).toFixed(4),'30','0.0'); E.push('0','SEQEND','8',nm); });
+  Object.keys(used).forEach(function(nm){ L.push('0','LAYER','2',nm,'70','0','62','7','6','CONTINUOUS'); }); L.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES'); L=L.concat(E); L.push('0','ENDSEC','0','EOF');
+  tpShare(TPX.file.name.replace(/\.tp3$/i,'')+'-lines.dxf', new Blob([L.join('\r\n')+'\r\n'],{type:'application/dxf'}), 'application/dxf'); }
+function tpOpenLayers(){
+  var M=TPX.M, h='<p class="muted" style="margin:0 0 8px">Untick to hide a layer on the map (the boundary still cleans every layer).</p><div class="row" style="margin-bottom:8px"><button class="chip" id="tlAll">Show all</button><button class="chip" id="tlNone">Hide all</button></div>';
+  M.layerList.filter(function(L){ return L.pts||L.lines||L.labels; }).sort(function(a,b){ return (b.pts+b.lines)-(a.pts+a.lines); }).forEach(function(L){
+    h+='<div class="mk'+(TPX.hide[L.id]?' off':'')+'"><input type="checkbox" data-tl="'+L.id+'"'+(TPX.hide[L.id]?'':' checked')+'><span style="flex:none;width:14px;height:14px;border-radius:50%;background:'+L.color+'"></span><div class="mn"><b>'+escH(L.name||'(no name)')+'</b><span>'+(L.pts?L.pts.toLocaleString()+' points':'')+(L.pts&&L.lines?' · ':'')+(L.lines?L.lines.toLocaleString()+' lines':'')+(L.labels?' · '+L.labels+' labels':'')+'</span></div></div>'; });
+  h+='<div class="card mt"><h3>Units shown</h3><div class="seg" style="display:flex">'+Object.keys(TP_UNITS).map(function(u){ return '<button style="flex:1" data-tu="'+u+'"'+(TPX.units===u?' class="on"':'')+'>'+TP_UNITS[u].lab+'</button>'; }).join('')+'</div><p class="muted" style="margin:6px 0 0">TP3 files store meters; this only changes what you see and the CSV / DXF exports. Mississippi state plane = US survey feet.</p></div>';
+  openSheet('Layers ('+M.layerList.length+')', h, function(){ tpRender(); });
+  document.querySelectorAll('[data-tl]').forEach(function(cb){ cb.onchange=function(){ TPX.hide[+cb.getAttribute('data-tl')]=!cb.checked; cb.closest('.mk').classList.toggle('off',!cb.checked); }; });
+  $('#tlAll').onclick=function(){ TPX.hide={}; tpOpenLayers(); }; $('#tlNone').onclick=function(){ M.layerList.forEach(function(L){ TPX.hide[L.id]=true; }); tpOpenLayers(); };
+  document.querySelectorAll('[data-tu]').forEach(function(b){ b.onclick=function(){ TPX.units=b.getAttribute('data-tu'); ls.set('csvfix.tpUnits',TPX.units); tpOpenLayers(); tpInfo(); }; });
+}
+$('#tpBack').onclick=function(){ if(TPX&&TPX.poly.length&&!confirm('Leave this TP3? Your boundary will be lost (the file itself wasn’t changed).')) return; TPX=null; showHome(); };
+document.querySelectorAll('#tpScreen [data-tpm]').forEach(function(b){ b.onclick=function(){ if(!TPX) return;
+  if(TPX.closed && !confirm('Start a new boundary? This clears the current one.')) return;
+  if(TPX.closed){ TPX.poly=[]; TPX.closed=false; TPX.plan=null; }
+  TPX.mode=TPX.mode==='draw'?'look':'draw'; TPX.pick=null; tpModeChips(); $('#tpWrap').style.cursor=TPX.mode==='draw'?'crosshair':'grab'; tpRender(); tpInfo(); }; });
+$('#tpUndo').onclick=function(){ if(!TPX||!TPX.poly.length) return; if(TPX.closed){ TPX.closed=false; TPX.mode='draw'; tpModeChips(); } else TPX.poly.pop(); tpChanged(); };
+$('#tpClear').onclick=function(){ if(!TPX) return; TPX.poly=[]; TPX.closed=false; TPX.plan=null; tpRender(); tpInfo(); };
+$('#tpLayersB').onclick=function(){ if(TPX) tpOpenLayers(); };
+$('#tpFitB').onclick=function(){ if(TPX){ tpFit(); tpRender(); } };
+$('#tpOpenB').onclick=pickTp3;
+window.TPtest={get TPX(){return TPX;}, TP3:TP3, tpTap:tpTap, tpChanged:tpChanged, tpX:tpX, tpY:tpY};
 
 /* ---------------- settings: color theme, light/dark, motion ---------------- */
 var THEMES=[['Blue','#2563eb'],['Orange','#e2691b'],['Green','#16a34a'],['Teal','#0d9488'],['Purple','#7c3aed'],['Red','#dc2626'],['Pink','#db2777'],['Gold','#ca8a04'],['Slate','#475569']];
