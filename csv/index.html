@@ -200,7 +200,8 @@ html,body{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:1
 .sw.sym{background:#fff;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line)} .sw.sym img{width:26px;height:26px;image-rendering:pixelated}
 .lebar{position:sticky;bottom:-18px;display:flex;gap:8px;align-items:center;background:var(--bg);padding:10px 0 14px;margin-top:8px;border-top:1px solid var(--line)} .lebar span{flex:1;font-weight:700;font-size:14px}
 #tpWrap{flex:1;position:relative;overflow:hidden;background:var(--panel);touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;min-height:200px}
-#tpCanvas{position:absolute;left:0;top:0;display:block}
+#tpCanvas{position:absolute;left:0;top:0;display:block;will-change:transform}
+#tpOv{position:absolute;left:0;top:0;display:block;transform-origin:0 0;will-change:transform;opacity:.85;pointer-events:none}
 .tprow{display:flex;gap:6px;align-items:baseline;font-size:14px;padding:2px 0}.tprow>span:first-child{width:72px;color:var(--muted);font-weight:650}
 #tpScreen [data-tpm].on{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 #pvWrap{flex:1;position:relative;overflow:hidden;background:#8a8a85;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
@@ -518,7 +519,7 @@ select.inp{font-size:15px;padding:10px}
     <button class="chip" id="tpFitB">Fit</button>
   </div>
   <div id="tpStatus" class="pvstatus"></div>
-  <div id="tpWrap"><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden><i class="ic" data-ic="locate"></i> Job is off screen — tap to bring it back</button><div class="tppop" id="tpPop" hidden></div><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job"><i class="ic" data-ic="expand"></i></button></div>
+  <div id="tpWrap"><canvas id="tpOv" aria-hidden="true"></canvas><canvas id="tpCanvas"></canvas><div id="tpScale"><div class="bar"></div><span></span></div><button class="tplost" id="tpLost" hidden><i class="ic" data-ic="locate"></i> Job is off screen — tap to bring it back</button><div class="tppop" id="tpPop" hidden></div><button class="tpfab" id="tpFitFab" aria-label="Fit the whole job"><i class="ic" data-ic="expand"></i></button></div>
   <div id="tpInfo" class="pvinfo"></div>
 </section>
 
@@ -3206,10 +3207,19 @@ function tpScaleBar(){ // like the data collector: a bar of a round length in th
   var el=$('#tpScale'); if(!TPX||!(TPX.s>0)) { el.hidden=true; return; } el.hidden=false; var U=tpU(), upx=U.k/TPX.s, want=upx*90, p=Math.pow(10,Math.floor(Math.log10(want))), n=want/p, nice=(n<1.5?1:n<3.5?2:n<7.5?5:10)*p;
   el.querySelector('.bar').style.width=Math.round(nice/upx)+'px'; el.querySelector('.bar').style.color=TPX.dark?'#eee':'#111';
   var txt=nice>=1?String(+nice.toFixed(0)):String(+nice.toFixed(nice<0.1?3:2)).replace(/^0(?=\.)/,'0'); el.querySelector('span').textContent=(nice<1?nice.toFixed(nice<0.1?3:2):txt)+(U.lab==='m'?' m':"'"); el.style.color=TPX.dark?'#eee':'#111'; }
-function tpRender(){
-  tpScaleBar();
-  if(!(TPX.s>0) || !isFinite(TPX.s) || !isFinite(TPX.tx) || !isFinite(TPX.ty)) tpFit();
-  var M=TPX.M, c=$('#tpCanvas'), x=c.getContext('2d'), dpr=TPX.dpr, s=TPX.s, tx=TPX.tx, ty=TPX.ty, W=TPX.W, H=TPX.H, fin={};
+/* blurry stand-in behind the map: the whole job drawn once, small. While you pan / zoom it fills the edges instead of white,
+   then the sharp map fades in on top when you let go. Redrawn only when layers / colors / the cut change. */
+var tpOvT=null;
+function tpOverview(){ if(!TPX) return; var e=TPX.M.ext, w=(e[2]-e[0])||1, h=(e[3]-e[1])||1, so=640/Math.max(w,h), ow=Math.max(2,Math.ceil(w*so)), oh=Math.max(2,Math.ceil(h*so)), c=$('#tpOv');
+  c.width=ow; c.height=oh; c.style.width=ow+'px'; c.style.height=oh+'px'; TPX.ov={so:so, e0:e[0], n1:e[3]};
+  tpRender({c:c, s:so, tx:-e[0]*so, ty:e[3]*so, W:ow, H:oh, dpr:1}); tpBackPos(); }
+function tpBackPos(){ var o=TPX&&TPX.ov; if(!o) return; var c=$('#tpOv'), k=TPX.s/o.so; c.style.transform='translate('+(o.e0*TPX.s+TPX.tx)+'px,'+(-o.n1*TPX.s+TPX.ty)+'px) scale('+k+')'; }
+function tpOvSig(){ var o=TPX.lops; return [Object.keys(TPX.hide).join(','), JSON.stringify(o.into), Object.keys(o.drop).join(','), JSON.stringify(o.clear), Object.keys(o.edit).map(function(k){ return k+':'+(o.edit[k].rgb||''); }).join(','), Object.keys(o.dupDrop).length, !!TPX.cutDone, TPX.dark].join('|'); }
+function tpRender(ov){
+  if(!ov){ tpScaleBar();
+    if(!(TPX.s>0) || !isFinite(TPX.s) || !isFinite(TPX.tx) || !isFinite(TPX.ty)) tpFit(); }
+  var M=TPX.M, c=ov?ov.c:$('#tpCanvas'), x=c.getContext('2d'), dpr=ov?ov.dpr:TPX.dpr, s=ov?ov.s:TPX.s, tx=ov?ov.tx:TPX.tx, ty=ov?ov.ty:TPX.ty, W=ov?ov.W:TPX.W, H=ov?ov.H:TPX.H, fin={};
+  if(!ov){ TPX.s0=s; TPX.tx0=tx; TPX.ty0=ty; tpBackPos(); var sig=tpOvSig(); if(sig!==TPX.ovSig){ TPX.ovSig=sig; clearTimeout(tpOvT); tpOvT=setTimeout(tpOverview, TPX.ov?300:0); } } // the canvas now shows exactly this view
   var finP={}, finL={}; M.layerList.forEach(function(L){ var f=tpEnt(L.id,'p'); finP[L.id]=(f==null||TPX.hide[f])?null:f; f=tpEnt(L.id,'l'); finL[L.id]=(f==null||TPX.hide[f])?null:f; });
   var col={}; M.layerList.forEach(function(L){ col[L.id]=tpColor(L.id); });
   c.style.transform=''; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,W,H);
@@ -3228,6 +3238,7 @@ function tpRender(){
   var r=Math.max(1.2, Math.min(5, s*0.25)), by={}, dd=TPX.lops.dupDrop, visI=[];
   for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null || dd[i] || (cutP&&!cutP.points[i])) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); if(visI.length<=700) visI.push(i); }
   Object.keys(by).forEach(function(lid){ var a=by[lid]; x.fillStyle=col[lid]||'#666'; for(var j=0;j<a.length;j+=2) x.fillRect(a[j]-r/2,a[j+1]-r/2,r,r); });
+  if(ov) return;
   // labels, like the data collector: each layer's Show point names / descriptions / elevations (only when zoomed in enough)
   if(visI.length && visI.length<=700){ var U=tpU(), lf={}; x.font='700 11.5px -apple-system,system-ui,sans-serif'; x.textBaseline='top'; x.lineJoin='round'; x.lineWidth=3;
     x.strokeStyle=TPX.dark?'rgba(0,0,0,.85)':'rgba(255,255,255,.9)'; var ink=TPX.dark?'#f2f2f2':'#141414';
@@ -3254,10 +3265,11 @@ function tpRender(){
 /* ---- gestures: transform the canvas while moving, redraw when you let go (cheap on battery) ---- */
 (function(){
   var wrap=$('#tpWrap'), ptr=new Map(), st=null, pinch=null, drag=null, rt=null;
-  function live(){ tpScaleBar(); var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
-  function begin(){ TPX.s0=TPX.s; TPX.tx0=TPX.tx; TPX.ty0=TPX.ty; }
-  function settle(){ clearTimeout(rt); rt=setTimeout(function(){ if(TPX) tpRender(); }, 60); }
-  wrap.addEventListener('pointerdown', function(e){ if(!TPX) return; wrap.setPointerCapture(e.pointerId); ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
+  function live(){ tpScaleBar(); tpBackPos(); var c=$('#tpCanvas'), k=TPX.s/TPX.s0; c.style.transformOrigin='0 0'; c.style.transform='translate('+(TPX.tx-TPX.tx0*k)+'px,'+(TPX.ty-TPX.ty0*k)+'px) scale('+k+')'; }
+  function begin(){ var c=$('#tpCanvas'); c.style.transition='none'; c.style.opacity=1; } // what's drawn is tracked by tpRender itself, so a redraw mid-gesture can't knock the view off
+  function settle(){ clearTimeout(rt); rt=setTimeout(function(){ if(!TPX) return; var c=$('#tpCanvas'), fade=!document.documentElement.classList.contains('rm');
+    tpRender(); if(fade){ c.style.transition='none'; c.style.opacity=.15; void c.offsetWidth; c.style.transition='opacity .22s ease-out'; c.style.opacity=1; } }, 60); }
+  wrap.addEventListener('pointerdown', function(e){ if(!TPX) return; if(e.isPrimary){ ptr.clear(); pinch=null; } clearTimeout(rt); try{ wrap.setPointerCapture(e.pointerId); }catch(_){}  /* a new first finger = a new gesture: forget any finger iPhone never reported lifting */ ptr.set(e.pointerId,{x:e.clientX,y:e.clientY}); var r=wrap.getBoundingClientRect();
     if(ptr.size===1){ st={x:e.clientX,y:e.clientY,t:Date.now(),moved:false,bx:TPX.tx,by:TPX.ty}; begin();
       // grab a boundary corner to move it
       var hit=-1; if(!TPX.cutDone) TPX.poly.forEach(function(p,i){ if(Math.hypot(tpX(p[0])-(e.clientX-r.left),tpY(p[1])-(e.clientY-r.top))<18) hit=i; }); drag=hit>=0?hit:null; }
@@ -3273,9 +3285,9 @@ function tpRender(){
     if(ptr.size===0&&st){ var s0=st; st=null; var r=wrap.getBoundingClientRect();
       if(drag!=null){ drag=null; if(s0.moved){ tpChanged(); return; } }
       if(!s0.moved && Date.now()-s0.t<700) tpTap(e.clientX-r.left, e.clientY-r.top); else settle(); } }
-  wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end); wrap.addEventListener('lostpointercapture', end);
   wrap.addEventListener('wheel', function(e){ if(!TPX) return; e.preventDefault(); tpPopClose(); var r=wrap.getBoundingClientRect(), f=Math.exp(-e.deltaY*0.0015), px=e.clientX-r.left, py=e.clientY-r.top;
-    if(!TPX.wheel){ begin(); TPX.wheel=1; } TPX.s*=f; TPX.tx=px-(px-TPX.tx)*f; TPX.ty=py-(py-TPX.ty)*f; live(); clearTimeout(rt); rt=setTimeout(function(){ TPX.wheel=0; tpRender(); },120); }, {passive:false});
+    if(!TPX.wheel){ begin(); TPX.wheel=1; } TPX.s*=f; TPX.tx=px-(px-TPX.tx)*f; TPX.ty=py-(py-TPX.ty)*f; live(); clearTimeout(rt); rt=setTimeout(function(){ TPX.wheel=0; settle(); },120); }, {passive:false});
   var ro=function(){ if(!TPX || !$('#tpScreen').classList.contains('on')) return; var W0=TPX.W; tpSizeCanvas(); if(W0) TPX.tx+=(TPX.W-W0)/2; tpRender(); var pp=$('#tpPop'); if(pp&&!pp.hidden) pp.style.top=Math.max(8,Math.min(TPX.H-pp.offsetHeight-8,parseFloat(pp.style.top)||8))+'px'; }; // keep the map where it is when the panel below grows / shrinks
   if(window.ResizeObserver) new ResizeObserver(function(){ clearTimeout(ro.t); ro.t=setTimeout(ro,50); }).observe(wrap); else window.addEventListener('resize', ro);
 })();
