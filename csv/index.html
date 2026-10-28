@@ -149,7 +149,12 @@ input,select{font:inherit;color:var(--ink)}
 .qt.wide .oi{margin:0}
 .tplost{position:absolute;left:50%;top:14px;transform:translateX(-50%);border:0;border-radius:999px;padding:10px 16px;background:var(--accent);color:var(--accent-ink);font-weight:750;font-size:14px;box-shadow:var(--shadow);z-index:2;white-space:nowrap}
 .tpfab{position:absolute;right:12px;bottom:12px;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:22px;box-shadow:var(--shadow);z-index:2}
-.lrow{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:6px;cursor:pointer;position:relative}
+.lrow{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:6px;cursor:pointer;position:relative;overflow:hidden;transition:opacity .18s,max-height .2s}
+.lrow .lfg{display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--panel);position:relative;z-index:1;touch-action:pan-y;will-change:transform}
+.lrow .lacts{position:absolute;top:0;right:0;bottom:0;display:flex;opacity:0}.lrow.swiping .lacts{opacity:1}
+.lacts button{border:0;width:88px;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer}
+.lacts .la-clr{background:#e8930c}.lacts .la-del{background:var(--bad);transition:width .18s}.lacts .la-del.full{width:100vw}
+.lrow.gone{opacity:0}
 .lrow.lift{z-index:5;box-shadow:0 10px 26px rgba(0,0,0,.28);transition:none;opacity:.96}
 .lrow .lh{flex:none;width:30px;height:34px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted);touch-action:none;cursor:grab;margin:-6px -4px -6px -6px}
 .lrow input{width:22px;height:22px;accent-color:var(--accent);flex:none}
@@ -673,13 +678,14 @@ function colName(i){ var h=file.header&&file.header[i]; var r=ROLE_NAME[file.rol
 
 /* ---------------- toast ---------------- */
 var tTimer;
-function toast(msg, noUndo){
-  $('#toastMsg').textContent = msg;
-  $('#toastUndo').style.display = (noUndo||!hist.length)?'none':'';
+var toastFn=null;
+function toast(msg, noUndo, undoFn){
+  $('#toastMsg').textContent = msg; toastFn=undoFn||null;
+  $('#toastUndo').style.display = undoFn?'':(noUndo||!hist.length)?'none':'';
   $('#toast').classList.add('on');
   clearTimeout(tTimer); tTimer = setTimeout(function(){ $('#toast').classList.remove('on'); }, 4200);
 }
-$('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); undo(); };
+$('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); if(toastFn){ var f=toastFn; toastFn=null; f(); } else undo(); };
 
 /* ---------------- screens ---------------- */
 function showHome(){
@@ -2888,13 +2894,13 @@ var TP3=(function(){
     var codes=M.T[0x23]; M.codeLayers=[]; if(codes) for(var i=0;i<codes.n;i++) M.codeLayers.push(u16(rec(M,0x23,i),12));
   }
   /* ops: {order:[layer ids, new top-to-bottom order of the layers that stay], into:{id:targetId} (combine),
-           drop:{id:1} (delete layer + everything on it), edit:{id:{name, rgb:[r,g,b], ci, sym:Uint8Array(32)}}}
+           drop:{id:1} (delete layer + everything on it), clear:{id:'pts'|'all'} (empty a layer but keep it), edit:{id:{name, rgb:[r,g,b], ci, sym:Uint8Array(32)}}}
      returns a copy of M with the layer table rebuilt (ids = new position) and every layer reference + coordinate moved. */
   function applyLayers(M, ops){
     var T=M.T, M2={}, k; for(k in M) M2[k]=M[k];
     var T2={}; for(k in T) T2[k]=T[k]; M2.T=T2;
     function clone(sid){ var t=T[sid]; if(!t) return null; var c={}; for(var q in t) c[q]=t[q]; c.data=t.data.slice(); T2[sid]=c; return c; }
-    var into=ops.into||{}, drop=ops.drop||{}, edit=ops.edit||{};
+    var into=ops.into||{}, drop=ops.drop||{}, edit=ops.edit||{}, clear=ops.clear||{}; // clear[id]='pts' | 'all': empty that layer, keep it
     function finalOf(id){ var g=0; while(into[id]!=null && g++<1000) id=into[id]; return id; }
     var newId={}; ops.order.forEach(function(id,i){ newId[id]=i; });
     function mapId(id){ if(drop[id]) return -1; var f=finalOf(id); if(drop[f]) return -1; return newId[f]!=null?newId[f]:-1; }
@@ -2912,11 +2918,11 @@ var TP3=(function(){
       cdv.setFloat64(ci*24, cdv.getFloat64(ci*24,true)+dE, true); cdv.setFloat64(ci*24+8, cdv.getFloat64(ci*24+8,true)+dN, true); }
     var gone={points:new Uint8Array(M.pE.length), lines:[], labels:[]};
     var P=clone(0x01); if(P) for(var i=0;i<P.n;i++){ var r1=P.data.subarray(i*26,i*26+26), old=u16(r1,12), nid=mapId(old);
-      if(nid<0){ gone.points[i]=1; continue; } var f=finalOf(old); if(f!==old){ var c=ref(M,r1,0); if(c) shift(c.i,old,f); } w16(r1,12,nid); }
+      if(nid<0 || clear[old]){ gone.points[i]=1; continue; } var f=finalOf(old); if(f!==old){ var c=ref(M,r1,0); if(c) shift(c.i,old,f); } w16(r1,12,nid); }
     var Ln=clone(0x0c); if(Ln) for(i=0;i<Ln.n;i++){ var r2=Ln.data.subarray(i*32,i*32+32), o2=u16(r2,20), n2=mapId(o2);
-      if(n2<0){ gone.lines[i]=true; continue; } var f2=finalOf(o2); if(f2!==o2){ var s2=ref(M,r2,0), c2=u32(r2,12); if(s2) for(var q=0;q<c2;q++) shift(s2.i+q,o2,f2); } w16(r2,20,n2); }
+      if(n2<0 || clear[o2]==='all'){ gone.lines[i]=true; continue; } var f2=finalOf(o2); if(f2!==o2){ var s2=ref(M,r2,0), c2=u32(r2,12); if(s2) for(var q=0;q<c2;q++) shift(s2.i+q,o2,f2); } w16(r2,20,n2); }
     var Lb=clone(0x15); if(Lb) for(i=0;i<Lb.n;i++){ var r3=Lb.data.subarray(i*Lb.esz,(i+1)*Lb.esz), o3=u16(r3,12), n3=mapId(o3);
-      if(n3<0){ gone.labels[i]=true; continue; } var f3=finalOf(o3); if(f3!==o3){ var c3=ref(M,r3,6); if(c3) shift(c3.i,o3,f3); } w16(r3,12,n3); }
+      if(n3<0 || clear[o3]==='all'){ gone.labels[i]=true; continue; } var f3=finalOf(o3); if(f3!==o3){ var c3=ref(M,r3,6); if(c3) shift(c3.i,o3,f3); } w16(r3,12,n3); }
     var Cd=clone(0x23); if(Cd) for(i=0;i<Cd.n;i++){ var r4=Cd.data.subarray(i*Cd.esz,(i+1)*Cd.esz), o4=u16(r4,12); if(o4===0xffff) continue; var n4=mapId(o4); w16(r4,12,n4<0?0xffff:n4); }
     M2.layerGone=gone;
     return M2;
@@ -3052,7 +3058,7 @@ async function openTp3(f){
   try{
     var M=TP3.parse(await f.arrayBuffer());
     TPX={file:f, M:M, poly:[], closed:false, mode:'look', buffer:0, opts:{lines:'touch', surfaces:'trim', control:'keep'}, hide:{}, units:ls.get('csvfix.tpUnits')||'usft', z:1,
-      lops:{order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}}};
+      lops:{order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}}};
     TPX.dark=tpDarkBg(); tpSizeCanvas(); tpFit(); tpRender(); tpStatus(); tpInfo();
   }catch(e){ try{ console.warn(e); }catch(x){} $('#tpStatus').innerHTML='<span class="danger">Couldn’t read this file as a Topcon TP3 project'+(e&&e.message?' ('+escH(e.message)+')':'')+'.</span>'; }
 }
@@ -3067,8 +3073,9 @@ function tpColor(id){ // the layer's own color, nudged so white layers show on a
   if(!TPX.dark && l>0.8) return 'rgb('+Math.round(c[0]*0.45)+','+Math.round(c[1]*0.45)+','+Math.round(c[2]*0.45)+')';
   if(TPX.dark && l<0.2) return 'rgb('+(c[0]+150)+','+(c[1]+150)+','+(c[2]+150)+')';
   return 'rgb('+c.join(',')+')'; }
-function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
-function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ c.pts+=L.pts; c.lines+=L.lines; c.labels+=L.labels; } }); return c; }
+function tpLayerChanged(){ var o=TPX.lops, M=TPX.M; return Object.keys(o.into).length||Object.keys(o.drop).length||Object.keys(o.clear).length||Object.keys(o.edit).length||o.order.length!==M.layerList.length||o.order.some(function(id,i){ return id!==M.layerList[i].id; }); }
+function tpEnt(lid,kind){ var f=tpFinal(lid); if(f==null) return null; var c=TPX.lops.clear[lid]; if(c==='all'||(c==='pts'&&kind==='p')) return null; return f; } // where an item on layer lid ends up (null = removed)
+function tpCounts(id){ var M=TPX.M, c={pts:0,lines:0,labels:0}; M.layerList.forEach(function(L){ if(tpFinal(L.id)===id){ var cl=TPX.lops.clear[L.id]; if(!cl) c.pts+=L.pts; if(cl!=='all'){ c.lines+=L.lines; c.labels+=L.labels; } } }); return c; }
 var tpSymCache={};
 function tpSymURL(sym,rgb){ var k=Array.prototype.join.call(sym,',')+'|'+rgb.join(','); if(tpSymCache[k]) return tpSymCache[k];
   var c=document.createElement('canvas'); c.width=c.height=16; var x=c.getContext('2d'), im=x.createImageData(16,16), dk=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])>200;
@@ -3088,7 +3095,7 @@ function tpW(x,y){ return [(x-TPX.tx)/TPX.s, -(y-TPX.ty)/TPX.s]; }
 function tpRender(){
   if(!(TPX.s>0) || !isFinite(TPX.s) || !isFinite(TPX.tx) || !isFinite(TPX.ty)) tpFit();
   var M=TPX.M, c=$('#tpCanvas'), x=c.getContext('2d'), dpr=TPX.dpr, s=TPX.s, tx=TPX.tx, ty=TPX.ty, W=TPX.W, H=TPX.H, fin={};
-  M.layerList.forEach(function(L){ var f=tpFinal(L.id); fin[L.id]=(f==null||TPX.hide[f])?null:f; });
+  var finP={}, finL={}; M.layerList.forEach(function(L){ var f=tpEnt(L.id,'p'); finP[L.id]=(f==null||TPX.hide[f])?null:f; f=tpEnt(L.id,'l'); finL[L.id]=(f==null||TPX.hide[f])?null:f; });
   var col={}; M.layerList.forEach(function(L){ col[L.id]=tpColor(L.id); });
   c.style.transform=''; x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,W,H);
   var view=[ (0-tx)/s, -(H-ty)/s, (W-tx)/s, -(0-ty)/s ];             // E0,N0,E1,N1
@@ -3099,11 +3106,11 @@ function tpRender(){
     x.fillStyle='hsla('+hue+',60%,55%,0.2)'; x.fill('evenodd'); x.strokeStyle='hsla('+hue+',60%,45%,0.7)'; x.lineWidth=1; x.stroke(); });
   // lines
   x.lineWidth=1.2; x.lineJoin='round';
-  M.lines.forEach(function(l){ var f=fin[l.layer]; if(f==null) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
+  M.lines.forEach(function(l){ var f=finL[l.layer]; if(f==null) return; x.strokeStyle=col[f]||'#888'; x.beginPath();
     for(var k=0;k<l.n;k++){ var px=l.xy[k*2]*s+tx, py=-l.xy[k*2+1]*s+ty; if(k) x.lineTo(px,py); else x.moveTo(px,py); } x.stroke(); });
   // points (batched by layer)
   var r=Math.max(1.2, Math.min(3, s*0.25)), by={};
-  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=fin[M.pL[i]]; if(lid==null) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
+  for(var i=0;i<M.pE.length;i++){ var E=M.pE[i], N=M.pN[i]; if(E<view[0]||E>view[2]||N<view[1]||N>view[3]) continue; var lid=finP[M.pL[i]]; if(lid==null) continue; (by[lid]=by[lid]||[]).push(E*s+tx, -N*s+ty); }
   Object.keys(by).forEach(function(lid){ var a=by[lid]; x.fillStyle=col[lid]||'#666'; for(var j=0;j<a.length;j+=2) x.fillRect(a[j]-r/2,a[j+1]-r/2,r,r); });
   // control points
   x.fillStyle='#e11d48'; M.control.forEach(function(cp){ var px=cp.E*s+tx, py=-cp.N*s+ty; x.beginPath(); x.moveTo(px,py-6); x.lineTo(px+5,py+4); x.lineTo(px-5,py+4); x.closePath(); x.fill(); });
@@ -3190,7 +3197,7 @@ function tpInfo(){
       '<div class="row mt"><button class="btn block" style="flex:1" id="tpCsv">Points → CSV</button><button class="btn block" style="flex:1" id="tpDxf">Lines → DXF</button></div>';
   }
   if(tpLayerChanged()){ var o=TPX.lops, nd=Object.keys(o.drop).length, nc=Object.keys(o.into).length;
-    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', 'order set'].filter(Boolean).join(' · ')+'</span></div>';
+    h+='<div class="tprow" style="margin-top:8px"><span>Layers</span><span class="muted">'+[nd?nd+' deleted':'', nc?nc+' combined':'', Object.keys(o.clear).length?Object.keys(o.clear).length+' emptied':'', Object.keys(o.edit).length?Object.keys(o.edit).length+' edited':'', 'order set'].filter(Boolean).join(' · ')+'</span></div>';
     if(!TPX.plan) h+='<button class="btn primary block mt" id="tpSave">💾 Save TP3 with layer changes</button>'; }
   $('#tpInfo').innerHTML=h;
   if(!TPX.plan && $('#tpSave')) $('#tpSave').onclick=tpSave;
@@ -3209,9 +3216,9 @@ function tpSave(){
   setTimeout(function(){ try{
     var M=TPX.M, P=TPX.plan||TP3.keepAll(M), lc=tpLayerChanged(), ops=lc?TPX.lops:null;
     var out=TP3.build(M, P, ops), check=TP3.parse(out.buffer), ep=0, el=0;
-    for(var i=0;i<M.pE.length;i++) if(P.points[i] && tpFinal(M.pL[i])!=null) ep++;
-    M.lines.forEach(function(l,i){ if(P.lines[i] && tpFinal(l.layer)!=null) el++; });
-    if(check.pE.length!==ep || check.lines.length!==el || check.layerList.length!==TPX.lops.order.length) throw new Error('self-check failed');
+    for(var i=0;i<M.pE.length;i++) if(P.points[i] && tpEnt(M.pL[i],'p')!=null) ep++;
+    M.lines.forEach(function(l,i){ if(P.lines[i] && tpEnt(l.layer,'l')!=null) el++; });
+    if(check.pE.length!==ep || check.lines.length!==el || check.layerList.length!==TPX.lops.order.length) throw new Error('self-check failed ('+[check.pE.length,ep,check.lines.length,el,check.layerList.length,TPX.lops.order.length].join('/')+')');
     if(lc && check.layerList.some(function(L,i){ return L.name!==tpName(TPX.lops.order[i]); })) throw new Error('self-check failed (layers)');
     var nm=TPX.file.name.replace(/\.tp3$/i,'')+(TPX.plan?'-clean':'-layers')+'.tp3';
     toast('Built '+nm+' — '+(out.length/1e6).toFixed(1)+' MB (was '+(TPX.file.size/1e6).toFixed(1)+' MB)', true);
@@ -3220,13 +3227,13 @@ function tpSave(){
   b.disabled=false; b.textContent=bt; }, 30);
 }
 function tpCsv(){ var M=TPX.M, U=tpU(), rows=[];
-  for(var i=0;i<M.pE.length;i++) if(TPX.plan.points[i] && tpFinal(M.pL[i])!=null) rows.push([TP3.pointName(M,i)||String(i+1), tpFmt(M.pN[i]), tpFmt(M.pE[i]), tpFmt(M.pZ[i]), TP3.pointCode(M,i)]);
+  for(var i=0;i<M.pE.length;i++) if(TPX.plan.points[i] && tpEnt(M.pL[i],'p')!=null) rows.push([TP3.pointName(M,i)||String(i+1), tpFmt(M.pN[i]), tpFmt(M.pE[i]), tpFmt(M.pZ[i]), TP3.pointCode(M,i)]);
   var go=confirm('Open the '+rows.length.toLocaleString()+' kept points in the CSV editor?\n\nOK = open here · Cancel = save the CSV file');
   if(go){ file={name:TPX.file.name.replace(/\.tp3$/i,'')+'-points.csv', delim:',', header:null, rows:rows, roles:['P','N','E','Z','D']}; hist=[]; save(); showGrid(); return; }
   var txt=rows.map(function(r){ return r.map(function(v){ return /[",\n]/.test(v)?'"'+String(v).replace(/"/g,'""')+'"':v; }).join(','); }).join('\r\n')+'\r\n';
   tpShare(TPX.file.name.replace(/\.tp3$/i,'')+'-points.csv', new Blob([txt],{type:'text/csv'}), 'text/csv'); }
 function tpDxf(){ var M=TPX.M, k=tpU().k, L=['0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','0','ENDSEC','0','SECTION','2','TABLES','0','TABLE','2','LAYER','70','0'], used={}, E=[];
-  M.lines.forEach(function(l,i){ var fl=tpFinal(l.layer); if(!TPX.plan.lines[i] || fl==null) return; var nm=dxfName(tpName(fl)||'LINES'); used[nm]=1;
+  M.lines.forEach(function(l,i){ var fl=tpEnt(l.layer,'l'); if(!TPX.plan.lines[i] || fl==null) return; var nm=dxfName(tpName(fl)||'LINES'); used[nm]=1;
     E.push('0','POLYLINE','8',nm,'66','1','10','0.0','20','0.0','30','0.0','70','0'); for(var j=0;j<l.n;j++) E.push('0','VERTEX','8',nm,'10',(l.xy[j*2]*k).toFixed(4),'20',(l.xy[j*2+1]*k).toFixed(4),'30','0.0'); E.push('0','SEQEND','8',nm); });
   Object.keys(used).forEach(function(nm){ L.push('0','LAYER','2',nm,'70','0','62','7','6','CONTINUOUS'); }); L.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES'); L=L.concat(E); L.push('0','ENDSEC','0','EOF');
   tpShare(TPX.file.name.replace(/\.tp3$/i,'')+'-lines.dxf', new Blob([L.join('\r\n')+'\r\n'],{type:'application/dxf'}), 'application/dxf'); }
@@ -3259,7 +3266,7 @@ window.TPtest={tpEditor:function(){ tpEditor(); }, tpLayerOpen:function(id){ tpL
 var tpSel=null; // null = not selecting; otherwise {id:true}
 function tpEditor(keepScroll){
   var M=TPX.M, o=TPX.lops, top=keepScroll?$('#shBody').scrollTop:0;
-  var h='<p class="muted" style="margin:0 0 8px">Drag <b>≡</b> to set the order your data collector lists the layers. Tap a layer to rename it, change its color or symbol, combine it or delete it. Nothing changes in your file until you save.</p>'+
+  var h='<p class="muted" style="margin:0 0 8px">Drag <b>≡</b> to set the order your data collector lists the layers. <b>Swipe left</b> to delete or empty a layer. Tap a layer to rename it, change its color or symbol, or combine it. Nothing changes in your file until you save.</p>'+
     '<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">'+
       '<button class="chip'+(tpSel?' on':'')+'" id="leSel">'+(tpSel?'✓ Selecting':'☐ Select')+'</button>'+
       '<button class="chip" id="leAz">Sort A→Z</button>'+
@@ -3268,11 +3275,11 @@ function tpEditor(keepScroll){
       (tpLayerChanged()?'<button class="chip" id="leReset">↺ Undo all</button>':'')+'</div>'+
     '<div id="leList">';
   o.order.forEach(function(id,i){ var c=tpCounts(id), fixed=id===0, merged=Object.keys(o.into).filter(function(k){ return tpFinal(+k)===id && +k!==id; }).length;
-    h+='<div class="lrow'+(fixed?' fixed':'')+'" data-lid="'+id+'">'+
+    h+='<div class="lrow'+(fixed?' fixed':'')+'" data-lid="'+id+'">'+(fixed?'':'<div class="lacts"><button class="la-clr" data-la="clr">Empty</button><button class="la-del" data-la="del">Delete</button></div>')+'<div class="lfg">'+
       (fixed?'<span class="lh" style="opacity:.25">≡</span>':'<span class="lh" aria-label="Drag to reorder">≡</span>')+
       (tpSel&&!fixed?'<input type="checkbox" data-ls="'+id+'"'+(tpSel[id]?' checked':'')+'>':'')+
-      tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id)||'(no name)')+(o.edit[id]&&o.edit[id].name!=null?' <i class="lt">renamed</i>':'')+(merged?' <i class="lt">+'+merged+' combined</i>':'')+'</b><span>'+
-      ([c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'empty')+'</span></div><span class="lgo">›</span></div>'; });
+      tpSwatch(id)+'<div class="mn"><b>'+escH(tpName(id)||'(no name)')+(o.edit[id]&&o.edit[id].name!=null?' <i class="lt">renamed</i>':'')+(merged?' <i class="lt">+'+merged+' combined</i>':'')+(Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?' <i class="lt" style="color:var(--bad)">emptied</i>':'')+'</b><span>'+
+      ([c.pts?c.pts.toLocaleString()+' pts':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(' · ')||'empty')+'</span></div><span class="lgo">›</span></div></div>'; });
   h+='</div>';
   var nDel=Object.keys(o.drop).length; if(nDel) h+='<p class="muted" style="margin:10px 2px 0">'+nDel+' layer'+(nDel>1?'s':'')+' deleted (with everything on '+(nDel>1?'them':'it')+'). <button class="linkbtn" id="leUndel" style="display:inline;margin:0;padding:0">Bring back</button></p>';
   if(tpSel) h+='<div class="lebar"><span id="leN">'+Object.keys(tpSel).length+' selected</span><button class="btn" id="leComb">⧉ Combine</button><button class="btn" id="leDel" style="color:var(--bad)">🗑 Delete</button></div>';
@@ -3282,14 +3289,15 @@ function tpEditor(keepScroll){
   $('#leAz').onclick=function(){ o.order=[0].concat(o.order.filter(function(id){ return id!==0; }).sort(function(a,b){ return tpName(a).localeCompare(tpName(b),undefined,{numeric:true,sensitivity:'base'}); })); tpEditor(true); toast('Sorted A→Z', true); };
   $('#leEmpty').onclick=function(){ var full=[], empty=[]; o.order.forEach(function(id){ var c=tpCounts(id); (id===0||c.pts||c.lines||c.labels?full:empty).push(id); }); o.order=full.concat(empty); tpEditor(true); toast(empty.length+' empty layer'+(empty.length===1?'':'s')+' moved to the bottom', true); };
   $('#leDup').onclick=tpLookAlikes;
-  if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}}; tpSel=null; tpEditor(); };
+  if($('#leReset')) $('#leReset').onclick=function(){ if(!confirm('Undo every layer change?')) return; TPX.lops={order:M.layerList.map(function(L){ return L.id; }), into:{}, drop:{}, edit:{}, clear:{}}; tpSel=null; tpEditor(); };
   if($('#leUndel')) $('#leUndel').onclick=function(){ Object.keys(o.drop).forEach(function(k){ delete o.drop[k]; o.order.push(+k); }); tpEditor(true); };
-  document.querySelectorAll('#leList .lrow').forEach(function(r){ r.addEventListener('click', function(e){ if(e.target.closest('.lh')) return; var id=+r.getAttribute('data-lid');
+  document.querySelectorAll('#leList .lrow').forEach(function(r){ r.addEventListener('click', function(e){ if(e.target.closest('.lh')||e.target.closest('.lacts')) return; var id=+r.getAttribute('data-lid');
+    if(r._swiped){ r._swiped=false; return; } if(r.classList.contains('open')){ var fg=r.querySelector('.lfg'); fg.style.transition='transform .22s'; fg.style.transform=''; r._x=0; r.classList.remove('open','swiping'); return; }
     if(tpSel){ if(id===0) return; var cb=r.querySelector('input'); if(e.target!==cb) cb.checked=!cb.checked; if(cb.checked) tpSel[id]=true; else delete tpSel[id]; $('#leN').textContent=Object.keys(tpSel).length+' selected'; return; }
     tpLayerOpen(id); }); });
   if(tpSel){ $('#leComb').onclick=function(){ var ids=Object.keys(tpSel).map(Number); if(ids.length<2){ toast('Pick 2 or more layers to combine', true); return; } tpCombineAsk(ids); };
     $('#leDel').onclick=function(){ var ids=Object.keys(tpSel).map(Number); if(!ids.length){ toast('Pick the layers to delete', true); return; } tpDeleteAsk(ids); }; }
-  tpDragList();
+  tpDragList(); tpSwipeList();
 }
 function tpDragList(){
   var list=$('#leList'), body=$('#shBody');
@@ -3320,7 +3328,11 @@ function tpLayerOpen(id){
   if(!fixed) h+='<div class="card"><h3>Position</h3><div class="row"><button class="btn" style="flex:1" id="lnTop">⤒ Top</button><button class="btn" style="flex:1" id="lnUp">↑</button><button class="btn" style="flex:1" id="lnDn">↓</button><button class="btn" style="flex:1" id="lnBot">⤓ Bottom</button></div></div>'+
     '<div class="card"><h3>Combine</h3><p class="muted" style="margin:0 0 8px">Move everything on this layer onto another layer, then remove this one.</p><div class="row"><select class="inp" id="lnInto" style="flex:1">'+
       o.order.filter(function(x){ return x!==id; }).map(function(x){ return '<option value="'+x+'">'+escH(tpName(x)||'(no name)')+'</option>'; }).join('')+'</select><button class="btn primary" id="lnComb">Combine</button></div></div>'+
-    '<button class="btn block" id="lnDel" style="color:var(--bad)">🗑 Delete layer'+(c.pts||c.lines||c.labels?' and everything on it':'')+'</button>';
+    '<div class="card"><h3>Empty or delete</h3>'+
+      (c.pts&&(c.lines||c.labels)?'<button class="btn block" id="lnClrP">Delete its '+c.pts.toLocaleString()+' points — keep the lines</button>':'')+
+      (c.pts||c.lines||c.labels?'<button class="btn block mt" id="lnClrA">Empty the layer — keep it, blank</button>':'<p class="muted" style="margin:0 0 4px">This layer is empty.</p>')+
+      (Object.keys(o.clear).some(function(k){ return tpFinal(+k)===id; })?'<button class="btn block mt" id="lnUnclr">↺ Bring back what was emptied</button>':'')+
+      '<button class="btn block mt" id="lnDel" style="color:var(--bad)">🗑 Delete layer'+(c.pts||c.lines||c.labels?' and everything on it':'')+'</button></div>';
   h+='<button class="btn primary block mt" id="lnBack">‹ All layers</button>';
   openSheet(tpName(id)||'(no name)', h, function(){ tpRender(); tpInfo(); });
   function ed(){ return o.edit[id]=o.edit[id]||{}; }
@@ -3331,7 +3343,10 @@ function tpLayerOpen(id){
   function mv(to){ var a=o.order.filter(function(x){ return x!==id; }); to=Math.max(1,Math.min(a.length,to)); a.splice(to,0,id); o.order=a; tpLayerOpen(id); }
   if(!fixed){ $('#lnTop').onclick=function(){ mv(1); }; $('#lnBot').onclick=function(){ mv(o.order.length); }; $('#lnUp').onclick=function(){ mv(pos-1); }; $('#lnDn').onclick=function(){ mv(pos+1); };
     $('#lnComb').onclick=function(){ var to=+$('#lnInto').value; tpCombine([id],to); toast('Combined into '+tpName(to), true); tpEditor(); };
-    $('#lnDel').onclick=function(){ tpDeleteAsk([id]); }; }
+    $('#lnDel').onclick=function(){ tpDeleteNow([id]); tpEditor(); };
+    if($('#lnClrP')) $('#lnClrP').onclick=function(){ tpClearNow(id,'pts'); tpLayerOpen(id); };
+    if($('#lnClrA')) $('#lnClrA').onclick=function(){ tpClearNow(id,'all'); tpLayerOpen(id); };
+    if($('#lnUnclr')) $('#lnUnclr').onclick=function(){ Object.keys(o.clear).forEach(function(k){ if(tpFinal(+k)===id) delete o.clear[k]; }); tpRender(); tpLayerOpen(id); }; }
   $('#lnBack').onclick=function(){ tpEditor(); };
 }
 function tpCombine(ids,to){ var o=TPX.lops; ids.forEach(function(id){ if(id===to||id===0) return; o.into[id]=to; delete o.edit[id]; o.order=o.order.filter(function(x){ return x!==id; }); delete TPX.hide[id]; }); }
@@ -3347,27 +3362,110 @@ function tpCombineAsk(ids){
     tpSel=null; tpEditor(); toast(ids.length+' layers combined into '+tpName(keep), true); };
   $('#lcBack').onclick=function(){ tpEditor(); };
 }
+function tpSnap(){ var o=TPX.lops, e={}; Object.keys(o.edit).forEach(function(k){ e[k]=Object.assign({},o.edit[k]); });
+  return {order:o.order.slice(), into:Object.assign({},o.into), drop:Object.assign({},o.drop), clear:Object.assign({},o.clear), edit:e}; }
+function tpUndoTo(snap,reopen){ return function(){ if(!TPX) return; TPX.lops=snap; tpRender(); tpInfo(); if($('#veil').classList.contains('on')) (reopen||tpEditor)(true); toast('Undone', true); }; }
+function tpDeleteNow(ids){ // delete layer(s) + everything on them; Undo in the toast
+  ids=ids.filter(function(x){ return x!==0; }); if(!ids.length) return; var snap=tpSnap(), nm=tpName(ids[0]);
+  ids.forEach(function(id){ TPX.lops.drop[id]=1; TPX.lops.order=TPX.lops.order.filter(function(x){ return x!==id; }); });
+  tpSel=null; tpRender(); tpInfo(); setTimeout(function(){ toast(ids.length===1?'Deleted “'+nm+'”':ids.length+' layers deleted', true, tpUndoTo(snap)); },40); // after the list redraws (opening a sheet hides toasts)
+}
+function tpClearNow(id,mode){ // empty a layer but keep it: mode 'pts' = just its points, 'all' = points, lines, labels
+  var snap=tpSnap(), o=TPX.lops, c=tpCounts(id);
+  TPX.M.layerList.forEach(function(L){ if(tpFinal(L.id)===id) o.clear[L.id]= mode==='all' ? 'all' : (o.clear[L.id]==='all'?'all':'pts'); });
+  tpRender(); tpInfo();
+  setTimeout(function(){ toast(mode==='all'?'“'+tpName(id)+'” is now empty':'Removed '+c.pts.toLocaleString()+' points from “'+tpName(id)+'”', true, tpUndoTo(snap)); },40);
+}
 function tpDeleteAsk(ids){
   ids=ids.filter(function(x){ return x!==0; }); if(!ids.length) return;
-  var t={pts:0,lines:0,labels:0}; ids.forEach(function(id){ var c=tpCounts(id); t.pts+=c.pts; t.lines+=c.lines; t.labels+=c.labels; });
-  var what=[t.pts?t.pts.toLocaleString()+' points':'', t.lines?t.lines.toLocaleString()+' lines':'', t.labels?t.labels+' labels':''].filter(Boolean).join(', ');
-  if(!confirm('Delete '+(ids.length===1?'“'+tpName(ids[0])+'”':ids.length+' layers')+(what?' and the '+what+' on '+(ids.length===1?'it':'them'):'')+'?\n\n(To keep what’s on a layer, use Combine instead.)')) return;
-  ids.forEach(function(id){ TPX.lops.drop[id]=1; TPX.lops.order=TPX.lops.order.filter(function(x){ return x!==id; });
- });
-  tpSel=null; tpEditor(); toast(ids.length===1?'Layer deleted':ids.length+' layers deleted', true);
+  if(ids.length>1){ var t={pts:0,lines:0}; ids.forEach(function(id){ var c=tpCounts(id); t.pts+=c.pts; t.lines+=c.lines; });
+    if(!confirm('Delete '+ids.length+' layers and the '+t.pts.toLocaleString()+' points, '+t.lines.toLocaleString()+' lines on them?\n\n(To keep what’s on them, use Combine instead.)')) return; }
+  tpDeleteNow(ids); tpEditor(true);
 }
-function tpLookAlikes(){ // layers whose names match once case, spaces, typos like "2.0" / "new" / "asb" are ignored
-  var norm=function(s){ return String(s).toLowerCase().replace(/\b(2\.0|new|neww|asb|cnst|\d+(\.\d+)?)\b/g,'').replace(/[^a-z]/g,''); };
-  var g={}; TPX.lops.order.forEach(function(id){ if(id===0) return; var k=norm(tpName(id)); if(k.length<2) return; (g[k]=g[k]||[]).push(id); });
-  var groups=Object.keys(g).map(function(k){ return g[k]; }).filter(function(a){ return a.length>1; });
-  if(!groups.length){ toast('No look-alike layer names found', true); return; }
-  var h='<p class="muted" style="margin:0 0 8px">Layers with nearly the same name — tap Combine on any group you want as one layer.</p>';
-  groups.forEach(function(a,gi){ h+='<div class="card" style="padding:10px 12px">'+a.map(function(id){ var c=tpCounts(id); return '<div class="row" style="align-items:center;gap:8px;margin-bottom:4px">'+tpSwatch(id)+'<b style="flex:1;font-size:14px">'+escH(tpName(id))+'</b><span class="muted" style="font-size:12px">'+(c.pts+c.lines)+'</span></div>'; }).join('')+
-    '<button class="btn block mt" data-lg="'+gi+'">⧉ Combine these '+a.length+'</button></div>'; });
-  h+='<button class="btn block mt" id="laBack">‹ All layers</button>';
-  openSheet('Look-alike layers', h, function(){ tpRender(); tpInfo(); });
-  document.querySelectorAll('[data-lg]').forEach(function(b){ b.onclick=function(){ tpCombineAsk(groups[+b.getAttribute('data-lg')]); }; });
-  $('#laBack').onclick=function(){ tpEditor(); };
+/* swipe a row left (like editing a playlist): short swipe shows Empty / Delete, long swipe deletes straight away */
+function tpSwipeList(){
+  var BW=88, open=null;
+  function setX(row,x,anim){ var fg=row.querySelector('.lfg'); fg.style.transition=anim?'transform .22s cubic-bezier(.2,.8,.2,1)':'none'; fg.style.transform=x?'translateX('+x+'px)':''; row._x=x;
+    row.classList.toggle('swiping', x<0); var w=row.offsetWidth, d=row.querySelector('.la-del'); if(d) d.classList.toggle('full', -x>w*0.55); }
+  function closeOpen(except){ if(open && open!==except){ setX(open,0,true); open.classList.remove('open'); open=null; } }
+  document.querySelectorAll('#leList .lrow:not(.fixed)').forEach(function(row){
+    var fg=row.querySelector('.lfg'), st=null;
+    fg.addEventListener('pointerdown', function(e){ if(e.target.closest('.lh') || tpSel) return; closeOpen(row); st={x:e.clientX, y:e.clientY, base:row._x||0, dir:null, id:e.pointerId}; });
+    fg.addEventListener('pointermove', function(e){ if(!st || e.pointerId!==st.id) return; var dx=e.clientX-st.x, dy=e.clientY-st.y;
+      if(!st.dir){ if(Math.abs(dx)>8 && Math.abs(dx)>Math.abs(dy)*1.2){ st.dir='h'; try{ fg.setPointerCapture(e.pointerId); }catch(_){} } else if(Math.abs(dy)>8){ st=null; return; } else return; }
+      var x=st.base+dx; if(x>0) x=x/4; setX(row,x,false); row._swiped=true; });
+    function up(){ if(!st) return; var s0=st; st=null; if(s0.dir!=='h') return; var x=row._x||0, w=row.offsetWidth;
+      if(-x>w*0.55){ setX(row,-w,true); row.classList.add('gone'); setTimeout(function(){ tpDeleteNow([+row.getAttribute('data-lid')]); tpEditor(true); },200); return; }
+      if(-x>BW*0.7){ setX(row,-BW*2,true); row.classList.add('open'); open=row; } else { setX(row,0,true); row.classList.remove('open'); if(open===row) open=null; } }
+    fg.addEventListener('pointerup', up); fg.addEventListener('pointercancel', up);
+  });
+  $('#leList').addEventListener('click', function(e){ var b=e.target.closest('[data-la]'); if(!b) return; e.stopPropagation(); var row=b.closest('.lrow'), id=+row.getAttribute('data-lid');
+    if(b.getAttribute('data-la')==='del'){ row.classList.add('gone'); setTimeout(function(){ tpDeleteNow([id]); tpEditor(true); },180); }
+    else { var c=tpCounts(id); setX(row,0,true); if(!c.pts&&!c.lines&&!c.labels){ toast('That layer is already empty', true); return; }
+      if(c.pts && (c.lines||c.labels)) tpClearAsk(id); else { tpClearNow(id,'all'); tpEditor(true); } } }, true);
+}
+function tpClearAsk(id){
+  var c=tpCounts(id);
+  openSheet('Empty “'+tpName(id)+'”', '<p class="muted" style="margin:0 0 10px">The layer stays (name, color, symbol, its place in the list) — only what’s on it goes.</p>'+
+    '<button class="btn block" id="lcPts">Delete the '+c.pts.toLocaleString()+' points — keep the '+(c.lines?c.lines.toLocaleString()+' lines':c.labels+' labels')+'</button>'+
+    '<button class="btn block mt" id="lcAll" style="color:var(--bad)">Delete everything on it ('+[c.pts?c.pts.toLocaleString()+' points':'', c.lines?c.lines.toLocaleString()+' lines':'', c.labels?c.labels+' labels':''].filter(Boolean).join(', ')+')</button>'+
+    '<button class="btn block mt" id="lcNo">Cancel</button>', function(){ tpRender(); tpInfo(); });
+  $('#lcPts').onclick=function(){ tpClearNow(id,'pts'); tpEditor(true); };
+  $('#lcAll').onclick=function(){ tpClearNow(id,'all'); tpEditor(true); };
+  $('#lcNo').onclick=function(){ tpEditor(true); };
+}
+/* ---- look-alike layers, with a sensitivity slider ----
+   1 exact (caps / spaces / punctuation) · 2 + version numbers & copies (2.0, new, 01, 02) · 3 + typos & add-on words
+   (pilesnew, -UNUSED) · 4 + same first 3 words (E-POWR-BORE-…) · 5 + same first 2 words (E-POWR-…, SILT …) */
+var TP_SENS=['Exact name only','Ignore version numbers','Allow typos & add-ons','Same first 3 words','Same first 2 words'];
+var TP_SENS_EX=['Ground = ground','fiber = fiber 2.0 · MV01 = MV02','E-POWR-BORE-MV = …-MV-UNUSED · production piles = produvtion pilesnew','E-POWR-BORE-MV = E-POWR-BORE-ENT_EXT','E-POWR-BORE-… = E-POWR-CKT-… · SILT FENCE = SILT BREAKS'];
+function tpToks(name){ return String(name).toLowerCase().replace(/([a-z])(\d)/g,'$1 $2').replace(/(\d)([a-z])/g,'$1 $2').split(/[^a-z0-9.]+/).map(function(t){ return t.replace(/^\.+|\.+$/g,''); }).filter(Boolean); }
+var TP_VER={'new':1,'neww':1,'copy':1,'old':1,'rev':1,'temp':1,'tmp':1,'v':1,'ver':1,'final':1};
+function tpLev(a,b,max){ if(Math.abs(a.length-b.length)>max) return max+1; var p=[],i,j; for(j=0;j<=b.length;j++) p[j]=j;
+  for(i=1;i<=a.length;i++){ var q=[i], m=i; for(j=1;j<=b.length;j++){ q[j]=Math.min(p[j]+1,q[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); if(q[j]<m) m=q[j]; } if(m>max) return max+1; p=q; } return p[b.length]; }
+function tpTokEq(a,b,typo){ if(a===b) return true; if(!typo || a.length<4 || b.length<4) return false; return tpLev(a,b,1)<=1; }
+function tpAlike(A,B,lvl){ // A,B = {raw, toks, core}
+  if(A.raw===B.raw) return true; if(lvl<2) return false;
+  if(A.core && A.core===B.core) return true; if(lvl<3) return false;
+  var a=A.core, b=B.core; if(a&&b){ var m=Math.min(a.length,b.length), mx=m>=12?2:1;
+    if(m>=5 && tpLev(a,b,mx)<=mx) return true;                                   // typo: produvtion = production
+    if(m>=4 && (a.indexOf(b)===0 || b.indexOf(a)===0)) return true;               // add-on: -unused, road cnst
+    if(m>=6 && tpLev(a.slice(0,m),b.slice(0,m),1)<=1) return true; }              // typo + add-on: produvtion pilesnew
+  var at=A.words, bt=B.words, n=Math.min(at.length,bt.length), same=0; while(same<n && tpTokEq(at[same],bt[same],true)) same++;
+  if(same===n && n>=1 && n>=Math.min(2,Math.max(at.length,bt.length))) return true; // one name's words start the other
+  if(lvl>=4 && same>=3) return true;
+  if(lvl>=5 && same>=2) return true;
+  return false;
+}
+function tpLookAlikes(){
+  var lvl=+(ls.get('csvfix.tpSens')||3); if(!(lvl>=1&&lvl<=5)) lvl=3;
+  var ids=TPX.lops.order.filter(function(id){ return id!==0; });
+  var info={}; ids.forEach(function(id){ var nm=tpName(id), t=tpToks(nm), w=t.filter(function(x){ return !TP_VER[x] && !/^\d+(\.\d+)?$/.test(x); });
+    info[id]={raw:nm.toLowerCase().replace(/[^a-z0-9]/g,''), words:w, core:w.join('')}; });
+  function groupsAt(L){ var par={}; ids.forEach(function(id){ par[id]=id; }); function f(x){ while(par[x]!==x){ par[x]=par[par[x]]; x=par[x]; } return x; }
+    for(var i=0;i<ids.length;i++) for(var j=i+1;j<ids.length;j++) if(tpAlike(info[ids[i]],info[ids[j]],L)) par[f(ids[i])]=f(ids[j]);
+    var g={}; ids.forEach(function(id){ (g[f(id)]=g[f(id)]||[]).push(id); }); return Object.keys(g).map(function(k){ return g[k]; }).filter(function(a){ return a.length>1; }); }
+  var off={}; // layers you untick inside a group
+  function draw(){
+    var groups=groupsAt(lvl), n=groups.reduce(function(a,g){ return a+g.length; },0);
+    var h='<div class="card" style="padding:12px 14px"><h3 style="margin-bottom:4px">Sensitivity — <span style="color:var(--accent)">'+TP_SENS[lvl-1]+'</span></h3>'+
+      '<input type="range" id="laS" min="1" max="5" step="1" value="'+lvl+'" style="width:100%;accent-color:var(--accent)">'+
+      '<div class="row" style="justify-content:space-between;font-size:11.5px;color:var(--muted);font-weight:700"><span>Strict</span><span>Loose</span></div>'+
+      '<p class="muted" style="margin:6px 0 0;font-size:12.5px">e.g. '+escH(TP_SENS_EX[lvl-1])+'</p></div>'+
+      '<p class="muted" style="margin:4px 2px 10px">'+(groups.length?groups.length+' group'+(groups.length>1?'s':'')+' · '+n+' layers. Untick any layer that doesn’t belong, then Combine.':'No look-alikes at this setting — slide toward Loose.')+'</p>';
+    groups.forEach(function(a,gi){ var on=a.filter(function(id){ return !off[id]; });
+      h+='<div class="card" style="padding:8px 12px 12px">'+a.map(function(id){ var c=tpCounts(id); return '<label class="row" style="align-items:center;gap:10px;padding:5px 0;cursor:pointer"><input type="checkbox" data-lo="'+id+'"'+(off[id]?'':' checked')+' style="width:22px;height:22px;accent-color:var(--accent);flex:none">'+tpSwatch(id)+'<b style="flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(off[id]?';opacity:.45':'')+'">'+escH(tpName(id))+'</b><span class="muted" style="font-size:12px">'+(c.pts+c.lines).toLocaleString()+'</span></label>'; }).join('')+
+        '<button class="btn block mt" data-lg="'+gi+'"'+(on.length<2?' disabled':'')+'>⧉ Combine '+(on.length<2?'— tick 2 or more':'these '+on.length)+'</button></div>'; });
+    h+='<button class="btn block mt" id="laBack">‹ All layers</button>';
+    var keep=$('#veil').classList.contains('on')&&$('#shTitle').textContent==='Look-alike layers'?$('#shBody').scrollTop:0;
+    openSheet('Look-alike layers', h, function(){ tpRender(); tpInfo(); }); $('#shBody').scrollTop=keep;
+    var sl=$('#laS'); sl.oninput=function(){ $('#laS').closest('.card').querySelector('h3 span').textContent=TP_SENS[this.value-1]; };
+    sl.onchange=function(){ lvl=+this.value; ls.set('csvfix.tpSens',lvl); off={}; draw(); };
+    document.querySelectorAll('[data-lo]').forEach(function(cb){ cb.onchange=function(){ var id=+cb.getAttribute('data-lo'); if(cb.checked) delete off[id]; else off[id]=1; draw(); }; });
+    document.querySelectorAll('[data-lg]').forEach(function(b){ b.onclick=function(){ var g=groups[+b.getAttribute('data-lg')].filter(function(id){ return !off[id]; }); if(g.length>1) tpCombineAsk(g); }; });
+    $('#laBack').onclick=function(){ tpEditor(); };
+  }
+  draw();
 }
 
 /* ---------------- settings: color theme, light/dark, motion ---------------- */
