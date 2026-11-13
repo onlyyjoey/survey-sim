@@ -592,6 +592,10 @@ pub fn handle(app: &mut FilmcraftApp, ctx: &egui::Context, req: &ControlRequest)
         })),
         // touch-control copy: the keyframe panel's view of one Motion / Opacity parameter
         "ui.keyframeState" => ok(keyframe_state(app, s("param").unwrap_or("scale"))),
+        "ui.backgroundFill" => match background_fill(app, s("style").unwrap_or("blur")) {
+            Ok(v) => ok(v),
+            Err(e) => err(e),
+        },
         "ui.playback" => {
             match s("action").unwrap_or("toggle") {
                 "play" => app.play(p.get("speed").and_then(Value::as_f64).unwrap_or(1.0)),
@@ -1052,4 +1056,66 @@ fn keyframe_state(app: &FilmcraftApp, param: &str) -> Value {
         "height": seq.settings.height,
         "inClip": it.start <= ph && ph < it.end(),
     })
+}
+
+/// Touch-control copy: fill a video's black bars (a landscape video in a vertical sequence, say)
+/// with a copy of itself. The clip (the selected one under the playhead, else the top one under
+/// it) is scaled to fill the frame and styled, and a sharp copy that fits the frame goes on the
+/// track above it (or a new one). Styles: `blur`, `blurStrong`, `blurDark`, `zoom`, `zoomDark`.
+fn background_fill(app: &mut FilmcraftApp, style: &str) -> Result<Value, String> {
+    use filmcraft_project::ItemKind;
+    let (clip, item, start, dur, src_in, scale_to_frame, frame, media, above) = {
+        let seq = app.session.active_sequence().ok_or("Open a video first")?;
+        let ph = app.session.playhead();
+        let mut found = None;
+        for (ti, tr) in seq.video_tracks.iter().enumerate() {
+            for it in &tr.items {
+                let under = it.start <= ph && ph < it.end();
+                let sel = app.session.state.selection.contains(&it.id);
+                if under && (sel || found.is_none()) {
+                    found = Some((ti, it));
+                }
+            }
+        }
+        let (ti, it) = found.ok_or("Move the playhead over a video clip first")?;
+        let media = match app.session.project.item(it.item).map(|i| &i.kind) {
+            Some(ItemKind::Media(m)) => m.info.video.as_ref().map(|v| (v.width, v.height)).ok_or("That clip has no picture")?,
+            Some(ItemKind::Sequence(s)) => (s.settings.width, s.settings.height),
+            _ => return Err("That clip has no picture".into()),
+        };
+        let above = seq.video_tracks.get(ti + 1).filter(|tr| !tr.items.iter().any(|o| o.start < it.end() && it.start < o.end())).map(|tr| tr.id.0);
+        (it.id.0, it.item.0, it.start.0, it.duration.0, it.source_in.0, it.scale_to_frame, (seq.settings.width, seq.settings.height), media, above)
+    };
+    let (sw, sh) = (f64::from(frame.0.max(1)), f64::from(frame.1.max(1)));
+    let (mw, mh) = (f64::from(media.0.max(1)), f64::from(media.1.max(1)));
+    // Motion's Scale is relative to the clip's own fit when "Scale to Frame Size" is on
+    let base = if scale_to_frame { (sw / mw).min(sh / mh) } else { 1.0 };
+    let fill = (sw / mw).max(sh / mh) / base * 100.0;
+    let fit = (sw / mw).min(sh / mh) / base * 100.0;
+    if !fill.is_finite() || !fit.is_finite() {
+        return Err("That clip's size is unknown".into());
+    }
+    let mut ex = |cmd: &str, p: Value| app.session.execute(cmd, p).map_err(|e| e.to_string());
+    // the background: the clip itself, filling the frame (a little more under blur, so no edge shows)
+    let blur = match style {
+        "blur" | "blurDark" => Some(60.0),
+        "blurStrong" => Some(150.0),
+        _ => None,
+    };
+    ex("effects.setParam", json!({"clip": clip, "effect": "motion", "param": "scale", "value": fill * if blur.is_some() { 1.06 } else { 1.0 }}))?;
+    if let Some(b) = blur {
+        ex("effects.apply", json!({"clips": [clip], "effect": "gaussian_blur"}))?;
+        ex("effects.setParam", json!({"clip": clip, "effect": "gaussian_blur", "param": "blurriness", "value": b}))?;
+        ex("effects.setParam", json!({"clip": clip, "effect": "gaussian_blur", "param": "repeat_edge", "value": true}))?;
+    }
+    if matches!(style, "blurDark" | "zoomDark") {
+        ex("effects.apply", json!({"clips": [clip], "effect": "brightness_contrast"}))?;
+        ex("effects.setParam", json!({"clip": clip, "effect": "brightness_contrast", "param": "brightness", "value": -40.0}))?;
+    }
+    // the sharp copy on top, fitting the frame, picture only
+    let track = above.map_or(json!("new"), |t| json!(t));
+    let placed = ex("timeline.place", json!({"item": item, "track": track, "time": start, "sourceIn": src_in, "duration": dur, "audio": false}))?;
+    let copy = placed.get("clips").and_then(|c| c.get(0)).and_then(Value::as_u64).ok_or("The copy could not be placed")?;
+    ex("effects.setParam", json!({"clip": copy, "effect": "motion", "param": "scale", "value": fit}))?;
+    Ok(json!({"background": clip, "foreground": copy}))
 }
