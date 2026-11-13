@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-180.png">
-  <link rel="stylesheet" href="touch.css?v=b0e9aeb2f9f492a7">
+  <link rel="stylesheet" href="touch.css?v=5eed45bb11dcd1bb">
   <meta name="color-scheme" content="dark">
   <title>FilmCraft</title>
   <link rel="icon" href="favicon.png" type="image/png">
@@ -73,16 +73,16 @@
     addEventListener("error", (ev) => { if (window.filmcraftLoad.readyMs && isFatal(ev.error || ev.message)) window.filmcraftFatal(ev.error || ev.message); });
     addEventListener("unhandledrejection", (ev) => { if (window.filmcraftLoad.readyMs && isFatal(ev.reason)) window.filmcraftFatal(ev.reason); });
   </script>
-  <script src="touch.js?v=b0e9aeb2f9f492a7"></script>
+  <script src="touch.js?v=5eed45bb11dcd1bb"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol === "https:") {
       addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
   </script>
   <script type="module">
-    // `b0e9aeb2f9f492a7` is replaced by `cargo xtask web` with a hash of the build: the glue and the
+    // `5eed45bb11dcd1bb` is replaced by `cargo xtask web` with a hash of the build: the glue and the
     // wasm are cached as immutable, so their URLs must change with every build.
-    const build = "b0e9aeb2f9f492a7";
+    const build = "5eed45bb11dcd1bb";
     const v = build.startsWith("__") ? "" : "?v=" + build;
     const t0 = performance.now();
     const params = new URLSearchParams(location.search);

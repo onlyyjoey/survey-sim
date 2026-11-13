@@ -92,6 +92,7 @@
     nest: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><rect x="7.5" y="8.5" width="9" height="7" rx="1"/>',
     home: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    close: '<path d="M6 6l12 12M18 6 6 18"/>',
     up: '<path d="M6 14.5 12 8.5l6 6"/>',
     down: '<path d="M6 9.5l6 6 6-6"/>',
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
@@ -151,7 +152,7 @@
   const landscape = () => innerWidth > innerHeight;
   function phoneParams() {
     return {
-      showHeader: false, showStatusBar: false,
+      showHeader: false, showStatusBar: false, compact: true,
       phoneLayout: side ? "panel:" + side : "video",
       videoShare: bigVideo ? 0.6 : landscape() ? 0.5 : 0.42,
       sideShare: landscape() ? 0.36 : 0.62,
@@ -161,7 +162,7 @@
     layout = which;
     store.set("layout", which);
     document.body.classList.toggle("fct-simple", which === "simple");
-    const p = which === "simple" ? phoneParams() : { showHeader: true, showStatusBar: true, workspace: "Editing" };
+    const p = which === "simple" ? phoneParams() : { showHeader: true, showStatusBar: true, compact: false, workspace: "Editing" };
     await run(quiet ? null : which === "simple" ? "Simple layout" : "Full editor layout", () => req("ui.set", p));
   }
   async function setSide(name, label) {
@@ -576,6 +577,22 @@
     });
   }
 
+  // ------------------------------------------------------------------ follow the editor: full-screen preview, playback
+  const exitFs = el("button", { type: "button", id: "fct-exit", class: "fct", "aria-label": "Exit full screen" }, ico("close"));
+  exitFs.addEventListener("click", async () => { await run(null, () => menu("view.fullScreenProgram")); syncState(); });
+  let syncT = 0;
+  async function syncState() {
+    if (!ready()) return;
+    try {
+      const st = await req("ui.touchState");
+      if (!st) return;
+      document.body.classList.toggle("fct-cinema", !!st.cinema);
+      if (typeof st.playing === "boolean") setPlaying(st.playing);
+      if (st.mode && st.mode !== mode) { mode = st.mode; syncTop(); }
+    } catch { /* older build */ }
+  }
+  const soon = () => { clearTimeout(syncT); syncT = setTimeout(syncState, 280); };
+
   // ------------------------------------------------------------------ start screen: add files to begin
   const start = el("div", { id: "fct-start", class: "fct", role: "dialog", "aria-label": "Start" });
   start.innerHTML = `
@@ -722,7 +739,7 @@
     store.set("on", on);
   }
 
-  document.body.append(top, bar, toggle, start, dScrim, drawer, ghost, scrim, toastEl, picker);
+  document.body.append(top, bar, toggle, start, exitFs, dScrim, drawer, ghost, scrim, toastEl, picker);
   const wantOn = qs.has("touch") ? qs.get("touch") !== "0" : store.get("on", coarse);
   setOn(!!wantOn);
   document.body.classList.toggle("fct-simple", layout === "simple");
@@ -845,6 +862,7 @@
       press(g.x, g.y, 0);
       release(g.x, g.y, 0);
       leave();
+      soon();
     } else if (g.state === "drag" && ended) {
       release(g.x, g.y, 0);
       leave();
