@@ -218,3 +218,13 @@ body.fct-start-on #fct-start { display: flex; }
   #fct-start p { display: none; }
   #fct-start .box { gap: 8px; }
 }
+
+/* ---------- full-screen preview ---------- */
+body.fct-cinema #fct-bar, body.fct-cinema #fct-top, body.fct-cinema #fct-toggle { display: none !important; }
+body.fct-cinema #filmcraft_canvas { top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; }
+#fct-exit {
+  position: fixed; z-index: 45; top: calc(var(--fct-sat) + 10px); right: calc(var(--fct-sar) + 10px);
+  width: 40px; height: 40px; border-radius: 50%; display: none; place-items: center;
+  background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.25); color: #fff;
+}
+body.fct-cinema #fct-exit { display: grid; }

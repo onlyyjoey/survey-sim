@@ -220,8 +220,18 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
     let separate_source_drag = which == Which::Source && stacked_controls && rect.width() < 310.0;
     let source_drag_h = if separate_source_drag { 26.0 } else { 0.0 };
     let cinema = app.ui.fullscreen_program && which == Which::Program;
-    let (controls_h, pad) = if cinema { (0.0, 0.0) } else { (28.0 + 24.0 + 15.0 + 36.0 + if stacked_controls { 26.0 } else { 0.0 } + source_drag_h, 4.0) };
-    let video_area = Rect::from_min_max(rect.min + vec2(pad, pad), pos2(rect.max.x - pad, rect.max.y - controls_h));
+    // touch-control copy: the compact Program monitor puts its controls in columns beside the
+    // picture, so the picture (a vertical video above all) gets the panel's whole height
+    let side = app.ui.compact && which == Which::Program && !cinema;
+    let side_w = if side { side_width(app, rect) } else { 0.0 };
+    let (controls_h, pad) = if cinema {
+        (0.0, 0.0)
+    } else if side {
+        (0.0, 2.0)
+    } else {
+        (28.0 + 24.0 + 15.0 + 36.0 + if stacked_controls { 26.0 } else { 0.0 } + source_drag_h, 4.0)
+    };
+    let video_area = Rect::from_min_max(rect.min + vec2(pad + side_w, pad), pos2(rect.max.x - pad - side_w, rect.max.y - controls_h));
     // the Source monitor's time ruler starts at `origin` (a subclip restricted to its range)
     let mut origin = Tick::ZERO;
     let (target, frame_size, rate, time, duration, drop_frame, mark_in, mark_out, name) = match which {
@@ -417,6 +427,14 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
         app.ui.status = name.clone();
     }
 
+    if side {
+        let left = Rect::from_min_max(rect.min, pos2(rect.min.x + side_w, rect.max.y));
+        let right = Rect::from_min_max(pos2(rect.max.x - side_w, rect.min.y), rect.max);
+        let tc = format_time(time, rate, drop_frame, time_display, 48000);
+        let dur = format_time(duration, rate, drop_frame, time_display, 48000);
+        side_controls(app, ui, left, right, &tc, &dur);
+        return;
+    }
     // ---- controls row: timecode | zoom | res | wrench | duration
     let dur_tc = format_time(mark_out.map(|o| o + rate.frame_duration()).unwrap_or(duration) - range_start, rate, drop_frame, time_display, 48000);
     let (bar, zoom_bar) = controls_row(app, ui, rect, which, time, rate, drop_frame, time_display, origin, &dur_tc);
@@ -1423,5 +1441,81 @@ mod tests {
     fn eyedropper_rejects_empty_and_truncated_frames() {
         assert_eq!(sample_rgb(&Rgba { w: 0, h: 0, px: vec![] }, (0.5, 0.5)), None);
         assert_eq!(sample_rgb(&Rgba { w: 4, h: 4, px: vec![0; 10] }, (0.5, 0.5)), None);
+    }
+}
+
+/// Touch-control copy: how wide each control column beside the compact Program monitor is. The
+/// picture gets the panel's height; what is left of the width is split between the two columns
+/// (at least enough for a button, at most 120 pt each).
+fn side_width(app: &FilmcraftApp, rect: Rect) -> f32 {
+    let (w, h) = app.session.active_sequence().map_or((1920.0, 1080.0), |q| (q.settings.width as f32, q.settings.height as f32));
+    let pic_w = if h > 0.0 && w > 0.0 { rect.height() * w / h } else { rect.width() };
+    let free = (rect.width() - pic_w) / 2.0;
+    if free.is_finite() { free.clamp(58.0, 120.0) } else { 58.0 }
+}
+
+/// Touch-control copy: the compact Program monitor's two control columns. Left: the playhead time
+/// and the transport; right: the length, full screen, markers and marks.
+fn side_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, left: Rect, right: Rect, tc: &str, dur: &str) {
+    let t = app.tokens;
+    let ctx = ui.ctx().clone();
+    let p = ui.painter().clone();
+    p.rect_filled(left, 0.0, t.panel_bg);
+    p.rect_filled(right, 0.0, t.panel_bg);
+    p.text(pos2(left.center().x, left.min.y + 12.0), Align2::CENTER_CENTER, tc, Tokens::ui(10.0), t.timecode);
+    p.text(pos2(right.center().x, right.min.y + 12.0), Align2::CENTER_CENTER, dur, Tokens::ui(10.0), t.text_dim);
+    let playing = app.playback.playing;
+    let lefts: [(Icon, &str); 7] = [
+        (if playing { Icon::Pause } else { Icon::Play }, "playback.toggle"),
+        (Icon::StepBack, "playhead.stepBack"),
+        (Icon::StepFwd, "playhead.stepForward"),
+        (Icon::PrevEdit, "playhead.prevEdit"),
+        (Icon::NextEdit, "playhead.nextEdit"),
+        (Icon::MarkIn, "markers.markIn"),
+        (Icon::MarkOut, "markers.markOut"),
+    ];
+    let rights: [(Icon, &str); 6] = [
+        (Icon::Fullscreen, "view.fullScreenProgram"),
+        (Icon::Marker, "markers.add"),
+        (Icon::GoToIn, "markers.goToIn"),
+        (Icon::GoToOut, "markers.goToOut"),
+        (Icon::Loop, "playback.loop"),
+        (Icon::Camera, "exportFrame"),
+    ];
+    let mut pressed: Option<&str> = None;
+    for (col, items) in [(left, &lefts[..]), (right, &rights[..])] {
+        let top = col.min.y + 26.0;
+        let avail = (col.max.y - top - 4.0).max(0.0);
+        let bh = (avail / items.len().max(1) as f32).clamp(26.0, 48.0);
+        let bw = (col.width() - 8.0).clamp(26.0, 54.0);
+        for (i, (icon, cmd)) in items.iter().enumerate() {
+            let y = top + i as f32 * bh;
+            if y + bh > col.max.y + 0.5 {
+                break;
+            }
+            let r = Rect::from_center_size(pos2(col.center().x, y + bh / 2.0), vec2(bw, bh - 4.0));
+            let resp = ui.interact(r, egui::Id::unique(("program-side", *cmd)), Sense::click());
+            app.auto.add(&format!("program.side.{cmd}"), r, cmd);
+            let main = *cmd == "playback.toggle";
+            if main {
+                p.rect_filled(r, 8.0, t.track_target);
+            } else if resp.hovered() {
+                p.rect_filled(r, 6.0, t.hover);
+            }
+            let s = (r.height().min(r.width()) * 0.5).max(12.0);
+            icons::paint(&p, Rect::from_center_size(r.center(), vec2(s, s)), *icon, if main { Color32::WHITE } else { t.text });
+            if resp.clicked() {
+                pressed = Some(*cmd);
+            }
+        }
+    }
+    match pressed {
+        Some("view.fullScreenProgram") => {
+            if let Err(e) = crate::menus::invoke(app, &ctx, "view.fullScreenProgram", json!({})) {
+                app.ui.status = e;
+            }
+        }
+        Some(cmd) => invoke_transport(app, &ctx, Which::Program, cmd),
+        None => {}
     }
 }

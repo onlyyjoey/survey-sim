@@ -29,66 +29,69 @@ pub(super) fn draw_top(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, se
     let ruler = layout.ruler;
     // background of the whole top block
     p.rect_filled(Rect::from_min_max(rect.min, pos2(rect.max.x, ruler.max.y)), 0.0, t.panel_bg);
-    // current timecode: Premiere's big blue timecode
-    let tc = format_time(app.session.playhead(), rate, seq.settings.drop_frame, seq.settings.display, seq.settings.sample_rate as i64);
-    let tc_rect = Rect::from_min_size(pos2(rect.min.x + 14.0, rect.min.y + 4.0), vec2(hw - 20.0, 20.0));
-    let tc_id = egui::Id::unique(("timeline-tc", seq_id));
-    match crate::widgets::timecode_field(
-        ui,
-        tc_id,
-        tc_rect,
-        &tc,
-        app.session.playhead(),
-        Tick::ZERO,
-        rate,
-        seq.settings.drop_frame,
-        seq.settings.display,
-        t.timecode,
-    ) {
-        Some(Ok(time)) => {
-            if let Err(e) = app.session.execute("playhead.set", json!({"time": time.0})) {
-                app.ui.status = e.to_string();
+    // compact (touch-control copy): the Program monitor shows the time; no toolbar block
+    if !app.ui.compact {
+        // current timecode: Premiere's big blue timecode
+        let tc = format_time(app.session.playhead(), rate, seq.settings.drop_frame, seq.settings.display, seq.settings.sample_rate as i64);
+        let tc_rect = Rect::from_min_size(pos2(rect.min.x + 14.0, rect.min.y + 4.0), vec2(hw - 20.0, 20.0));
+        let tc_id = egui::Id::unique(("timeline-tc", seq_id));
+        match crate::widgets::timecode_field(
+            ui,
+            tc_id,
+            tc_rect,
+            &tc,
+            app.session.playhead(),
+            Tick::ZERO,
+            rate,
+            seq.settings.drop_frame,
+            seq.settings.display,
+            t.timecode,
+        ) {
+            Some(Ok(time)) => {
+                if let Err(e) = app.session.execute("playhead.set", json!({"time": time.0})) {
+                    app.ui.status = e.to_string();
+                }
             }
+            Some(Err(e)) => app.ui.status = e,
+            None => {}
         }
-        Some(Err(e)) => app.ui.status = e,
-        None => {}
-    }
-    app.auto.add("timeline.timecode", tc_rect, &tc);
-    // toolbar: 30 × 30 buttons, "on" = #4b4b4b fill
-    let mut x = rect.min.x + 12.0;
-    let y = rect.min.y + 26.0;
-    let toggles: [(Icon, &str, bool, bool, &str); 6] = [
-        (Icon::Nest, "nest", !app.session.state.sequences_as_clips, true, tl!("Insert and overwrite sequences as nests or individual clips")),
-        (Icon::Magnet, "snap", app.session.state.snapping, true, tl!("Snap in Timeline (S)")),
-        (Icon::Link, "linked", app.session.state.linked_selection, true, tl!("Linked Selection")),
-        (Icon::Captions, "captions", false, false, tl!("Caption track options")),
-        (Icon::Marker, "marker", false, false, tl!("Add Marker (M)")),
-        (Icon::Wrench, "settings", false, false, tl!("Timeline Display Settings")),
-    ];
-    for (icon, key, on, toggle, tip) in toggles {
-        let r = Rect::from_min_size(pos2(x, y), vec2(28.0, 28.0));
-        let resp = ui.interact(r, egui::Id::unique(("tl-toggle", key)), Sense::click()).on_hover_text(tip);
-        app.auto.add(&format!("timeline.toggle.{key}"), r, tip);
-        if toggle && on {
-            p.rect_filled(r, 4.0, t.pressed);
-        } else if resp.hovered() {
-            p.rect_filled(r, 4.0, t.hover);
+        app.auto.add("timeline.timecode", tc_rect, &tc);
+        // toolbar: 30 × 30 buttons, "on" = #4b4b4b fill
+        let mut x = rect.min.x + 12.0;
+        let y = rect.min.y + 26.0;
+        let toggles: [(Icon, &str, bool, bool, &str); 6] = [
+            (Icon::Nest, "nest", !app.session.state.sequences_as_clips, true, tl!("Insert and overwrite sequences as nests or individual clips")),
+            (Icon::Magnet, "snap", app.session.state.snapping, true, tl!("Snap in Timeline (S)")),
+            (Icon::Link, "linked", app.session.state.linked_selection, true, tl!("Linked Selection")),
+            (Icon::Captions, "captions", false, false, tl!("Caption track options")),
+            (Icon::Marker, "marker", false, false, tl!("Add Marker (M)")),
+            (Icon::Wrench, "settings", false, false, tl!("Timeline Display Settings")),
+        ];
+        for (icon, key, on, toggle, tip) in toggles {
+            let r = Rect::from_min_size(pos2(x, y), vec2(28.0, 28.0));
+            let resp = ui.interact(r, egui::Id::unique(("tl-toggle", key)), Sense::click()).on_hover_text(tip);
+            app.auto.add(&format!("timeline.toggle.{key}"), r, tip);
+            if toggle && on {
+                p.rect_filled(r, 4.0, t.pressed);
+            } else if resp.hovered() {
+                p.rect_filled(r, 4.0, t.hover);
+            }
+            icons::paint(&p, r.shrink(7.0), icon, if toggle && on { t.text } else { t.text_dim });
+            if resp.clicked() {
+                let _ = match key {
+                    "nest" => app.session.execute("sequence.nestSequences", json!({})),
+                    "snap" => app.session.execute("sequence.snap", json!({})),
+                    "linked" => app.session.execute("sequence.linkedSelection", json!({})),
+                    "marker" => app.session.execute("markers.add", json!({})),
+                    _ => Ok(Value::Null),
+                };
+            }
+            if key == "settings" {
+                // stays open while options are toggled: only a click outside it (or an action) closes it
+                egui::Popup::menu(&resp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| timeline_settings(app, ui));
+            }
+            x += 30.0;
         }
-        icons::paint(&p, r.shrink(7.0), icon, if toggle && on { t.text } else { t.text_dim });
-        if resp.clicked() {
-            let _ = match key {
-                "nest" => app.session.execute("sequence.nestSequences", json!({})),
-                "snap" => app.session.execute("sequence.snap", json!({})),
-                "linked" => app.session.execute("sequence.linkedSelection", json!({})),
-                "marker" => app.session.execute("markers.add", json!({})),
-                _ => Ok(Value::Null),
-            };
-        }
-        if key == "settings" {
-            // stays open while options are toggled: only a click outside it (or an action) closes it
-            egui::Popup::menu(&resp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| timeline_settings(app, ui));
-        }
-        x += 30.0;
     }
     // ----- ruler: markers row · labels · ticks · 2 pt render bar
     let clip = p.with_clip_rect(ruler);

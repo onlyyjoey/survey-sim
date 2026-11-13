@@ -135,6 +135,10 @@ fn handle_ui_set(app: &mut FilmcraftApp, ctx: &egui::Context, p: &Value) -> Outc
     if let Some(b) = p.get("showStatusBar").and_then(Value::as_bool) {
         app.ui.show_status_bar = b;
     }
+    if let Some(b) = p.get("compact").and_then(Value::as_bool) {
+        app.ui.compact = b;
+        app.ui.timeline.header_w = if b { 46.0 } else { 204.0 };
+    }
     // `phoneLayout`: "video" (bigger monitor), "even", or "panel:<name>" (that panel on the left);
     // `videoShare` / `sideShare` override the split ratios.
     if let Some(l) = s("phoneLayout") {
@@ -565,6 +569,12 @@ pub fn handle(app: &mut FilmcraftApp, ctx: &egui::Context, req: &ControlRequest)
                 None => err("clip not visible in the timeline"),
             }
         }
+        // touch-control copy: the little state the touch page follows (cinema mode, playback, mode)
+        "ui.touchState" => ok(json!({
+            "cinema": app.ui.fullscreen_program,
+            "playing": app.playback.playing,
+            "mode": format!("{:?}", app.ui.mode).to_ascii_lowercase(),
+        })),
         "ui.playback" => {
             match s("action").unwrap_or("toggle") {
                 "play" => app.play(p.get("speed").and_then(Value::as_f64).unwrap_or(1.0)),

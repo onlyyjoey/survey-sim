@@ -98,6 +98,11 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         if r.kind == TrackKind::Video && r.index + 1 == seq.video_tracks.len() {
             p.line_segment([pos2(hrect.min.x, hrect.min.y + 0.5), pos2(hrect.max.x, hrect.min.y + 0.5)], Stroke::new(1.0, t.separator));
         }
+        if app.ui.compact {
+            let patched = if r.kind == TrackKind::Video { tg.video_dest == Some(r.track) } else { tg.audio_dest == Some(r.track) };
+            compact_header(app, ui, r, tr, hrect, visible, &label, tg.targeted.contains(&r.track), patched, t, &mut actions);
+            continue;
+        }
         let btn_rect = |x0: f32| Rect::from_min_max(pos2(hrect.min.x + x0, hrect.min.y + 1.0), pos2(hrect.min.x + x0 + 24.0, hrect.max.y - 2.0));
         // 1. source patch (absent when unpatched)
         let patched = if r.kind == TrackKind::Video { tg.video_dest == Some(r.track) } else { tg.audio_dest == Some(r.track) };
@@ -282,4 +287,71 @@ fn header_line_buttons(
         let kr = small(x + 64.0, upper_y);
         crate::panels::timeline_automation::header_button(app, ui, seq, r, kr, visible, label, t);
     }
+}
+
+/// Touch-control copy: a track header that is just its name (V1, A1…) with small marks for a
+/// locked, hidden or muted track. A tap opens a menu with the controls the full header shows.
+#[allow(clippy::too_many_arguments)]
+fn compact_header(
+    app: &mut FilmcraftApp,
+    ui: &mut egui::Ui,
+    r: &Row,
+    tr: &filmcraft_project::Track,
+    hrect: Rect,
+    visible: Rect,
+    label: &str,
+    targeted: bool,
+    patched: bool,
+    t: &Tokens,
+    actions: &mut Vec<(String, Value)>,
+) {
+    let b = hrect.shrink2(vec2(4.0, 2.0));
+    let resp = ui.interact(b.intersect(visible), egui::Id::unique(("compactHdr", r.track.0)), Sense::click());
+    app.auto.add(&format!("timeline.track.{label}.compact"), b, label);
+    let p = ui.painter().with_clip_rect(visible);
+    let fill = if targeted { t.track_target } else if resp.hovered() { t.hover } else { t.tl_header_bg };
+    p.rect_filled(b, 5.0, fill);
+    let video = r.kind == TrackKind::Video;
+    let off = if video { !tr.enabled } else { tr.muted };
+    let ink = if targeted { Color32::from_rgb(0xeb, 0xeb, 0xeb) } else { t.text };
+    let two_lines = b.height() >= 34.0 && (tr.locked || off || tr.solo);
+    let name_y = if two_lines { b.center().y - 7.0 } else { b.center().y };
+    p.text(pos2(b.center().x, name_y), Align2::CENTER_CENTER, label, Tokens::semibold(11.0), ink);
+    if two_lines {
+        let mut marks: Vec<Icon> = Vec::new();
+        if tr.locked {
+            marks.push(Icon::Lock);
+        }
+        if off {
+            marks.push(if video { Icon::EyeOff } else { Icon::Mute });
+        }
+        if tr.solo {
+            marks.push(Icon::Speaker);
+        }
+        let n = marks.len() as f32;
+        let x0 = b.center().x - (n * 12.0 - 2.0) / 2.0;
+        for (i, icon) in marks.into_iter().enumerate() {
+            crate::icons::paint(&p, Rect::from_min_size(pos2(x0 + i as f32 * 12.0, b.center().y + 3.0), vec2(10.0, 10.0)), icon, ink);
+        }
+    }
+    let track = r.track.0;
+    egui::Popup::menu(&resp).show(|ui| {
+        ui.set_min_width(190.0);
+        let mut item = |ui: &mut egui::Ui, text: &str, cmd: &str, params: Value| {
+            if ui.add(egui::Button::new(text).min_size(vec2(180.0, 30.0))).clicked() {
+                actions.push((cmd.to_string(), params));
+                ui.close();
+            }
+        };
+        item(ui, if targeted { "Untarget track" } else { "Target track" }, "timeline.setTargeting", json!({"track": track, "targeted": !targeted}));
+        item(ui, if tr.locked { "Unlock track" } else { "Lock track" }, "timeline.setTrack", json!({"track": track, "locked": !tr.locked}));
+        if video {
+            item(ui, if tr.enabled { "Hide track" } else { "Show track" }, "timeline.setTrack", json!({"track": track, "enabled": !tr.enabled}));
+        } else {
+            item(ui, if tr.muted { "Unmute" } else { "Mute" }, "timeline.setTrack", json!({"track": track, "muted": !tr.muted}));
+            item(ui, if tr.solo { "Unsolo" } else { "Solo" }, "timeline.setTrack", json!({"track": track, "solo": !tr.solo}));
+        }
+        item(ui, if tr.sync_lock { "Sync lock off" } else { "Sync lock on" }, "timeline.setTrack", json!({"track": track, "syncLock": !tr.sync_lock}));
+        item(ui, if patched { "Unpatch source" } else { "Patch source here" }, "timeline.setTargeting", json!({"track": track, "sourcePatch": !patched}));
+    });
 }

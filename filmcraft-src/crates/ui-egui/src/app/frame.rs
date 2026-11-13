@@ -56,6 +56,10 @@ impl FilmcraftApp {
         if self.ui.fullscreen_program {
             ui.painter().rect_filled(full, 0.0, egui::Color32::BLACK);
             panels::monitor::show(self, ui, full, panels::monitor::Which::Program);
+            // touch-control copy: a tap on the full-screen preview plays or pauses it
+            if self.ui.compact && ui.interact(full, egui::Id::unique("cinema-tap"), egui::Sense::click()).clicked() {
+                self.toggle_play(1.0);
+            }
             ui.ctx().set_cursor_icon(egui::CursorIcon::None);
             return;
         }

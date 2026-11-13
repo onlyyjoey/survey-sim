@@ -494,6 +494,10 @@ pub struct UiState {
     /// `view.fullScreenProgram` turns it on, so it is not part of the saved state.
     #[serde(skip)]
     pub fullscreen_program: bool,
+    /// Touch-control copy: the compact phone layout (narrow track headers that open a menu, the
+    /// Program monitor's controls beside the picture, tracks that fill the Timeline).
+    #[serde(default)]
+    pub compact: bool,
     /// The window was already fullscreen before cinema mode started.
     #[serde(skip)]
     pub cinema_was_fullscreen: bool,
@@ -1079,6 +1083,7 @@ impl Default for UiState {
             project_panel: Default::default(),
             media_browser: Default::default(),
             fullscreen_program: false,
+            compact: false,
             cinema_was_fullscreen: false,
             cinema_prev_focus: None,
         }
