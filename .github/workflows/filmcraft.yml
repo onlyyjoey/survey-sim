@@ -28,19 +28,39 @@ jobs:
         working-directory: filmcraft-src
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 80
+
+      # Fast path: when only the touch layer's web files changed since the last full build, copy
+      # them over the existing build (about a minute) instead of compiling the editor (5+ minutes).
+      - name: Decide full or quick update
+        id: kind
+        working-directory: .
+        run: |
+          FROM="$(cat filmcraft/BUILT_FROM 2>/dev/null || true)"
+          FAST=false
+          if [ -n "$FROM" ] && [ -f filmcraft/filmcraft_web_bg.wasm ] && git cat-file -e "$FROM^{commit}" 2>/dev/null; then
+            OTHER="$(git diff --name-only "$FROM" HEAD -- filmcraft-src | grep -v '^filmcraft-src/apps/filmcraft-web/web/' || true)"
+            if [ -z "$OTHER" ]; then FAST=true; fi
+          fi
+          echo "fast=$FAST" >> "$GITHUB_OUTPUT"
+          echo "quick update: $FAST (last full build from ${FROM:-none})"
 
       - name: Rust toolchain with the WebAssembly target
+        if: steps.kind.outputs.fast != 'true'
         run: |
           rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
           rustup default stable
           rustc --version
 
       - uses: Swatinem/rust-cache@v2
+        if: steps.kind.outputs.fast != 'true'
         with:
           workspaces: filmcraft-src
           shared-key: filmcraft-web
 
       - name: wasm-bindgen CLI (exact version the app needs)
+        if: steps.kind.outputs.fast != 'true'
         run: |
           V="$(sed -n 's/^const WASM_BINDGEN: &str = "\(.*\)";$/\1/p' xtask/src/main.rs)"
           echo "wasm-bindgen $V"
@@ -49,6 +69,7 @@ jobs:
           fi
 
       - name: wasm-opt (makes the download much smaller)
+        if: steps.kind.outputs.fast != 'true'
         continue-on-error: true
         run: |
           curl -sSL -o /tmp/binaryen.tgz https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz
@@ -56,11 +77,30 @@ jobs:
           echo "/tmp/binaryen-version_123/bin" >> "$GITHUB_PATH"
 
       - name: Build the web app
+        if: steps.kind.outputs.fast != 'true'
         run: |
           wasm-opt --version || echo "wasm-opt not available; building without it"
           cargo xtask web
 
+      - name: Quick update of the touch layer
+        if: steps.kind.outputs.fast == 'true'
+        working-directory: .
+        run: |
+          W=filmcraft-src/apps/filmcraft-web/web
+          HASH="$(grep -o 'const build = "[0-9a-f]*"' filmcraft/index.html | cut -d'"' -f2)"
+          test -n "$HASH"
+          for f in "$W"/*; do
+            case "$f" in *.attribution) continue;; esac
+            cp "$f" filmcraft/
+          done
+          sed -i "s/__FC_BUILD__/$HASH/g" filmcraft/index.html
+          # new URLs for the touch files, so phones fetch them again
+          sed -i -E "s/(touch\.(js|css))\?v=[^\"]*/\1?v=$HASH-${GITHUB_SHA::7}/g" filmcraft/index.html
+          sed -i "s/__FC_SW_BUILD__/${GITHUB_SHA::12}/" filmcraft/sw.js
+          grep -o 'touch.js?v=[^"]*' filmcraft/index.html
+
       - name: Publish into /filmcraft/
+        if: steps.kind.outputs.fast != 'true'
         working-directory: .
         run: |
           DIST=filmcraft-src/target/web/dist
@@ -70,6 +110,7 @@ jobs:
           cp -R "$DIST/." filmcraft/
           # new offline cache for every build
           sed -i "s/__FC_SW_BUILD__/${GITHUB_SHA::12}/" filmcraft/sw.js
+          echo "$GITHUB_SHA" > filmcraft/BUILT_FROM
           ls -lh filmcraft
 
       - name: Commit the build
