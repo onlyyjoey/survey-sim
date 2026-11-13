@@ -527,6 +527,26 @@ pub fn fit_w(w: f32) -> f32 {
     if screen > 0.0 && screen.is_finite() { w.min((screen - 20.0).max(160.0)) } else { w }
 }
 
+/// Widest dialog asked for this frame (points), for [`take_dialog_width`].
+static DIALOG_W: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// A dialog window's width: like [`fit_w`], and it tells the phone layout that a dialog of width
+/// `w` is open, so the UI can shrink until the whole dialog fits the screen.
+pub fn fit_dialog_w(w: f32) -> f32 {
+    if w.is_finite() {
+        let cur = f32::from_bits(DIALOG_W.load(std::sync::atomic::Ordering::Relaxed));
+        if w > cur {
+            DIALOG_W.store(w.to_bits(), std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    fit_w(w)
+}
+
+/// The widest dialog asked for since the last call (0 when none is open), resetting it.
+pub fn take_dialog_width() -> f32 {
+    f32::from_bits(DIALOG_W.swap(0f32.to_bits(), std::sync::atomic::Ordering::Relaxed))
+}
+
 pub fn dialog_center(ctx: &egui::Context) -> egui::Pos2 {
     let r = ctx.content_rect();
     // touch-control copy: on a narrow (phone) screen a dialog starts at the left edge, so a dialog

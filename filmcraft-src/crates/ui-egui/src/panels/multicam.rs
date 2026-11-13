@@ -109,7 +109,7 @@ pub fn show_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique(("sync-dialog", pre)))
         .collapsible(false)
         .resizable(false)
-        .default_width(crate::widgets::fit_w(440.0))
+        .default_width(crate::widgets::fit_dialog_w(440.0))
         .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
@@ -464,7 +464,7 @@ pub fn show_edit_cameras(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Edit Cameras"))
         .collapsible(false)
         .resizable(false)
-        .default_width(crate::widgets::fit_w(420.0))
+        .default_width(crate::widgets::fit_dialog_w(420.0))
         .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {

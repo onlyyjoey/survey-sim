@@ -353,6 +353,18 @@ fn general(ui: &mut egui::Ui, d: &mut SequenceSettingsDraft, cur: &SequenceSetti
             let ar = ui.label(&a);
             elems.push(("sequenceSettings.aspect".into(), ar.rect, a));
         });
+        // touch-control copy: common frame sizes in one tap
+        ui.horizontal_wrapped(|ui| {
+            ui.label(tl!("Presets:"));
+            for (label, w, h) in [("9:16 1080p", 1080, 1920), ("9:16 4K", 2160, 3840), ("16:9 1080p", 1920, 1080), ("16:9 4K", 3840, 2160)] {
+                let b = ui.selectable_label(d.width == w && d.height == h, label);
+                elems.push((format!("sequenceSettings.preset.{label}"), b.rect, label.to_string()));
+                if b.clicked() {
+                    d.width = w;
+                    d.height = h;
+                }
+            }
+        });
         let r = ui.checkbox(&mut d.scale_motion, tl!("Scale motion effects proportionally when changing frame size"));
         elems.push(("sequenceSettings.scaleMotion".into(), r.rect, d.scale_motion.to_string()));
         row(ui, label_w, "Pixel Aspect Ratio:", false, |ui| fixed_combo(ui, elems, "par", &par_label(cur.par), list_w, NOT_YET));
@@ -509,7 +521,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .id(egui::Id::unique("Sequence Settings"))
         .collapsible(false)
         .resizable(false)
-        .default_width(crate::widgets::fit_w(620.0))
+        .default_width(crate::widgets::fit_dialog_w(620.0))
         .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {

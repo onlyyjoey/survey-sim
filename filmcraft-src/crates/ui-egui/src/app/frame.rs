@@ -53,6 +53,26 @@ impl FilmcraftApp {
         let t = self.tokens;
         let full = ui.max_rect();
         crate::widgets::set_screen_width(full.width());
+        // touch-control copy: in the phone layout, while a dialog wider than the screen is open the
+        // whole UI is scaled down until it fits, and back when it closes
+        {
+            static BASE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            let need = crate::widgets::take_dialog_width();
+            let base = f32::from_bits(BASE.load(std::sync::atomic::Ordering::Relaxed));
+            if self.ui.compact && need > full.width() + 1.0 {
+                let zoom = ui.ctx().zoom_factor();
+                if base <= 0.0 {
+                    BASE.store(zoom.to_bits(), std::sync::atomic::Ordering::Relaxed);
+                }
+                let z = zoom * full.width() / (need + 24.0);
+                if z.is_finite() && z > 0.2 {
+                    ui.ctx().set_zoom_factor(z);
+                }
+            } else if need <= 0.0 && base > 0.0 {
+                ui.ctx().set_zoom_factor(base);
+                BASE.store(0f32.to_bits(), std::sync::atomic::Ordering::Relaxed);
+            }
+        }
         ui.painter().rect_filled(full, 0.0, t.app_bg);
         if self.ui.fullscreen_program {
             ui.painter().rect_filled(full, 0.0, egui::Color32::BLACK);

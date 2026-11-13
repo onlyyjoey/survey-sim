@@ -590,6 +590,8 @@ pub fn handle(app: &mut FilmcraftApp, ctx: &egui::Context, req: &ControlRequest)
             "pps": app.ui.timeline.pps,
             "playhead": app.session.playhead().seconds(),
         })),
+        // touch-control copy: the keyframe panel's view of one Motion / Opacity parameter
+        "ui.keyframeState" => ok(keyframe_state(app, s("param").unwrap_or("scale"))),
         "ui.playback" => {
             match s("action").unwrap_or("toggle") {
                 "play" => app.play(p.get("speed").and_then(Value::as_f64).unwrap_or(1.0)),
@@ -994,4 +996,56 @@ mod base64_tests {
         assert!(super::bounded_repetitions(&json!({"count": u64::MAX}), "count", 1, 0, super::MAX_CLICK_COUNT).is_err());
         assert!(super::bounded_repetitions(&json!({"steps": "many"}), "steps", 12, 2, super::MAX_DRAG_STEPS).is_err());
     }
+}
+
+/// Touch-control copy: for the keyframe panel, the clip it edits (the selected video clip, else
+/// the top video clip under the playhead) and, for `param` (scale, position, rotation or opacity),
+/// the value at the playhead, whether it is animated, whether a keyframe is on the playhead, and
+/// the sequence times of the previous and next keyframes.
+fn keyframe_state(app: &FilmcraftApp, param: &str) -> Value {
+    use filmcraft_project::ParamValue;
+    use filmcraft_time::Tick;
+    let effect = if param == "opacity" { "opacity" } else { "motion" };
+    let Some(seq) = app.session.active_sequence() else { return json!({"clip": null}) };
+    let ph = app.session.playhead();
+    let selected = seq.video_tracks.iter().flat_map(|tr| tr.items.iter()).find(|it| app.session.state.selection.contains(&it.id));
+    let under = || seq.video_tracks.iter().rev().find_map(|tr| tr.items.iter().find(|it| it.start <= ph && ph < it.end()));
+    let Some(it) = selected.or_else(under) else { return json!({"clip": null}) };
+    let last = Tick(it.end().0.saturating_sub(1).max(it.start.0));
+    let mt = it.effect_time_at(ph.clamp(it.start, last));
+    // where media time `m` sits in the sequence
+    let seq_time = |m: Tick| {
+        let offset = if it.reverse { it.source_out() - m - Tick(1) } else { m - it.source_in };
+        it.start + Tick((offset.0 as f64 / it.speed.abs().max(1e-6)).round() as i64)
+    };
+    let prm = it.effect(effect).and_then(|e| e.param(param));
+    let to_json = |v: &ParamValue| match v {
+        ParamValue::Float(f) if f.is_finite() => json!(f),
+        ParamValue::Vec2(p) => json!([if p.x.is_finite() { json!(p.x) } else { Value::Null }, if p.y.is_finite() { json!(p.y) } else { Value::Null }]),
+        _ => Value::Null,
+    };
+    let (value, animated, on_key, prev, next) = match prm {
+        Some(p) => (
+            to_json(&p.value_at(mt)),
+            p.is_animated(),
+            p.keyframes.iter().any(|k| k.time == mt),
+            p.prev_keyframe(mt).map(|k| seq_time(k).0),
+            p.next_keyframe(mt).map(|k| seq_time(k).0),
+        ),
+        None => (Value::Null, false, false, None, None),
+    };
+    json!({
+        "clip": it.id.0,
+        "name": it.name,
+        "effect": effect,
+        "param": param,
+        "value": value,
+        "animated": animated,
+        "onKey": on_key,
+        "prev": prev,
+        "next": next,
+        "width": seq.settings.width,
+        "height": seq.settings.height,
+        "inClip": it.start <= ph && ph < it.end(),
+    })
 }

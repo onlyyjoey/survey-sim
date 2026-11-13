@@ -75,7 +75,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(false)
-                .default_width(crate::widgets::fit_w(380.0))
+                .default_width(crate::widgets::fit_dialog_w(380.0))
                 .show(ctx, |ui| {
                     ui.label(
                         egui::RichText::new(if n == 1 { tlf!("Color Management · {n} item", n) } else { tlf!("Color Management · {n} items", n) }).strong(),
@@ -106,7 +106,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(false)
-                .default_width(crate::widgets::fit_w(340.0))
+                .default_width(crate::widgets::fit_dialog_w(340.0))
                 .show(ctx, |ui| {
                     ui.label(egui::RichText::new(tl!("Working Color Space")).strong());
                     for w in WorkingSpace::ALL {

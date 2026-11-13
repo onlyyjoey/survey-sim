@@ -213,7 +213,7 @@ fn add_tracks(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .id(egui::Id::unique("Add Tracks"))
         .collapsible(false)
         .resizable(false)
-        .default_width(crate::widgets::fit_w(320.0))
+        .default_width(crate::widgets::fit_dialog_w(320.0))
         .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {

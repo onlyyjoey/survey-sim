@@ -94,6 +94,7 @@
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
     up: '<path d="M6 14.5 12 8.5l6 6"/>',
+    key: '<path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/>',
     down: '<path d="M6 9.5l6 6 6-6"/>',
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
   };
@@ -611,6 +612,7 @@
       if (st.mode && st.mode !== mode) { mode = st.mode; syncTop(); }
       const sel = (st.selected | 0) > 0;
       if (sel !== clipMode && typeof renderStrip === "function") { clipMode = sel; renderStrip(); }
+      if (typeof refreshKf === "function") refreshKf();
       syncAspect();
     } catch { /* older build */ }
   }
@@ -655,6 +657,116 @@
     syncAspect();
   }
 
+  // ------------------------------------------------------------------ keyframe panel
+  // Over the left of the video (the video keeps its size): pick Scale, Position, Rotation or
+  // Opacity, set it with the slider (or drag the video to move it), and add / remove a keyframe at
+  // the playhead or jump to the previous / next one. Scrub the timeline to move between moments.
+  const kf = el("div", { id: "fct-kf", class: "fct", role: "dialog", "aria-label": "Keyframes" });
+  const KF_PARAMS = { scale: { label: "Scale", min: 0, max: 400, step: 1, unit: "%" }, position: { label: "Position" }, rotation: { label: "Rotation", min: -180, max: 180, step: 1, unit: "°" }, opacity: { label: "Opacity", min: 0, max: 100, step: 1, unit: "%" } };
+  let kfParam = "scale", kfState = null, kfTimer = 0, kfSending = false, kfWant = null;
+  kf.innerHTML = `<div class="hd"><span>Keyframes</span><button type="button" class="x" aria-label="Close">${ico("close")}</button></div>
+    <div class="chips">${Object.entries(KF_PARAMS).map(([k, p]) => `<button type="button" data-p="${k}">${p.label}</button>`).join("")}</div>
+    <div class="clipname"></div><div class="val">–</div>
+    <div class="sliders"></div>
+    <div class="nav"><button type="button" class="prev" aria-label="Previous keyframe">${ico("frameL")}</button><button type="button" class="key" aria-label="Add or remove keyframe">${ico("key")}</button><button type="button" class="next" aria-label="Next keyframe">${ico("frameR")}</button></div>
+    <div class="hint"></div>`;
+  const kfSliders = kf.querySelector(".sliders");
+  kf.querySelector(".x").addEventListener("click", () => toggleKf(false));
+  kf.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => { kfParam = b.dataset.p; buildSliders(); refreshKf(); }));
+  kf.querySelector(".key").addEventListener("click", async () => {
+    if (!kfState || kfState.clip == null) return;
+    buzz(10);
+    await run(null, () => exec("effects.addKeyframe", { clip: kfState.clip, effect: kfState.effect, param: kfParam }));
+    refreshKf();
+  });
+  const jump = (t) => t != null && run(null, () => exec("playhead.set", { time: t })).then(refreshKf);
+  kf.querySelector(".prev").addEventListener("click", () => jump(kfState && kfState.prev));
+  kf.querySelector(".next").addEventListener("click", () => jump(kfState && kfState.next));
+  function buildSliders() {
+    kf.querySelectorAll(".chips button").forEach((b) => b.classList.toggle("on", b.dataset.p === kfParam));
+    kfSliders.textContent = "";
+    const mk = (axis) => {
+      const row = el("div", { class: "sl" });
+      if (axis) row.appendChild(el("span", {}, axis.toUpperCase()));
+      const r = el("input", { type: "range" });
+      r.dataset.axis = axis || "";
+      r.addEventListener("input", () => sendKf());
+      row.appendChild(r);
+      kfSliders.appendChild(row);
+    };
+    if (kfParam === "position") { mk("x"); mk("y"); } else mk("");
+    kf.querySelector(".hint").textContent = kfParam === "position" ? "Or drag the video to move it" : "Tap ◆ to keyframe at the playhead";
+  }
+  function sliderValue() {
+    const rs = kfSliders.querySelectorAll("input");
+    return kfParam === "position" ? [Number(rs[0].value), Number(rs[1].value)] : Number(rs[0].value);
+  }
+  async function sendKf() {
+    if (!kfState || kfState.clip == null) return;
+    kfWant = sliderValue();
+    showKfValue(kfWant);
+    if (kfSending) return;
+    kfSending = true;
+    while (kfWant !== null) {
+      const v = kfWant; kfWant = null;
+      try { await exec("effects.setParam", { clip: kfState.clip, effect: kfState.effect, param: kfParam, value: v, merge: "kfpanel" }); } catch (e) { toast(friendly(String(e && e.message || e)), true); }
+    }
+    kfSending = false;
+    refreshKf(true);
+  }
+  function showKfValue(v) {
+    const p = KF_PARAMS[kfParam];
+    kf.querySelector(".val").textContent = Array.isArray(v) ? `${Math.round(v[0])}, ${Math.round(v[1])}` : v == null ? "–" : `${Math.round(v * 10) / 10}${p.unit || ""}`;
+  }
+  async function refreshKf(keepSliders) {
+    if (!document.body.classList.contains("fct-kf-on")) return;
+    let st;
+    try { st = await req("ui.keyframeState", { param: kfParam }); } catch { st = null; }
+    kfState = st;
+    const has = st && st.clip != null;
+    kf.querySelector(".clipname").textContent = has ? st.name : "No clip under the playhead";
+    kf.querySelector(".key").classList.toggle("on", !!(has && st.onKey));
+    kf.querySelector(".prev").disabled = !(has && st.prev != null);
+    kf.querySelector(".next").disabled = !(has && st.next != null);
+    kf.querySelector(".key").disabled = !has;
+    if (!has) { showKfValue(null); return; }
+    const rs = kfSliders.querySelectorAll("input");
+    let v = st.value;
+    if (kfParam === "position") {
+      const w = st.width || 1920, h = st.height || 1080;
+      v = [v && v[0] != null ? v[0] : w / 2, v && v[1] != null ? v[1] : h / 2];
+      if (!keepSliders && !kfSending) {
+        rs[0].min = String(-w); rs[0].max = String(w * 2); rs[0].step = "1"; rs[0].value = String(v[0]);
+        rs[1].min = String(-h); rs[1].max = String(h * 2); rs[1].step = "1"; rs[1].value = String(v[1]);
+      }
+    } else {
+      const p = KF_PARAMS[kfParam];
+      if (v == null) v = kfParam === "rotation" ? 0 : 100;
+      if (!keepSliders && !kfSending) { rs[0].min = String(p.min); rs[0].max = String(Math.max(p.max, v)); rs[0].step = String(p.step); rs[0].value = String(v); }
+    }
+    if (!kfSending) showKfValue(v);
+  }
+  function placeKf() {
+    const r = canvas.getBoundingClientRect();
+    kf.style.left = r.left + 8 + "px";
+    kf.style.top = r.top + 8 + "px";
+  }
+  async function toggleKf(force) {
+    const on = force === undefined ? !document.body.classList.contains("fct-kf-on") : force;
+    document.body.classList.toggle("fct-kf-on", on);
+    if (strip.keyframe) strip.keyframe.classList.toggle("on", on);
+    clearInterval(kfTimer);
+    if (!on) return;
+    placeKf();
+    buildSliders();
+    // select the clip being keyframed, so it can also be dragged in the video
+    const st = await req("ui.keyframeState", { param: kfParam }).catch(() => null);
+    if (st && st.clip != null) await exec("timeline.select", { clips: [st.clip] }).catch(() => {});
+    refreshKf();
+    kfTimer = setInterval(() => { if (!kfSending) refreshKf(); }, 700);
+  }
+  addEventListener("resize", () => setTimeout(placeKf, 300));
+
   // ------------------------------------------------------------------ the strip (left side): one column, scrolls, order set in More ▸ Customize
   const bar = el("div", { id: "fct-bar", class: "fct", role: "toolbar", "aria-label": "Editing" });
   const strip = {};
@@ -670,6 +782,7 @@
     "t-type": { label: "Text", icon: "text", fn: () => setTool("type", "Text: tap the video where the text goes").then(syncStrip) },
     "t-ripple": { label: "Ripple", icon: "ripple", fn: () => setTool("ripple", "Ripple trim").then(syncStrip) },
     "t-hand": { label: "Pan", icon: "hand", fn: () => setTool("hand", "Pan").then(syncStrip) },
+    keyframe: { label: "Keyframe", icon: "key", fn: () => toggleKf() },
     back: { label: "Done", icon: "frameL", cls: "back", fn: () => run(null, () => menu("edit.deselectAll")) },
     audio: { label: "Audio", icon: "music", fn: () => { mediaFilter = "audio"; openDrawer(); } },
     media: { label: "Media", icon: "media", cls: "hot", fn: () => (drawerOpen ? closeDrawer() : openDrawer()) },
@@ -696,8 +809,8 @@
     export: { label: "Export", icon: "export", fn: () => exportNow() },
     more: { label: "More", icon: "more", fn: () => moreSheet() },
   };
-  const DEFAULT_PORTRAIT = ["media", "audio", "t-type", "p-effects", "split", "delete", "speed", "volume", "transition", "p-effectcontrols", "duplicate", "p-audiotrackmixer", "p-audiometers", "t-selection", "t-razor", "more"];
-  const DEFAULT_ORDER = ["split", "delete", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
+  const DEFAULT_PORTRAIT = ["media", "keyframe", "audio", "t-type", "p-effects", "split", "delete", "speed", "volume", "transition", "p-effectcontrols", "duplicate", "p-audiotrackmixer", "p-audiometers", "t-selection", "t-razor", "more"];
+  const DEFAULT_ORDER = ["split", "delete", "keyframe", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
   const curKey = () => (landscape() ? "strip" : "stripP");
   const defaultFor = (k) => (k === "stripP" ? DEFAULT_PORTRAIT : DEFAULT_ORDER);
   let orientKey = curKey();
@@ -712,8 +825,16 @@
   if (!store.get("noPlayMigrated", false)) { order = order.filter((id) => id !== "play"); store.set("noPlayMigrated", true); store.set("strip", order); }
   if (!order.includes("more")) order.push("more"); // always a way back to settings
   order = loadOrder();
+  // the Keyframe button is new: put it on customised strips once
+  for (const k of ["strip", "stripP"]) {
+    if (store.get("kfAdded." + k, false)) continue;
+    const o = store.get(k, null);
+    if (o && !o.includes("keyframe")) { o.splice(Math.min(1, o.length), 0, "keyframe"); store.set(k, o); }
+    store.set("kfAdded." + k, true);
+  }
+  order = loadOrder();
   // KineMaster style: with a clip selected, the bar shows that clip's tools; "Done" goes back
-  const CLIP_ORDER = ["back", "split", "delete", "duplicate", "speed", "volume", "transition", "freeze", "p-effectcontrols", "copy", "paste", "deletegap", "t-razor"];
+  const CLIP_ORDER = ["back", "keyframe", "split", "delete", "duplicate", "speed", "volume", "transition", "freeze", "p-effectcontrols", "copy", "paste", "deletegap", "t-razor"];
   let clipMode = false;
   function renderStrip() {
     bar.textContent = "";
@@ -783,7 +904,7 @@
     store.set("on", on);
   }
 
-  document.body.append(top, bar, toggle, start, exitFs, dScrim, drawer, ghost, scrim, toastEl, picker);
+  document.body.append(top, bar, toggle, start, exitFs, kf, dScrim, drawer, ghost, scrim, toastEl, picker);
   const wantOn = qs.has("touch") ? qs.get("touch") !== "0" : store.get("on", coarse);
   setOn(!!wantOn);
   document.body.classList.toggle("fct-simple", layout === "simple");
