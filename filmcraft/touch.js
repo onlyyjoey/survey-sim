@@ -90,6 +90,10 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     minus: '<path d="M5 12h14"/>',
     nest: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><rect x="7.5" y="8.5" width="9" height="7" rx="1"/>',
+    home: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    up: '<path d="M6 14.5 12 8.5l6 6"/>',
+    down: '<path d="M6 9.5l6 6 6-6"/>',
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
   };
   const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ""}</svg>`;
@@ -142,15 +146,35 @@
 
   // ------------------------------------------------------------------ layout (simple phone layout or the full editor)
   let layout = store.get("layout", coarse ? "simple" : "pro");
+  let side = null;                                   // panel open on the left, if any
+  let bigVideo = store.get("bigVideo", false);
+  const landscape = () => innerWidth > innerHeight;
+  function phoneParams() {
+    return {
+      showHeader: false, showStatusBar: false,
+      phoneLayout: side ? "panel:" + side : "video",
+      videoShare: bigVideo ? 0.6 : landscape() ? 0.5 : 0.42,
+      sideShare: landscape() ? 0.36 : 0.62,
+    };
+  }
   async function applyLayout(which, quiet) {
     layout = which;
     store.set("layout", which);
     document.body.classList.toggle("fct-simple", which === "simple");
-    const p = which === "simple"
-      ? { showHeader: false, showStatusBar: false, phoneLayout: "video" }
-      : { showHeader: true, showStatusBar: true, workspace: "Editing" };
+    const p = which === "simple" ? phoneParams() : { showHeader: true, showStatusBar: true, workspace: "Editing" };
     await run(quiet ? null : which === "simple" ? "Simple layout" : "Full editor layout", () => req("ui.set", p));
   }
+  async function setSide(name, label) {
+    side = side === name ? null : name;
+    syncStrip();
+    if (layout !== "simple") { layout = "simple"; store.set("layout", "simple"); document.body.classList.add("fct-simple"); }
+    await run(side ? label : null, () => req("ui.set", phoneParams()));
+  }
+  let relayoutT = 0;
+  addEventListener("resize", () => {
+    clearTimeout(relayoutT);
+    relayoutT = setTimeout(() => { if (layout === "simple" && ready()) req("ui.set", phoneParams()).catch(() => {}); }, 250);
+  });
 
   // ------------------------------------------------------------------ media: import, list, add to the timeline
   const thumbs = new Map(); // item name → image URL, for files picked on this device
@@ -271,11 +295,13 @@
     if (drawerOpen) { refreshMedia(); return; }
     drawerOpen = true;
     document.body.classList.add("fct-drawer-on");
+    if (typeof syncStrip === "function") syncStrip();
     refreshMedia();
   }
   function closeDrawer() {
     drawerOpen = false;
     document.body.classList.remove("fct-drawer-on");
+    if (typeof syncStrip === "function") syncStrip();
   }
   // swipe the drawer back to the left to close it
   {
@@ -405,11 +431,16 @@
     if (!next) { toast(dir > 0 ? "Already the largest size" : "Already the smallest size"); return; }
     await run("Interface size " + next + "%", () => exec("prefs.set", { key: "appearance.uiScale", value: String(next) }));
   }
-  const exportNow = () => run("Export: pick a format, then Export", () => req("ui.set", { mode: "export" }));
-  const backToEdit = () => run(null, () => req("ui.set", { mode: "edit" }));
+  let mode = "edit";
+  async function setMode(m, label) {
+    const r = await run(label || null, () => req("ui.set", { mode: m }));
+    if (r !== undefined) { mode = m; syncTop(); }
+  }
+  const exportNow = () => setMode("export", "Export: pick a format, then Export");
+  const backToEdit = () => setMode("edit");
 
   function moreSheet() {
-    const t = (name, label, icon) => ({ label, icon, on: currentTool === name, run: () => setTool(name, label + " tool") });
+    const t = (name, label, icon) => ({ label, icon, on: currentTool === name, run: () => setTool(name, label + " tool").then(syncStrip) });
     sheet("Edit", (s) => {
       grid(s, null, [
         { label: "Text", icon: "text", run: () => setTool("type", "Text: tap the video where the text goes") },
@@ -446,10 +477,13 @@
       ]);
       grid(s, "Screen", [
         { label: layout === "simple" ? "Full editor" : "Simple layout", icon: "panels", run: () => applyLayout(layout === "simple" ? "pro" : "simple") },
-        { label: "Bigger timeline", icon: "panels", run: () => run(null, () => req("ui.set", { phoneLayout: "even" })) },
-        { label: "Bigger video", icon: "media", run: () => run(null, () => req("ui.set", { phoneLayout: "video" })) },
+        { label: bigVideo ? "Bigger timeline" : "Bigger video", icon: "panels", run: () => { bigVideo = !bigVideo; store.set("bigVideo", bigVideo); applyLayout("simple", true); } },
+        { label: "Color", icon: "freeze", run: () => setSide("lumetricolor", "Color") },
+        { label: "Sound", icon: "volume", run: () => setSide("essentialsound", "Sound") },
+        { label: "Titles", icon: "text", run: () => setSide("essentialgraphics", "Titles") },
         { label: "Smaller UI", icon: "minus", keep: true, run: () => uiSize(-1) },
         { label: "Larger UI", icon: "plus", keep: true, run: () => uiSize(1) },
+        { label: "Customize buttons", icon: "tools", run: () => customizeSheet() },
         { label: "Hide buttons", icon: "hide", run: () => setOn(false) },
         { label: "Gestures", icon: "help", run: () => helpSheet() },
       ]);
@@ -467,7 +501,8 @@
         ["Two fingers", "Scroll the timeline"],
         ["2-finger tap", "Undo"],
         ["3-finger tap", "Redo"],
-        ["⋯ button", "Text, speed, volume, transitions, export and everything else"],
+        ["Left buttons", "Edit, tools, and panels (Media, Effects, Adjust, Mixer, Levels) that open on the left. Tap a panel button again to close it"],
+        ["⋯ More", "Speed, volume, transitions, color, export and everything else"],
       ]) ul.appendChild(el("li", {}, `<b>${g}</b><span>${d}</span>`));
       s.appendChild(ul);
       const ok = el("button", { type: "button", class: "fct-primary" }, "Got it");
@@ -476,22 +511,163 @@
     });
   }
 
-  // ------------------------------------------------------------------ the bar (bottom in portrait, right side in landscape)
+  // ------------------------------------------------------------------ top bar: Home, the three modes, and the full menus
+  const top = el("div", { id: "fct-top", class: "fct" });
+  const tb = (id, html, label, fn) => { const b = el("button", { type: "button", "data-id": id, "aria-label": label }, html); b.addEventListener("click", fn); top.appendChild(b); return b; };
+  tb("home", ico("home"), "Home", () => setMode("import"));
+  const seg = el("div", { class: "seg" });
+  top.appendChild(seg);
+  for (const [m, label] of [["import", "Import"], ["edit", "Edit"], ["export", "Export"]]) {
+    const b = el("button", { type: "button", "data-mode": m }, label);
+    b.addEventListener("click", () => setMode(m));
+    seg.appendChild(b);
+  }
+  top.appendChild(el("div", { class: "sp" }));
+  tb("menu", ico("menu") + "<span>Menu</span>", "Menus", () => menuSheet([]));
+  function syncTop() { for (const b of seg.children) b.classList.toggle("on", b.dataset.mode === mode); }
+  syncTop();
+
+  // The editor's whole menu bar (File, Edit, Clip, Sequence…) as a drill-down sheet.
+  async function menuSheet(path) {
+    const items = await run(null, () => req("ui.menu.list"));
+    if (!items) return;
+    const under = items.filter((it) => it.path && it.path.length >= path.length && path.every((p, i) => it.path[i] === p));
+    sheet(path.length ? path[path.length - 1] : "Menu", (s) => {
+      if (path.length) {
+        const back = el("button", { type: "button", class: "fct-back" }, ico("frameL") + "<span>" + (path.length > 1 ? path[path.length - 2] : "Menu") + "</span>");
+        back.addEventListener("click", () => menuSheet(path.slice(0, -1)));
+        s.appendChild(back);
+      }
+      const list = el("div", { class: "fct-menu" });
+      const seen = new Set();
+      for (const it of under) {
+        if (it.path.length > path.length) {
+          const sub = it.path[path.length];
+          if (seen.has("/" + sub)) continue;
+          seen.add("/" + sub);
+          const b = el("button", { type: "button" }, `<span>${sub}</span>${ico("frameR")}`);
+          b.addEventListener("click", () => menuSheet(path.concat(sub)));
+          list.appendChild(b);
+        } else if (path.length && it.path.length === path.length) {
+          if (seen.has(it.id)) continue;
+          seen.add(it.id);
+          const mark = it.checked === true ? "✓ " : "";
+          const b = el("button", { type: "button", class: it.enabled ? "" : "off" }, `<span>${mark}${String(it.label).replace(/</g, "&lt;")}</span>${it.shortcut ? `<kbd>${it.shortcut}</kbd>` : ""}`);
+          if (it.enabled) b.addEventListener("click", () => { closeSheet(); run(null, () => req("ui.menu.invoke", { command: it.id })); });
+          list.appendChild(b);
+        }
+      }
+      // top level: the menus in their usual order
+      if (!path.length) {
+        const order = ["File", "Edit", "Clip", "Sequence", "Markers", "Graphics and Titles", "View", "Window", "Help"];
+        const rank = (b) => { const i = order.indexOf(b.textContent.trim()); return i < 0 ? 99 : i; };
+        const kids = Array.from(list.children).sort((a, b) => rank(a) - rank(b));
+        kids.forEach((k) => list.appendChild(k));
+      }
+      s.appendChild(list);
+    });
+  }
+
+  // ------------------------------------------------------------------ the strip (left side): one column, scrolls, order set in More ▸ Customize
   const bar = el("div", { id: "fct-bar", class: "fct", role: "toolbar", "aria-label": "Editing" });
-  const btn = (id, label, icon, fn, cls) => {
-    const b = el("button", { type: "button", class: "fct-b " + (cls || ""), "data-id": id, "aria-label": label }, `<span class="i">${ico(icon)}</span><span class="l">${label}</span>`);
-    b.addEventListener("click", () => { buzz(5); fn(); });
-    bar.appendChild(b);
-    return b;
+  const strip = {};
+  const sideBtn = (name, label, toast_) => () => setSide(name, toast_ || label);
+  const BUTTONS = {
+    play: { label: "Play", icon: "play", cls: "play", fn: togglePlay },
+    split: { label: "Split", icon: "split", fn: () => run("Split", () => menu("sequence.addEdit")) },
+    delete: { label: "Delete", icon: "trash", cls: "danger", fn: () => run("Deleted", () => menu("edit.clear")) },
+    undo: { label: "Undo", icon: "undo", fn: () => run("Undo", () => menu("edit.undo")) },
+    redo: { label: "Redo", icon: "redo", fn: () => run("Redo", () => menu("edit.redo")) },
+    "t-selection": { label: "Select", icon: "hand", fn: () => setTool("selection", "Select").then(syncStrip) },
+    "t-razor": { label: "Blade", icon: "split", fn: () => setTool("razor", "Blade: tap a clip to cut it").then(syncStrip) },
+    "t-type": { label: "Text", icon: "text", fn: () => setTool("type", "Text: tap the video where the text goes").then(syncStrip) },
+    "t-ripple": { label: "Ripple", icon: "ripple", fn: () => setTool("ripple", "Ripple trim").then(syncStrip) },
+    "t-hand": { label: "Pan", icon: "hand", fn: () => setTool("hand", "Pan").then(syncStrip) },
+    media: { label: "Media", icon: "media", cls: "hot", fn: () => (drawerOpen ? closeDrawer() : openDrawer()) },
+    "p-effects": { label: "Effects", icon: "trans", fn: sideBtn("effects", "Effects", "Effects: drag one onto a clip") },
+    "p-effectcontrols": { label: "Adjust", icon: "speed", fn: sideBtn("effectcontrols", "Adjust", "Adjust the selected clip") },
+    "p-audiotrackmixer": { label: "Mixer", icon: "volume", fn: sideBtn("audiotrackmixer", "Audio mixer") },
+    "p-audiometers": { label: "Levels", icon: "music", fn: sideBtn("audiometers", "Audio levels") },
+    "p-lumetricolor": { label: "Color", icon: "freeze", fn: sideBtn("lumetricolor", "Color") },
+    "p-essentialsound": { label: "Sound", icon: "volume", fn: sideBtn("essentialsound", "Sound") },
+    "p-essentialgraphics": { label: "Titles", icon: "text", fn: sideBtn("essentialgraphics", "Titles") },
+    speed: { label: "Speed", icon: "speed", fn: () => run(null, () => menu("clip.speedDuration")) },
+    volume: { label: "Volume", icon: "volume", fn: () => run(null, () => menu("clip.audioGain")) },
+    transition: { label: "Transition", icon: "trans", fn: () => run("Transition added", () => menu("sequence.applyVideoTransition")) },
+    freeze: { label: "Freeze", icon: "freeze", fn: () => run(null, () => menu("clip.frameHold")) },
+    duplicate: { label: "Duplicate", icon: "dup", fn: () => run("Duplicated", () => menu("edit.duplicate")) },
+    deletegap: { label: "Del. gap", icon: "ripple", fn: () => run("Deleted and closed the gap", () => menu("edit.rippleDelete")) },
+    copy: { label: "Copy", icon: "copy", fn: () => run("Copied", () => menu("edit.copy")) },
+    paste: { label: "Paste", icon: "paste", fn: () => run("Pasted at playhead", () => menu("edit.paste")) },
+    marker: { label: "Marker", icon: "marker", fn: () => run("Marker added", () => menu("markers.add")) },
+    fit: { label: "Fit", icon: "zoomfit", fn: () => run(null, () => menu("view.zoomToSequence")) },
+    frameback: { label: "−1 frame", icon: "frameL", fn: () => run(null, () => menu("playhead.stepBack")) },
+    framefwd: { label: "+1 frame", icon: "frameR", fn: () => run(null, () => menu("playhead.stepForward")) },
+    save: { label: "Save", icon: "save", fn: () => run(null, () => menu("file.save")) },
+    export: { label: "Export", icon: "export", fn: () => exportNow() },
+    more: { label: "More", icon: "more", fn: () => moreSheet() },
   };
-  btn("media", "Media", "media", () => (drawerOpen ? closeDrawer() : openDrawer()), "hot");
-  btn("split", "Split", "split", () => run("Split", () => menu("sequence.addEdit")));
-  btn("delete", "Delete", "trash", () => run("Deleted", () => menu("edit.clear")), "danger");
-  playBtns.push(btn("play", "Play", "play", togglePlay, "play"));
-  btn("undo", "Undo", "undo", () => run("Undo", () => menu("edit.undo")));
-  btn("export", "Export", "export", exportNow);
-  btn("more", "More", "more", moreSheet);
-  setPlaying(false);
+  const DEFAULT_ORDER = ["play", "split", "delete", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
+  let order = (store.get("strip", null) || DEFAULT_ORDER).filter((id) => BUTTONS[id]);
+  if (!order.includes("more")) order.push("more"); // always a way back to settings
+  function renderStrip() {
+    bar.textContent = "";
+    for (const k of Object.keys(strip)) delete strip[k];
+    playBtns.length = 0;
+    for (const id of order) {
+      const d = BUTTONS[id];
+      const b = el("button", { type: "button", class: "fct-b " + (d.cls || ""), "data-id": id, "aria-label": d.label, title: d.label }, `<span class="i">${ico(d.icon)}</span><span class="l">${d.label}</span>`);
+      b.addEventListener("click", () => { buzz(5); d.fn(); });
+      bar.appendChild(b);
+      strip[id] = b;
+      if (id === "play") playBtns.push(b);
+    }
+    setPlaying(playing);
+    syncStrip();
+  }
+  function syncStrip() {
+    for (const [id, b] of Object.entries(strip)) {
+      if (id.startsWith("t-")) b.classList.toggle("on", id === "t-" + currentTool);
+      if (id.startsWith("p-")) b.classList.toggle("on", id === "p-" + side);
+    }
+    if (strip.media) strip.media.classList.toggle("on", drawerOpen);
+  }
+  function saveOrder() { store.set("strip", order); renderStrip(); }
+
+  // More ▸ Customize buttons: show / hide each button and move it up or down
+  function customizeSheet() {
+    sheet("Customize buttons", (s) => {
+      s.appendChild(el("p", { class: "fct-note" }, "Buttons run top to bottom on the left. Scroll the strip for the rest."));
+      const list = el("div", { class: "fct-cust" });
+      const draw = () => {
+        list.textContent = "";
+        const rows = order.concat(Object.keys(BUTTONS).filter((id) => !order.includes(id)));
+        rows.forEach((id) => {
+          const d = BUTTONS[id], on = order.includes(id), i = order.indexOf(id);
+          const row = el("div", { class: "row" + (on ? "" : " off") });
+          const tog = el("button", { type: "button", class: "tog" + (on ? " on" : ""), "aria-label": on ? "Hide " + d.label : "Show " + d.label }, on ? "✓" : "");
+          tog.addEventListener("click", () => {
+            if (id === "more") { toast("More always stays, so you can get back here"); return; }
+            order = on ? order.filter((x) => x !== id) : order.concat(id);
+            saveOrder(); draw();
+          });
+          const up = el("button", { type: "button", class: "mv", "aria-label": "Move " + d.label + " up" }, ico("up"));
+          const dn = el("button", { type: "button", class: "mv", "aria-label": "Move " + d.label + " down" }, ico("down"));
+          up.disabled = !on || i === 0; dn.disabled = !on || i === order.length - 1;
+          up.addEventListener("click", () => { [order[i - 1], order[i]] = [order[i], order[i - 1]]; saveOrder(); draw(); });
+          dn.addEventListener("click", () => { [order[i + 1], order[i]] = [order[i], order[i + 1]]; saveOrder(); draw(); });
+          row.append(tog, el("span", { class: "ic" }, ico(d.icon)), el("span", { class: "nm" }, d.label), up, dn);
+          list.appendChild(row);
+        });
+      };
+      draw();
+      s.appendChild(list);
+      const reset = el("button", { type: "button", class: "fct-primary" }, "Reset to default");
+      reset.addEventListener("click", () => { order = DEFAULT_ORDER.slice(); saveOrder(); draw(); });
+      s.appendChild(reset);
+    });
+  }
+  renderStrip();
 
   const toggle = el("button", { type: "button", id: "fct-toggle", class: "fct", "aria-label": "Show buttons" }, ico("more"));
   toggle.addEventListener("click", () => setOn(true));
@@ -500,7 +676,7 @@
     store.set("on", on);
   }
 
-  document.body.append(bar, toggle, dScrim, drawer, ghost, scrim, toastEl, picker);
+  document.body.append(top, bar, toggle, dScrim, drawer, ghost, scrim, toastEl, picker);
   const wantOn = qs.has("touch") ? qs.get("touch") !== "0" : store.get("on", coarse);
   setOn(!!wantOn);
   document.body.classList.toggle("fct-simple", layout === "simple");
