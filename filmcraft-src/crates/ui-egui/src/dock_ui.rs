@@ -250,7 +250,9 @@ impl FilmcraftApp {
         let mut style = dock_style(ui, &t);
         // touch-control copy: slim panel tabs in the compact phone layout
         if self.ui.compact && self.ui.bare_monitor {
-            style.tab_height = 0.0;
+            // (a tab height of 0 hides the panels' content too, so keep a thin strip)
+            style.tab_height = 14.0;
+            style.font = Tokens::ui(8.5);
             style.gap = 1.0;
         } else if self.ui.compact {
             style.tab_height = 22.0;
