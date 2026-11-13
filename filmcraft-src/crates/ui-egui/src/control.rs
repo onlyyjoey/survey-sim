@@ -128,6 +128,17 @@ fn handle_ui_set(app: &mut FilmcraftApp, ctx: &egui::Context, p: &Value) -> Outc
             Err(e) => return err(format!("bad `tts`: {e}")),
         }
     }
+    // touch-control copy: hide the header / status bar, and the phone layout (Program over Timeline)
+    if let Some(b) = p.get("showHeader").and_then(Value::as_bool) {
+        app.ui.show_header = b;
+    }
+    if let Some(b) = p.get("showStatusBar").and_then(Value::as_bool) {
+        app.ui.show_status_bar = b;
+    }
+    if let Some(l) = s("phoneLayout") {
+        app.ui.dock = crate::dock::phone_layout(l == "video");
+        app.ui.keys.maximized = None;
+    }
     if let Some(t) = s("tool") {
         match Tool::from_name(t) {
             Some(t) => app.ui.tool = t,

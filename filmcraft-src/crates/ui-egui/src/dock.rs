@@ -422,6 +422,14 @@ const TOOLS_WIDTH: f32 = 64.0;
 const METERS_WIDTH: f32 = 116.0;
 
 /// The default layout of a named workspace.
+/// The phone layout of the touch-control copy: the Program monitor over the Timeline and
+/// nothing else. `big_video` gives the monitor the larger share.
+pub fn phone_layout(big_video: bool) -> Layout {
+    use PanelKind::{Program, Timeline};
+    let size = if big_video { SplitSize::Ratio(0.62) } else { SplitSize::Ratio(0.5) };
+    Layout { root: Some(vsplit(size, tabs(&[Program], 0), tabs(&[Timeline], 0))), floating: vec![] }
+}
+
 pub fn workspace(name: &str) -> Layout {
     Layout { root: Some(workspace_root(name)), floating: vec![] }
 }
