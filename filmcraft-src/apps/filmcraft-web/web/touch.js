@@ -218,7 +218,7 @@
       startNew = false;
       const name = files.length === 1 ? files[0].name.replace(/\.[^.]+$/, "") : "My Video";
       const r = await run("New video started", () => exec("file.newSequence", { name, fromItems: ids }));
-      if (r !== undefined) { hideStart(); if (layout === "simple") applyLayout("simple", true); }
+      if (r !== undefined) { hideStart(); if (layout === "simple") applyLayout("simple", true); setTimeout(syncAspect, 500); }
       return;
     }
     toast(ids.length === 1 ? "Imported — tap it or drag it onto the timeline" : ids.length + " files imported");
@@ -650,6 +650,7 @@
     if (!ready()) return;
     const seq = await sequence();
     if (!seq && mode === "edit") showStart(false); else if (seq && !startNew) hideStart();
+    syncAspect();
   }
 
   // ------------------------------------------------------------------ the strip (left side): one column, scrolls, order set in More ▸ Customize
