@@ -1008,9 +1008,13 @@ fn keyframe_state(app: &FilmcraftApp, param: &str) -> Value {
     let effect = if param == "opacity" { "opacity" } else { "motion" };
     let Some(seq) = app.session.active_sequence() else { return json!({"clip": null}) };
     let ph = app.session.playhead();
-    let selected = seq.video_tracks.iter().flat_map(|tr| tr.items.iter()).find(|it| app.session.state.selection.contains(&it.id));
-    let under = || seq.video_tracks.iter().rev().find_map(|tr| tr.items.iter().find(|it| it.start <= ph && ph < it.end()));
-    let Some(it) = selected.or_else(under) else { return json!({"clip": null}) };
+    // a selected clip under the playhead, else the top clip under it, else a selected clip
+    let at_ph = |it: &&filmcraft_project::TrackItem| it.start <= ph && ph < it.end();
+    let sel = |it: &&filmcraft_project::TrackItem| app.session.state.selection.contains(&it.id);
+    let all = || seq.video_tracks.iter().rev().flat_map(|tr| tr.items.iter());
+    let Some(it) = all().find(|it| at_ph(it) && sel(it)).or_else(|| all().find(at_ph)).or_else(|| all().find(sel)) else {
+        return json!({"clip": null});
+    };
     let last = Tick(it.end().0.saturating_sub(1).max(it.start.0));
     let mt = it.effect_time_at(ph.clamp(it.start, last));
     // where media time `m` sits in the sequence
