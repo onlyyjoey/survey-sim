@@ -336,7 +336,7 @@ fn compact_header(
     }
     let track = r.track.0;
     egui::Popup::menu(&resp).show(|ui| {
-        ui.set_min_width(190.0);
+        ui.set_min_width(crate::widgets::fit_w(190.0));
         let mut item = |ui: &mut egui::Ui, text: &str, cmd: &str, params: Value| {
             if ui.add(egui::Button::new(text).min_size(vec2(180.0, 30.0))).clicked() {
                 actions.push((cmd.to_string(), params));

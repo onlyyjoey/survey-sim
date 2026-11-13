@@ -657,7 +657,7 @@ fn export_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Export As Motion Graphics Template"))
         .collapsible(false)
         .resizable(false)
-        .default_width(420.0)
+        .default_width(crate::widgets::fit_w(420.0))
         .centered(ctx)
         .show(ctx, |ui| {
             egui::Grid::new("gfx-export-grid").num_columns(2).show(ui, |ui| {
@@ -739,7 +739,7 @@ fn replace_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Replace Fonts in Projects"))
         .collapsible(false)
         .resizable(false)
-        .default_width(440.0)
+        .default_width(crate::widgets::fit_w(440.0))
         .centered(ctx)
         .show(ctx, |ui| {
             ui.label(tl!("Fonts used in the project:"));

@@ -139,6 +139,15 @@ fn handle_ui_set(app: &mut FilmcraftApp, ctx: &egui::Context, p: &Value) -> Outc
         app.ui.bare_monitor = b;
     }
     if let Some(b) = p.get("compact").and_then(Value::as_bool) {
+        if b {
+            // finger-sized buttons, menu rows and checkboxes in every menu and dialog
+            ctx.global_style_mut(|s| {
+                s.spacing.button_padding = egui::vec2(s.spacing.button_padding.x.max(10.0), s.spacing.button_padding.y.max(7.0));
+                s.spacing.interact_size.y = s.spacing.interact_size.y.max(30.0);
+                s.spacing.item_spacing.y = s.spacing.item_spacing.y.max(6.0);
+                s.spacing.icon_width = s.spacing.icon_width.max(18.0);
+            });
+        }
         app.ui.compact = b;
         app.ui.timeline.header_w = if b { 46.0 } else { 204.0 };
     }
@@ -577,6 +586,9 @@ pub fn handle(app: &mut FilmcraftApp, ctx: &egui::Context, req: &ControlRequest)
             "cinema": app.ui.fullscreen_program,
             "playing": app.playback.playing,
             "mode": format!("{:?}", app.ui.mode).to_ascii_lowercase(),
+            "selected": app.session.state.selection.len(),
+            "pps": app.ui.timeline.pps,
+            "playhead": app.session.playhead().seconds(),
         })),
         "ui.playback" => {
             match s("action").unwrap_or("toggle") {

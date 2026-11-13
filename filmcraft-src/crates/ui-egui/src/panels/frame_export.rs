@@ -94,7 +94,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
         window = window.current_pos(position);
     }
     let shown = window.show(ctx, |ui| {
-        ui.set_width(440.0);
+        ui.set_width(crate::widgets::fit_w(440.0));
         let (bar, _) = ui.allocate_exact_size(egui::vec2(440.0, 30.0), egui::Sense::hover());
         ui.painter().rect_filled(bar, egui::CornerRadius { nw: 6, ne: 6, sw: 0, se: 0 }, egui::Color32::WHITE);
         ui.painter().text(

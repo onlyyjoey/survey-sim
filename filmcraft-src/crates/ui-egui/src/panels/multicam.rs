@@ -109,7 +109,7 @@ pub fn show_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique(("sync-dialog", pre)))
         .collapsible(false)
         .resizable(false)
-        .default_width(440.0)
+        .default_width(crate::widgets::fit_w(440.0))
         .pivot(Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
@@ -126,7 +126,7 @@ pub fn show_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 ui.label(RichText::new(tlf!("{n} clip(s) selected; the clip on the reference track stays put.", n)).weak().small());
             }
             ui.group(|ui| {
-                ui.set_min_width(400.0);
+                ui.set_min_width(crate::widgets::fit_w(400.0));
                 ui.label(RichText::new(tl!("Synchronize Point")).strong());
                 for (m, label) in methods() {
                     ui.horizontal(|ui| {
@@ -177,7 +177,7 @@ pub fn show_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 }
                 _ => {
                     ui.group(|ui| {
-                        ui.set_min_width(400.0);
+                        ui.set_min_width(crate::widgets::fit_w(400.0));
                         ui.label(RichText::new(tl!("Audio")).strong());
                         ui.horizontal(|ui| {
                             for (a, label) in [("camera1", tl!("Camera 1")), ("all", tl!("All Cameras")), ("switch", tl!("Switch Audio"))] {
@@ -464,7 +464,7 @@ pub fn show_edit_cameras(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Edit Cameras"))
         .collapsible(false)
         .resizable(false)
-        .default_width(420.0)
+        .default_width(crate::widgets::fit_w(420.0))
         .pivot(Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {

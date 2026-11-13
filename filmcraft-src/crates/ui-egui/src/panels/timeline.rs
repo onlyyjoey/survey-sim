@@ -597,6 +597,17 @@ fn animate_view(app: &mut FilmcraftApp, ctx: &egui::Context, content: Rect, seq_
         v.scroll = v.scroll.clamp(0.0, max_scroll(seconds, content.width(), v.pps));
         v.target_scroll = v.target_scroll.clamp(0.0, max_scroll(seconds, content.width(), v.target_pps));
     }
+    // touch-control copy (KineMaster style): the playhead stays in the middle and the clips move
+    // under it, so the view starts half a screen before 0
+    if app.ui.compact {
+        let v = &mut app.ui.timeline;
+        let ph = app.session.playhead().seconds();
+        if v.pps.is_finite() && v.pps > 0.0 && ph.is_finite() {
+            let s = ph - content.width() as f64 * 0.5 / v.pps;
+            v.scroll = s;
+            v.target_scroll = s;
+        }
+    }
 }
 
 /// The clips in the visible rows: each track's items (with their drag previews, copies,

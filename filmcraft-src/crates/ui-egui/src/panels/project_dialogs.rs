@@ -143,7 +143,7 @@ fn metadata_display(app: &mut FilmcraftApp, ui: &mut egui::Ui, columns: &mut Vec
         ui.vertical(|ui| {
             ui.label(egui::RichText::new(tl!("Project Metadata")).strong());
             egui::ScrollArea::vertical().id_salt("md-all").max_height(340.0).min_scrolled_height(340.0).show(ui, |ui| {
-                ui.set_min_width(220.0);
+                ui.set_min_width(crate::widgets::fit_w(220.0));
                 for c in all.iter().filter(|c| f.is_empty() || c.to_ascii_lowercase().contains(&f)) {
                     let mut on = columns.contains(c);
                     let name_col = c == "Name";
@@ -172,7 +172,7 @@ fn metadata_display(app: &mut FilmcraftApp, ui: &mut egui::Ui, columns: &mut Vec
         ui.vertical(|ui| {
             ui.label(egui::RichText::new(tl!("Column order")).strong());
             egui::ScrollArea::vertical().id_salt("md-order").max_height(340.0).min_scrolled_height(340.0).show(ui, |ui| {
-                ui.set_min_width(200.0);
+                ui.set_min_width(crate::widgets::fit_w(200.0));
                 let mut mv: Option<(usize, isize)> = None;
                 for (i, c) in columns.iter().enumerate() {
                     ui.horizontal(|ui| {
@@ -208,7 +208,7 @@ fn metadata_display(app: &mut FilmcraftApp, ui: &mut egui::Ui, columns: &mut Vec
 fn manage_presets(app: &mut FilmcraftApp, ui: &mut egui::Ui, selected: &mut usize, name: &mut String, run: &mut Option<(String, Value)>, close: &mut bool) {
     let presets = app.session.prefs.project_panel.presets.clone();
     egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
-        ui.set_min_width(300.0);
+        ui.set_min_width(crate::widgets::fit_w(300.0));
         for i in 0..filmcraft_engine::project_panel::PRESET_SLOTS {
             let p = presets.get(i).cloned().flatten();
             let label = match &p {

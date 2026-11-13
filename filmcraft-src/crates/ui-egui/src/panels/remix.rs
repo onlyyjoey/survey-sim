@@ -55,7 +55,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .pivot(egui::Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
-            ui.set_min_width(320.0);
+            ui.set_min_width(crate::widgets::fit_w(320.0));
             egui::Grid::new("remix-props").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {
                 ui.label(tl!("Target Duration:"));
                 let r = ui.add(crate::widgets::number_drag(&mut d.seconds).speed(0.1).range(1.0..=36_000.0).suffix(" s").max_decimals(2));

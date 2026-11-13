@@ -580,7 +580,7 @@ pub fn duration_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
     egui::Window::new(tl!("Set Transition Duration"))
         .collapsible(false)
         .resizable(false)
-        .default_width(260.0)
+        .default_width(crate::widgets::fit_w(260.0))
         .pivot(egui::Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {

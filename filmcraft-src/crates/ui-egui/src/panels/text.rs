@@ -219,7 +219,7 @@ fn captions(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             let fr = frame.show(ui, |ui| {
                 ui.horizontal_top(|ui| {
                     ui.vertical(|ui| {
-                        ui.set_width(92.0);
+                        ui.set_width(crate::widgets::fit_w(92.0));
                         let num = ui.add(egui::Button::new(egui::RichText::new(format!("{}", n + 1)).size(11.0).color(t.text_dim)).frame(false));
                         app.auto.add(&format!("text.captions.{}.goto", c.id.0), num.rect, "Go to caption");
                         if num.clicked() {
@@ -419,7 +419,7 @@ fn graphics(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             let fr = frame.show(ui, |ui| {
                 ui.horizontal_top(|ui| {
                     ui.vertical(|ui| {
-                        ui.set_width(92.0);
+                        ui.set_width(crate::widgets::fit_w(92.0));
                         let goto = ui.add(egui::Button::new(egui::RichText::new(tc(g.start)).font(Tokens::mono(11.0)).color(t.hot_text)).frame(false));
                         app.auto.add(&format!("text.graphics.{key}.goto"), goto.rect, "Go to graphic");
                         if goto.clicked() {

@@ -82,7 +82,7 @@ pub fn quick_export(app: &mut FilmcraftApp, ctx: &egui::Context, anchor: egui::P
     let q = &mut app.ui.export;
     let area = egui::Area::new(egui::Id::unique("quick-export")).order(egui::Order::Foreground).fixed_pos(anchor).show(ctx, |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {
-            ui.set_width(340.0);
+            ui.set_width(crate::widgets::fit_w(340.0));
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(tl!("Quick Export")).strong().size(14.0));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

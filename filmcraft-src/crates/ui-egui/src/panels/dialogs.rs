@@ -213,7 +213,7 @@ fn add_tracks(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .id(egui::Id::unique("Add Tracks"))
         .collapsible(false)
         .resizable(false)
-        .default_width(320.0)
+        .default_width(crate::widgets::fit_w(320.0))
         .pivot(egui::Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
@@ -347,7 +347,7 @@ fn delete_tracks(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .pivot(egui::Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
-            ui.set_min_width(300.0);
+            ui.set_min_width(crate::widgets::fit_w(300.0));
             for (kind, title, delete, on, target, list) in [
                 ("video", tl!("Video Tracks"), tl!("Delete Video Tracks"), &mut draft.video, &mut draft.video_target, &vnames),
                 ("audio", tl!("Audio Tracks"), tl!("Delete Audio Tracks"), &mut draft.audio, &mut draft.audio_target, &anames),
@@ -444,11 +444,11 @@ fn about(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
     let t = app.tokens;
     match tab {
         1 => {
-            ui.set_width(820.0);
+            ui.set_width(crate::widgets::fit_w(820.0));
             crate::credits::contributors_ui(ui, &t, &mut app.auto);
         }
         2 => {
-            ui.set_width(820.0);
+            ui.set_width(crate::widgets::fit_w(820.0));
             crate::credits::models_ui(ui);
         }
         _ => about_tab(app, ui),
@@ -464,7 +464,7 @@ fn about_tab(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
     use crate::icons::{self, Icon};
     use crate::links;
     let t = app.tokens;
-    ui.set_width(380.0);
+    ui.set_width(crate::widgets::fit_w(380.0));
     // ArtCraft wordmark (first-party trademark, docs/brand/).
     let (r, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 30.0), egui::Sense::hover());
     crate::brand::paint_wordmark(ui, egui::pos2(r.min.x, r.center().y), 20.0, app.ui.dark);

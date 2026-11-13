@@ -509,11 +509,11 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .id(egui::Id::unique("Sequence Settings"))
         .collapsible(false)
         .resizable(false)
-        .default_width(620.0)
+        .default_width(crate::widgets::fit_w(620.0))
         .pivot(egui::Align2::CENTER_CENTER)
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
-            ui.set_width(620.0);
+            ui.set_width(crate::widgets::fit_w(620.0));
             ui.horizontal(|ui| {
                 for &(id, label) in tabs {
                     let r = ui.selectable_label(d.tab == id, t(label));

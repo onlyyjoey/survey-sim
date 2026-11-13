@@ -97,7 +97,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let mut apply = false;
     let mut cancel = false;
     let modal = egui::Modal::new(egui::Id::unique("custom-clip-color")).show(ctx, |ui| {
-        ui.set_width(360.0);
+        ui.set_width(crate::widgets::fit_w(360.0));
         ui.heading(tl!("Add Custom Color"));
         color_picker::show(ui, &mut app.auto, &mut app.hooks, "labelColor", &mut draft.color);
         if !draft.error.is_empty() {

@@ -110,7 +110,7 @@ pub fn header_button(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, 
     app.auto.add(&format!("timeline.track.{label}.keyframes"), rect, "Show Keyframes");
     let opts = lane_options(tr);
     egui::Popup::menu(&resp).show(|ui| {
-        ui.set_min_width(170.0);
+        ui.set_min_width(crate::widgets::fit_w(170.0));
         let c = ui.selectable_label(showing.is_none(), tl!("Clip Keyframes"));
         app.auto.add(&format!("timeline.track.{label}.keyframes.clip"), c.rect, "Clip Keyframes");
         if c.clicked() {

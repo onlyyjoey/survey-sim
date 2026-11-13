@@ -52,6 +52,7 @@ impl FilmcraftApp {
         }
         let t = self.tokens;
         let full = ui.max_rect();
+        crate::widgets::set_screen_width(full.width());
         ui.painter().rect_filled(full, 0.0, t.app_bg);
         if self.ui.fullscreen_program {
             ui.painter().rect_filled(full, 0.0, egui::Color32::BLACK);

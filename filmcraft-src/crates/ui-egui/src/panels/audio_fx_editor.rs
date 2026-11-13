@@ -538,7 +538,7 @@ fn multiband(ui: &mut egui::Ui, ed: &mut Ed) {
     ui.horizontal_top(|ui| {
         for b in 1..=4 {
             ui.vertical(|ui| {
-                ui.set_width(150.0);
+                ui.set_width(crate::widgets::fit_w(150.0));
                 ui.label(egui::RichText::new(tlf!("Band {n}", n = b)).strong());
                 transfer_plot(ui, ed, 110.0, b - 1, format!("fxEditor.{}.curve.{b}", ed.fx));
                 ui.horizontal(|ui| {
@@ -569,7 +569,7 @@ fn multiband(ui: &mut egui::Ui, ed: &mut Ed) {
 
 /// Any other effect: a row per parameter (slider, switch or choice).
 fn generic(ui: &mut egui::Ui, ed: &mut Ed) {
-    ui.set_min_width(360.0);
+    ui.set_min_width(crate::widgets::fit_w(360.0));
     let fx = ed.fx.to_string();
     for pd in generic_params(&fx) {
         let label = crate::i18n::t(pd.label);
@@ -606,7 +606,7 @@ fn dynamics(ui: &mut egui::Ui, ed: &mut Ed) {
     ui.horizontal_top(|ui| {
         transfer_plot(ui, ed, 220.0, 0, format!("fxEditor.{}.curve", ed.fx));
         ui.vertical(|ui| {
-            ui.set_width(330.0);
+            ui.set_width(crate::widgets::fit_w(330.0));
             ed.toggle(ui, "gate_on", tl!("Auto Gate"));
             ed.slider(ui, "gate_threshold", tl!("Threshold"), false);
             ed.slider(ui, "gate_attack", tl!("Attack"), true);
@@ -624,7 +624,7 @@ fn dynamics(ui: &mut egui::Ui, ed: &mut Ed) {
             ed.slider(ui, "comp_makeup", tl!("Makeup"), false);
         });
         ui.vertical(|ui| {
-            ui.set_width(330.0);
+            ui.set_width(crate::widgets::fit_w(330.0));
             ed.toggle(ui, "exp_on", tl!("Expander"));
             ed.slider(ui, "exp_threshold", tl!("Threshold"), false);
             ed.slider(ui, "exp_ratio", tl!("Ratio"), false);

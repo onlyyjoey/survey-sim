@@ -124,7 +124,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let resp = ui.interact(r, egui::Id::unique(("timecode-row", i)), Sense::click());
         elems.push((format!("timecode.row.{i}"), vr, value.clone()));
         egui::Popup::context_menu(&resp).show(|ui| {
-            ui.set_min_width(200.0);
+            ui.set_min_width(crate::widgets::fit_w(200.0));
             let mut nr = *row;
             let mut picks: Vec<(String, Rect, String, bool)> = Vec::new();
             let mut pick = |ui: &mut egui::Ui, id: String, label: &str, on: bool| {

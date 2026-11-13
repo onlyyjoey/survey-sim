@@ -72,7 +72,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let title = if d.omf { "OMF Export Settings" } else { "AAF Export Settings" };
     let shown = if d.omf { tl!("OMF Export Settings") } else { tl!("AAF Export Settings") };
     egui::Window::new(shown).id(egui::Id::unique(title)).collapsible(false).resizable(false).centered(ctx).show(ctx, |ui| {
-        ui.set_min_width(380.0);
+        ui.set_min_width(crate::widgets::fit_w(380.0));
         egui::Grid::new("interchange-export-grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
             if d.omf {
                 ui.label(tl!("OMF Title:"));

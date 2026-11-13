@@ -44,7 +44,7 @@ pub fn show_recovery(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
     let mut choice = app.file_dialogs.recovery_choice.min(items.len() - 1);
     let mut open = true;
     egui::Modal::new(egui::Id::unique("recovery-modal")).frame(modal_frame(&t)).show(ctx, |ui| {
-        ui.set_width(520.0);
+        ui.set_width(crate::widgets::fit_w(520.0));
         Frame::new().inner_margin(Margin { left: 28, right: 28, top: 24, bottom: 20 }).show(ui, |ui| {
             ui.label(RichText::new(tl!("Recover Unsaved Changes")).size(18.0).strong().color(t.text));
             ui.add_space(6.0);
@@ -110,7 +110,7 @@ pub fn show_revert(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
     let file = app.session.path.as_deref().and_then(|p| std::path::Path::new(p).file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let mut open = true;
     let r = egui::Modal::new(egui::Id::unique("revert-modal")).frame(modal_frame(&t)).show(ctx, |ui| {
-        ui.set_width(460.0);
+        ui.set_width(crate::widgets::fit_w(460.0));
         Frame::new().inner_margin(Margin { left: 28, right: 28, top: 24, bottom: 20 }).show(ui, |ui| {
             ui.label(RichText::new(tl!("Revert")).size(18.0).strong().color(t.text));
             ui.add_space(6.0);
@@ -145,7 +145,7 @@ pub fn show_overwrite(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let folder = path.parent().and_then(|d| d.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let mut answer = None;
     let r = egui::Modal::new(egui::Id::unique("overwrite-modal")).frame(modal_frame(&t)).show(ctx, |ui| {
-        ui.set_width(460.0);
+        ui.set_width(crate::widgets::fit_w(460.0));
         Frame::new().inner_margin(Margin { left: 28, right: 28, top: 24, bottom: 20 }).show(ui, |ui| {
             ui.label(RichText::new(tl!("Replace File")).size(18.0).strong().color(t.text));
             ui.add_space(6.0);

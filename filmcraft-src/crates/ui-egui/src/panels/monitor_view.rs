@@ -841,7 +841,7 @@ pub fn zoom_menu(app: &mut FilmcraftApp, resp: &egui::Response, w: Which) {
     let zoom = view(app, w).zoom;
     let mut out: Picks = Vec::new();
     egui::Popup::menu(resp).show(|ui| {
-        ui.set_min_width(80.0);
+        ui.set_min_width(crate::widgets::fit_w(80.0));
         pick(ui, &mut out, "fit", tl!("Fit"), zoom.is_none());
         ui.separator();
         for (k, z) in ZOOMS {

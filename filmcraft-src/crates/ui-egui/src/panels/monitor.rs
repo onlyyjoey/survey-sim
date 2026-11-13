@@ -545,7 +545,7 @@ fn controls_row(
     // stays open while options are toggled; a choice (a display mode, a resolution, an action) or a
     // click outside closes it
     egui::Popup::menu(&wresp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| {
-        ui.set_min_width(240.0);
+        ui.set_min_width(crate::widgets::fit_w(240.0));
         monitor_view::wrench_items(app, ui, which);
         let mv = monitor_view::view_mut(app, which);
         ui.checkbox(&mut mv.safe_margins, tl!("Safe Margins"));
@@ -1537,7 +1537,7 @@ fn side_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, col: Rect, tc: &str,
         p.circle_filled(pos2(mr.center().x + dx, mr.center().y), 1.8, t.text);
     }
     egui::Popup::menu(&mresp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| {
-        ui.set_min_width(200.0);
+        ui.set_min_width(crate::widgets::fit_w(200.0));
         ui.label(egui::RichText::new("Buttons beside the video").small());
         for (cmd, _, label) in SIDE_EXTRAS {
             let mut on = app.ui.side_buttons.iter().any(|b| b == cmd);
@@ -1646,7 +1646,7 @@ fn playback_settings_button(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect) 
     let res = monitor_view::view(app, Which::Program).res;
     p.text(r.center(), Align2::CENTER_CENTER, crate::i18n::t(res.label()), Tokens::ui(11.0), t.text);
     egui::Popup::menu(&resp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| {
-        ui.set_min_width(210.0);
+        ui.set_min_width(crate::widgets::fit_w(210.0));
         ui.label(egui::RichText::new("Playback quality").strong());
         ui.label(egui::RichText::new("Lower plays smoother; export is always full quality.").small());
         for (choice, name) in [

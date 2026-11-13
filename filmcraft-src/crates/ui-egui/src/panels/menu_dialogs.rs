@@ -511,7 +511,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let info_only = matches!(d.command.as_str(), "file.mediaProperties" | "clip.sourceSettings" | "help.systemCompatibilityReport");
     // the title is translated; the window keeps one id whatever the interface language
     let id = egui::Id::unique(("menu-dialog", pre));
-    egui::Window::new(title).id(id).collapsible(false).resizable(false).default_width(420.0).centered(ctx).show(ctx, |ui| {
+    egui::Window::new(title).id(id).collapsible(false).resizable(false).default_width(crate::widgets::fit_w(420.0)).centered(ctx).show(ctx, |ui| {
         let p = &mut d.params;
         match d.command.as_str() {
             "edit.find" => {

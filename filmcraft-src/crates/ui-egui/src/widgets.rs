@@ -511,6 +511,22 @@ pub fn dropdown_text(ui: &mut Ui, rect: Rect, text: &str, t: &Tokens, id: egui::
 /// Where dialogs open: the centre of the app window. Dialogs use it as `default_pos` with a
 /// centre pivot instead of `Window::anchor`, which would pin them: egui makes anchored windows
 /// immovable, so they could not be dragged by the title bar.
+/// Touch-control copy: the window's width, kept each frame, so fixed-width dialogs fit a phone.
+static SCREEN_W: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Remember the window's width (points) for [`fit_w`].
+pub fn set_screen_width(w: f32) {
+    if w.is_finite() && w > 0.0 {
+        SCREEN_W.store(w.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// `w`, or less on a narrow screen: what a dialog or popup of width `w` can use and still fit.
+pub fn fit_w(w: f32) -> f32 {
+    let screen = f32::from_bits(SCREEN_W.load(std::sync::atomic::Ordering::Relaxed));
+    if screen > 0.0 && screen.is_finite() { w.min((screen - 20.0).max(160.0)) } else { w }
+}
+
 pub fn dialog_center(ctx: &egui::Context) -> egui::Pos2 {
     ctx.content_rect().center()
 }

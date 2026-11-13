@@ -50,7 +50,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let mut elems: Vec<(String, egui::Rect, String)> = Vec::new();
     let shown = tl!("Caption Export Settings");
     egui::Window::new(shown).id(egui::Id::unique("Caption Export Settings")).collapsible(false).resizable(false).centered(ctx).show(ctx, |ui| {
-        ui.set_min_width(340.0);
+        ui.set_min_width(crate::widgets::fit_w(340.0));
         egui::Grid::new("caption-export-grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
             ui.label(tl!("File Format"));
             let r = craft_ui::ComboBox::from_id_salt("caption-export-format").selected_text(d.format.name()).width(240.0).show_ui(ui, |ui| {

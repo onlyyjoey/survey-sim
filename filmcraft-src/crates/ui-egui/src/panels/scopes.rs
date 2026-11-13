@@ -159,7 +159,7 @@ fn pick(ui: &mut egui::Ui, out: &mut Picks, id: &str, label: &str, on: bool) {
 
 /// The scopes' settings menu (wrench and right-click).
 pub fn settings_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
-    ui.set_min_width(220.0);
+    ui.set_min_width(crate::widgets::fit_w(220.0));
     let st = app.ui.panels.scopes.clone();
     let mut out: Picks = Vec::new();
     let pr = ui.menu_button(tl!("Presets"), |ui| {

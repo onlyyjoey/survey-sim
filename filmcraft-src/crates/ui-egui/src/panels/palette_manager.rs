@@ -32,7 +32,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     }
     let mut close = false;
     let modal = egui::Modal::new(egui::Id::unique("palette-manager")).show(ctx, |ui| {
-        ui.set_width(360.0);
+        ui.set_width(crate::widgets::fit_w(360.0));
         ui.heading(if draft.editing { if draft.old.is_some() { tl!("Edit Custom Color") } else { tl!("Add Custom Color") } } else { tl!("Project Colors") });
         if draft.editing {
             ui.label(tl!("Name"));

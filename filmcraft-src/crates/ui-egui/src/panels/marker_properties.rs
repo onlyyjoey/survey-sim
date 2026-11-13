@@ -153,7 +153,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                     field_area(app, ui, &mut draft, width - 112.0, max_height, rate);
                 });
                 ui.vertical(|ui| {
-                    ui.set_width(96.0);
+                    ui.set_width(crate::widgets::fit_w(96.0));
                     action = actions(app, ui, previous, next, true, valid_times(&draft, rate, drop));
                 });
             });
@@ -546,7 +546,7 @@ fn color_dialog(app: &mut FilmcraftApp, ctx: &egui::Context, draft: &mut Draft) 
     let mut add = false;
     let mut cancel = false;
     let modal = egui::Modal::new(egui::Id::unique("marker-custom-color")).show(ctx, |ui| {
-        ui.set_width(360.0);
+        ui.set_width(crate::widgets::fit_w(360.0));
         ui.heading(tl!("Add Custom Color"));
         color_picker::show(ui, &mut app.auto, &mut app.hooks, "markerColor", editor);
         if !draft.error.is_empty() {

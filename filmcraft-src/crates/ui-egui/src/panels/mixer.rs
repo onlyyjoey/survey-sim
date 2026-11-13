@@ -445,7 +445,7 @@ fn mixer_slots(app: &mut FilmcraftApp, ui: &mut egui::Ui, cx: &mut Ctx, id: Trac
             app.auto.add(&format!("{ap}.fx.{k}"), r, &if text.is_empty() { format!("Effect slot {}", k + 1) } else { text.clone() });
             let can_add = fx.is_none() && k == tr.effects.len();
             egui::Popup::menu(&resp).show(|ui| {
-                ui.set_min_width(180.0);
+                ui.set_min_width(crate::widgets::fit_w(180.0));
                 match fx {
                     Some(e) => {
                         if crate::panels::audio_fx_editor::can_edit_insert(&e.effect) {
@@ -537,7 +537,7 @@ fn mixer_slots(app: &mut FilmcraftApp, ui: &mut egui::Ui, cx: &mut Ctx, id: Trac
             let can_add = snd.is_none() && k == tr.mixer.sends.len();
             let tg = targets(seq, id);
             egui::Popup::menu(&resp).show(|ui| {
-                ui.set_min_width(180.0);
+                ui.set_min_width(crate::widgets::fit_w(180.0));
                 match snd {
                     Some(s) => {
                         let mut lvl = s.level_db;
