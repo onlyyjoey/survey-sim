@@ -114,14 +114,13 @@ body.fct-on #fct-dock { display: block; }
 
 /* ---------- floating show/hide pill ---------- */
 #fct-toggle {
-  position: fixed; z-index: 30; right: calc(10px + var(--fct-sar)); top: calc(8px + var(--fct-sat));
-  height: 30px; padding: 0 11px; border-radius: 15px; display: flex; align-items: center; gap: 6px;
-  background: rgba(20,21,24,.82); border: 1px solid var(--fct-line); color: var(--fct-text);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 11px;
+  position: fixed; z-index: 30; right: calc(12px + var(--fct-sar)); bottom: calc(12px + var(--fct-sab));
+  height: 36px; padding: 0 13px; border-radius: 18px; display: flex; align-items: center; gap: 6px;
+  background: rgba(20,21,24,.86); border: 1px solid var(--fct-line); color: var(--fct-text);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 12px;
 }
 #fct-toggle svg { width: 16px; height: 16px; }
-body.fct-on #fct-toggle { opacity: .55; }
-@media (orientation: landscape) and (max-height: 600px) { body.fct-on #fct-toggle { right: calc(var(--fct-rail) + var(--fct-sar) + 8px); } }
+body.fct-on #fct-toggle { display: none; }
 
 /* ---------- sheets ---------- */
 #fct-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .18s; }

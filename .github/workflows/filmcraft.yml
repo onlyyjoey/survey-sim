@@ -48,8 +48,17 @@ jobs:
             cargo install wasm-bindgen-cli --version "$V" --locked
           fi
 
+      - name: wasm-opt (makes the download much smaller)
+        continue-on-error: true
+        run: |
+          curl -sSL -o /tmp/binaryen.tgz https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz
+          tar -xzf /tmp/binaryen.tgz -C /tmp
+          echo "/tmp/binaryen-version_123/bin" >> "$GITHUB_PATH"
+
       - name: Build the web app
-        run: cargo xtask web
+        run: |
+          wasm-opt --version || echo "wasm-opt not available; building without it"
+          cargo xtask web
 
       - name: Publish into /filmcraft/
         working-directory: .
