@@ -235,8 +235,9 @@ body.fct-cinema #fct-exit { display: grid; }
 #fct-top .exp { display: none; }
 #fct-top .sp2 { display: none; }
 @media (orientation: portrait) {
-  :root { --fct-strip: 0px; --fct-sl: 0px; --fct-top: 46px; --fct-bot: 66px; }
-  body.fct-on #filmcraft_canvas { left: 0; width: 100%; height: calc(100% - var(--fct-sat) - var(--fct-top) - var(--fct-bot) - var(--fct-sab)); }
+  /* the bar sits low, into the home-indicator area, leaving just enough room for the indicator */
+  :root { --fct-strip: 0px; --fct-sl: 0px; --fct-top: 46px; --fct-bot: 58px; --fct-sbb: max(0px, calc(var(--fct-sab) - 22px)); }
+  body.fct-on #filmcraft_canvas { left: 0; width: 100%; height: calc(100% - var(--fct-sat) - var(--fct-top) - var(--fct-bot) - var(--fct-sbb)); }
   body.fct-on.fct-simple #fct-top { left: 0; padding: var(--fct-sat) 10px 0 6px; gap: 4px; }
   #fct-top .seg { display: none; }
   #fct-top [data-id="home"] { order: -1; width: 38px; }
@@ -248,15 +249,15 @@ body.fct-cinema #fct-exit { display: grid; }
   #fct-top .exp { display: flex; order: 4; width: 38px !important; height: 38px !important; min-width: 38px; border-radius: 50% !important; background: var(--fct-text); color: var(--fct-bg) !important; }
   #fct-top .exp svg { width: 19px; height: 19px; stroke-width: 2.1; }
   body.fct-on #fct-bar {
-    top: auto; bottom: 0; left: 0; right: 0; width: auto; height: calc(var(--fct-bot) + var(--fct-sab));
-    padding: 0 6px var(--fct-sab); flex-direction: row; align-items: center; gap: 0;
+    top: auto; bottom: 0; left: 0; right: 0; width: auto; height: calc(var(--fct-bot) + var(--fct-sbb));
+    padding: 0 6px var(--fct-sbb); flex-direction: row; align-items: center; gap: 0;
     overflow-x: auto; overflow-y: hidden; border-right: 0; border-top: 1px solid var(--fct-line);
     scroll-snap-type: x proximity;
   }
-  .fct-b { flex: 0 0 auto; width: 64px; height: 58px; gap: 4px; scroll-snap-align: start; }
+  .fct-b { flex: 0 0 auto; width: 62px; height: 54px; gap: 3px; scroll-snap-align: start; }
   .fct-b svg { width: 24px; height: 24px; }
   .fct-b .l { font-size: 10.5px; color: var(--fct-text); }
   .fct-b.on .l { color: var(--fct-accent); }
-  #fct-drawer { left: 0; bottom: calc(var(--fct-bot) + var(--fct-sab)); top: calc(var(--fct-sat) + var(--fct-top)); width: min(360px, 88vw); padding-bottom: 8px; }
-  #fct-toast { bottom: calc(var(--fct-bot) + var(--fct-sab) + 12px); }
+  #fct-drawer { left: 0; bottom: calc(var(--fct-bot) + var(--fct-sbb)); top: calc(var(--fct-sat) + var(--fct-top)); width: min(360px, 88vw); padding-bottom: 8px; }
+  #fct-toast { bottom: calc(var(--fct-bot) + var(--fct-sbb) + 12px); }
 }
