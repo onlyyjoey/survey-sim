@@ -92,6 +92,8 @@
     nest: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><rect x="7.5" y="8.5" width="9" height="7" rx="1"/>',
     home: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    up: '<path d="M6 14.5 12 8.5l6 6"/>',
+    down: '<path d="M6 9.5l6 6 6-6"/>',
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
   };
   const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ""}</svg>`;
@@ -481,6 +483,7 @@
         { label: "Titles", icon: "text", run: () => setSide("essentialgraphics", "Titles") },
         { label: "Smaller UI", icon: "minus", keep: true, run: () => uiSize(-1) },
         { label: "Larger UI", icon: "plus", keep: true, run: () => uiSize(1) },
+        { label: "Customize buttons", icon: "tools", run: () => customizeSheet() },
         { label: "Hide buttons", icon: "hide", run: () => setOn(false) },
         { label: "Gestures", icon: "help", run: () => helpSheet() },
       ]);
@@ -565,43 +568,106 @@
     });
   }
 
-  // ------------------------------------------------------------------ the strip (left side, portrait and landscape)
+  // ------------------------------------------------------------------ the strip (left side): one column, scrolls, order set in More ▸ Customize
   const bar = el("div", { id: "fct-bar", class: "fct", role: "toolbar", "aria-label": "Editing" });
   const strip = {};
-  const btn = (id, label, icon, fn, cls) => {
-    const b = el("button", { type: "button", class: "fct-b " + (cls || ""), "data-id": id, "aria-label": label, title: label }, `<span class="i">${ico(icon)}</span><span class="l">${label}</span>`);
-    b.addEventListener("click", () => { buzz(5); fn(); });
-    bar.appendChild(b);
-    strip[id] = b;
-    return b;
+  const sideBtn = (name, label, toast_) => () => setSide(name, toast_ || label);
+  const BUTTONS = {
+    play: { label: "Play", icon: "play", cls: "play", fn: togglePlay },
+    split: { label: "Split", icon: "split", fn: () => run("Split", () => menu("sequence.addEdit")) },
+    delete: { label: "Delete", icon: "trash", cls: "danger", fn: () => run("Deleted", () => menu("edit.clear")) },
+    undo: { label: "Undo", icon: "undo", fn: () => run("Undo", () => menu("edit.undo")) },
+    redo: { label: "Redo", icon: "redo", fn: () => run("Redo", () => menu("edit.redo")) },
+    "t-selection": { label: "Select", icon: "hand", fn: () => setTool("selection", "Select").then(syncStrip) },
+    "t-razor": { label: "Blade", icon: "split", fn: () => setTool("razor", "Blade: tap a clip to cut it").then(syncStrip) },
+    "t-type": { label: "Text", icon: "text", fn: () => setTool("type", "Text: tap the video where the text goes").then(syncStrip) },
+    "t-ripple": { label: "Ripple", icon: "ripple", fn: () => setTool("ripple", "Ripple trim").then(syncStrip) },
+    "t-hand": { label: "Pan", icon: "hand", fn: () => setTool("hand", "Pan").then(syncStrip) },
+    media: { label: "Media", icon: "media", cls: "hot", fn: () => (drawerOpen ? closeDrawer() : openDrawer()) },
+    "p-effects": { label: "Effects", icon: "trans", fn: sideBtn("effects", "Effects", "Effects: drag one onto a clip") },
+    "p-effectcontrols": { label: "Adjust", icon: "speed", fn: sideBtn("effectcontrols", "Adjust", "Adjust the selected clip") },
+    "p-audiotrackmixer": { label: "Mixer", icon: "volume", fn: sideBtn("audiotrackmixer", "Audio mixer") },
+    "p-audiometers": { label: "Levels", icon: "music", fn: sideBtn("audiometers", "Audio levels") },
+    "p-lumetricolor": { label: "Color", icon: "freeze", fn: sideBtn("lumetricolor", "Color") },
+    "p-essentialsound": { label: "Sound", icon: "volume", fn: sideBtn("essentialsound", "Sound") },
+    "p-essentialgraphics": { label: "Titles", icon: "text", fn: sideBtn("essentialgraphics", "Titles") },
+    speed: { label: "Speed", icon: "speed", fn: () => run(null, () => menu("clip.speedDuration")) },
+    volume: { label: "Volume", icon: "volume", fn: () => run(null, () => menu("clip.audioGain")) },
+    transition: { label: "Transition", icon: "trans", fn: () => run("Transition added", () => menu("sequence.applyVideoTransition")) },
+    freeze: { label: "Freeze", icon: "freeze", fn: () => run(null, () => menu("clip.frameHold")) },
+    duplicate: { label: "Duplicate", icon: "dup", fn: () => run("Duplicated", () => menu("edit.duplicate")) },
+    deletegap: { label: "Del. gap", icon: "ripple", fn: () => run("Deleted and closed the gap", () => menu("edit.rippleDelete")) },
+    copy: { label: "Copy", icon: "copy", fn: () => run("Copied", () => menu("edit.copy")) },
+    paste: { label: "Paste", icon: "paste", fn: () => run("Pasted at playhead", () => menu("edit.paste")) },
+    marker: { label: "Marker", icon: "marker", fn: () => run("Marker added", () => menu("markers.add")) },
+    fit: { label: "Fit", icon: "zoomfit", fn: () => run(null, () => menu("view.zoomToSequence")) },
+    frameback: { label: "−1 frame", icon: "frameL", fn: () => run(null, () => menu("playhead.stepBack")) },
+    framefwd: { label: "+1 frame", icon: "frameR", fn: () => run(null, () => menu("playhead.stepForward")) },
+    save: { label: "Save", icon: "save", fn: () => run(null, () => menu("file.save")) },
+    export: { label: "Export", icon: "export", fn: () => exportNow() },
+    more: { label: "More", icon: "more", fn: () => moreSheet() },
   };
-  const sep = () => bar.appendChild(el("div", { class: "sep" }));
-  playBtns.push(btn("play", "Play", "play", togglePlay, "play"));
-  btn("split", "Split", "split", () => run("Split", () => menu("sequence.addEdit")));
-  btn("delete", "Delete", "trash", () => run("Deleted", () => menu("edit.clear")), "danger");
-  btn("undo", "Undo", "undo", () => run("Undo", () => menu("edit.undo")));
-  sep();
-  btn("t-selection", "Select", "hand", () => setTool("selection", "Select").then(syncStrip));
-  btn("t-razor", "Blade", "split", () => setTool("razor", "Blade: tap a clip to cut it").then(syncStrip));
-  btn("t-type", "Text", "text", () => setTool("type", "Text: tap the video where the text goes").then(syncStrip));
-  sep();
-  btn("media", "Media", "media", () => (drawerOpen ? closeDrawer() : openDrawer()), "hot");
-  btn("p-effects", "Effects", "trans", () => setSide("effects", "Effects: drag one onto a clip"));
-  btn("p-effectcontrols", "Adjust", "speed", () => setSide("effectcontrols", "Adjust the selected clip"));
-  btn("p-audiotrackmixer", "Mixer", "volume", () => setSide("audiotrackmixer", "Audio mixer"));
-  btn("p-audiometers", "Levels", "music", () => setSide("audiometers", "Audio levels"));
-  sep();
-  btn("redo", "Redo", "redo", () => run("Redo", () => menu("edit.redo")));
-  btn("more", "More", "more", moreSheet);
+  const DEFAULT_ORDER = ["play", "split", "delete", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
+  let order = (store.get("strip", null) || DEFAULT_ORDER).filter((id) => BUTTONS[id]);
+  if (!order.includes("more")) order.push("more"); // always a way back to settings
+  function renderStrip() {
+    bar.textContent = "";
+    for (const k of Object.keys(strip)) delete strip[k];
+    playBtns.length = 0;
+    for (const id of order) {
+      const d = BUTTONS[id];
+      const b = el("button", { type: "button", class: "fct-b " + (d.cls || ""), "data-id": id, "aria-label": d.label, title: d.label }, `<span class="i">${ico(d.icon)}</span><span class="l">${d.label}</span>`);
+      b.addEventListener("click", () => { buzz(5); d.fn(); });
+      bar.appendChild(b);
+      strip[id] = b;
+      if (id === "play") playBtns.push(b);
+    }
+    setPlaying(playing);
+    syncStrip();
+  }
   function syncStrip() {
     for (const [id, b] of Object.entries(strip)) {
       if (id.startsWith("t-")) b.classList.toggle("on", id === "t-" + currentTool);
       if (id.startsWith("p-")) b.classList.toggle("on", id === "p-" + side);
     }
-    strip.media.classList.toggle("on", drawerOpen);
+    if (strip.media) strip.media.classList.toggle("on", drawerOpen);
   }
-  setPlaying(false);
-  syncStrip();
+  function saveOrder() { store.set("strip", order); renderStrip(); }
+
+  // More ▸ Customize buttons: show / hide each button and move it up or down
+  function customizeSheet() {
+    sheet("Customize buttons", (s) => {
+      s.appendChild(el("p", { class: "fct-note" }, "Buttons run top to bottom on the left. Scroll the strip for the rest."));
+      const list = el("div", { class: "fct-cust" });
+      const draw = () => {
+        list.textContent = "";
+        const rows = order.concat(Object.keys(BUTTONS).filter((id) => !order.includes(id)));
+        rows.forEach((id) => {
+          const d = BUTTONS[id], on = order.includes(id), i = order.indexOf(id);
+          const row = el("div", { class: "row" + (on ? "" : " off") });
+          const tog = el("button", { type: "button", class: "tog" + (on ? " on" : ""), "aria-label": on ? "Hide " + d.label : "Show " + d.label }, on ? "✓" : "");
+          tog.addEventListener("click", () => {
+            if (id === "more") { toast("More always stays, so you can get back here"); return; }
+            order = on ? order.filter((x) => x !== id) : order.concat(id);
+            saveOrder(); draw();
+          });
+          const up = el("button", { type: "button", class: "mv", "aria-label": "Move " + d.label + " up" }, ico("up"));
+          const dn = el("button", { type: "button", class: "mv", "aria-label": "Move " + d.label + " down" }, ico("down"));
+          up.disabled = !on || i === 0; dn.disabled = !on || i === order.length - 1;
+          up.addEventListener("click", () => { [order[i - 1], order[i]] = [order[i], order[i - 1]]; saveOrder(); draw(); });
+          dn.addEventListener("click", () => { [order[i + 1], order[i]] = [order[i], order[i + 1]]; saveOrder(); draw(); });
+          row.append(tog, el("span", { class: "ic" }, ico(d.icon)), el("span", { class: "nm" }, d.label), up, dn);
+          list.appendChild(row);
+        });
+      };
+      draw();
+      s.appendChild(list);
+      const reset = el("button", { type: "button", class: "fct-primary" }, "Reset to default");
+      reset.addEventListener("click", () => { order = DEFAULT_ORDER.slice(); saveOrder(); draw(); });
+      s.appendChild(reset);
+    });
+  }
+  renderStrip();
 
   const toggle = el("button", { type: "button", id: "fct-toggle", class: "fct", "aria-label": "Show buttons" }, ico("more"));
   toggle.addEventListener("click", () => setOn(true));

@@ -18,7 +18,7 @@
   --fct-bottom: 0px;
 }
 @media (orientation: landscape) and (max-height: 600px) {
-  :root { --fct-strip: 98px; }
+  :root { --fct-strip: 54px; }
 }
 
 html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
@@ -88,17 +88,25 @@ body.fct-on #fct-bar { display: flex; }
 .fct-b.play .i { width: 38px; height: 38px; border-radius: 50%; background: var(--fct-text); color: var(--fct-bg); }
 .fct-b.play svg { width: 18px; height: 18px; fill: currentColor; stroke: none; }
 .fct-b.play .l { display: none; }
-#fct-bar .sep { flex: 0 0 1px; width: 30px; margin: 3px 0; background: var(--fct-line); }
 @media (orientation: landscape) and (max-height: 600px) {
-  #fct-bar { display: none; grid-template-columns: 44px 44px; grid-auto-rows: 36px; gap: 2px 3px; align-content: safe center; justify-content: center; }
-  body.fct-on #fct-bar { display: grid; }
-  .fct-b { width: 44px; height: 36px; gap: 0; }
-  .fct-b .l { display: none; }
+  .fct-b { height: 42px; }
+  .fct-b .l { font-size: 8.5px; }
   .fct-b svg { width: 20px; height: 20px; }
-  .fct-b.play { grid-column: span 2; width: 91px; height: 36px; }
-  .fct-b.play .i { width: 32px; height: 32px; }
-  #fct-bar .sep { display: none; }
+  .fct-b.play { height: 44px; }
+  .fct-b.play .i { width: 34px; height: 34px; }
 }
+.fct-note { margin: -4px 2px 10px; color: var(--fct-dim); font-size: 12px; }
+.fct-cust { display: flex; flex-direction: column; gap: 4px; }
+.fct-cust .row { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 6px 0 8px; border-radius: 10px; background: var(--fct-raise); }
+.fct-cust .row.off { background: transparent; }
+.fct-cust .row.off .nm, .fct-cust .row.off .ic { color: #6b6c74; }
+.fct-cust .tog { width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--fct-line) !important; display: grid; place-items: center; font-size: 13px; color: var(--fct-accent-ink); }
+.fct-cust .tog.on { background: var(--fct-accent); border-color: var(--fct-accent) !important; }
+.fct-cust .ic svg { width: 20px; height: 20px; }
+.fct-cust .nm { flex: 1; font-size: 14px; }
+.fct-cust .mv { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; }
+.fct-cust .mv:disabled { opacity: .2; }
+.fct-cust .mv:active { background: var(--fct-panel); }
 
 /* buttons hidden: one small round button to bring them back */
 #fct-toggle {
