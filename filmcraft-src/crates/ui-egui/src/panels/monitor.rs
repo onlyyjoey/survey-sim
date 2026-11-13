@@ -1489,12 +1489,14 @@ fn side_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, col: Rect, tc: &str,
             items.push((*cmd, *icon));
         }
     }
-    let top = col.min.y + 34.0;
-    let bh = 40.0;
+    let top = col.min.y + 32.0;
     let bw = (col.width() - 8.0).clamp(26.0, 54.0);
-    // room for the buttons and, last, "⋯"
-    let fit = (((col.max.y - top - 2.0) / bh).floor() as usize).max(1);
-    items.truncate(fit.saturating_sub(1).max(1));
+    // buttons shrink to fit a short panel (down to 26 pt); Play, Full Screen and "⋯" always show,
+    // and picked buttons that still do not fit are left out
+    let avail = (col.max.y - top - 2.0).max(0.0);
+    let bh = (avail / (items.len() + 1) as f32).clamp(26.0, 40.0);
+    let fit = ((avail / bh).floor() as usize).max(3);
+    items.truncate(fit - 1);
     let mut pressed: Option<&str> = None;
     let mut y = top;
     for (cmd, icon) in &items {
