@@ -1583,9 +1583,10 @@ fn bare_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, video_ar
     if fresp.clicked() {
         pressed = Some("view.fullScreenProgram");
     }
-    // one frame back / forward, in the picture area's bottom-left corner, for exact timing
+    // one frame back / forward, bottom right next to full screen (clear of the keyframe panel on
+    // the left), for exact timing
     for (i, (icon, cmd)) in [(Icon::StepBack, "playhead.stepBack"), (Icon::StepFwd, "playhead.stepForward")].into_iter().enumerate() {
-        let r = Rect::from_min_size(pos2(video_area.min.x + 6.0 + i as f32 * 38.0, video_area.max.y - 40.0), vec2(34.0, 34.0));
+        let r = Rect::from_min_size(pos2(fr.min.x - 2.0 * 38.0 + i as f32 * 38.0, video_area.max.y - 40.0), vec2(34.0, 34.0));
         let resp = ui.interact(r, egui::Id::unique(("program-bare-step", cmd)), Sense::click());
         app.auto.add(&format!("program.bare.{cmd}"), r, cmd);
         p.rect_filled(r, 8.0, Color32::from_black_alpha(if resp.hovered() { 170 } else { 110 }));

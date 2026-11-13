@@ -698,7 +698,7 @@
     <div class="chips">${Object.entries(KF_PARAMS).map(([k, p]) => `<button type="button" data-p="${k}">${p.label}</button>`).join("")}</div>
     <div class="clipname"></div><div class="val">–</div>
     <div class="sliders"></div>
-    <div class="locks"><button type="button" class="lv" aria-label="Lock up and down">${ico("lockv")}<span>Lock ↕</span></button><button type="button" class="lh" aria-label="Lock left and right">${ico("lockh")}<span>Lock ↔</span></button><button type="button" class="lr" aria-label="Lock rotation">${ico("lockr")}<span>Lock ⟳</span></button></div>
+    <div class="locks"><button type="button" class="lv" aria-label="Lock up and down">${ico("lockv")}<span>Lock up/down</span></button><button type="button" class="lh" aria-label="Lock left and right">${ico("lockh")}<span>Lock left/right</span></button><button type="button" class="lr" aria-label="Lock rotation">${ico("lockr")}<span>Lock rotation</span></button></div>
     <div class="nav"><button type="button" class="prev" aria-label="Previous keyframe">${ico("frameL")}</button><button type="button" class="key" aria-label="Add or remove keyframe">${ico("key")}</button><button type="button" class="next" aria-label="Next keyframe">${ico("frameR")}</button></div>
     <div class="hint"></div>`;
   const kfSliders = kf.querySelector(".sliders");
@@ -777,6 +777,10 @@
       kfSliders.appendChild(row);
     };
     if (kfParam === "position") { mk("x"); mk("y"); } else mk("");
+    kf.querySelector(".lv").hidden = kf.querySelector(".lh").hidden = kfParam !== "position";
+    kf.querySelector(".lr").hidden = kfParam !== "rotation";
+    kf.querySelector(".locks").hidden = kfParam !== "position" && kfParam !== "rotation";
+    kf.querySelector(".locks").classList.toggle("one", kfParam === "rotation");
     kf.querySelector(".hint").textContent = kfParam === "position" ? "Or drag the video to move it" : "Tap ◆ to keyframe at the playhead";
   }
   function sliderValue() {
