@@ -861,7 +861,8 @@
     if (!g) {
       const t = pt(e.changedTouches[0]);
       g = { state: "pending", ids: [t.id], sx: t.x, sy: t.y, x: t.x, y: t.y, t0: performance.now(), fingers: 1, moved: false, edge: t.x - canvas.getBoundingClientRect().left < EDGE };
-      if (layout === "simple" && ready() && pppNow) {
+      // (the editor itself turns a drag on empty timeline space into a scrub in the compact layout)
+      if (false) {
         const gg = g;
         req("ui.timeline.hit", toPts(t.x, t.y)).then((h) => { gg.hit = h || { hit: "none" }; }).catch(() => { gg.hit = { hit: "none" }; });
         req("ui.touchState").then((st) => { gg.st = st; }).catch(() => {});
@@ -900,7 +901,7 @@
       if (g.edge && Math.hypot(t.clientX - g.sx, t.clientY - g.sy) <= 24) return;
       if (Math.hypot(t.clientX - g.sx, t.clientY - g.sy) > SLOP) {
         // wait a moment for the hit test, so the gesture knows what is under the finger
-        if ((g.hit === undefined || g.st === undefined && g.hit && (g.hit.hit === "empty" || g.hit.hit === "ruler")) && performance.now() - g.t0 < 220) return;
+
         clearTimeout(g.timer);
         const h = g.hit && g.hit.hit;
         const dx = t.clientX - g.sx, dy = t.clientY - g.sy;
@@ -1022,5 +1023,5 @@
   };
   startUp();
 
-  window.filmcraftTouch = { toast, setOn, help: helpSheet, layout: applyLayout, media: openDrawer };
+  window.filmcraftTouch = { toast, setOn, help: helpSheet, layout: applyLayout, media: openDrawer, debug: () => ({ pppNow, layout, g }) };
 })();

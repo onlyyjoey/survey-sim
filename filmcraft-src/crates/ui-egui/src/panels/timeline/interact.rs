@@ -1171,6 +1171,35 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
     let rate = seq.settings.frame_rate;
     let roll_ripple = app.session.prefs.trim.selection_tool_roll_ripple;
 
+    // touch-control copy (KineMaster style): in the compact layout a drag that starts on empty track
+    // space or on the ruler scrubs. The playhead stays in the middle and the clips follow the finger.
+    if app.ui.compact {
+        if resp.drag_started_by(egui::PointerButton::Primary)
+            && let Some(p) = ctx.input(|i| i.pointer.press_origin())
+            && matches!(grab_at(seq, layout, p, tool, mods, roll_ripple), Grab::Other(Hit::Empty { .. } | Hit::None | Hit::Ruler))
+        {
+            app.tl.touch_scrub = Some((p.x, app.session.playhead()));
+        }
+        if let Some((x0, t0)) = app.tl.touch_scrub {
+            if resp.dragged()
+                && let Some(p) = resp.interact_pointer_pos()
+            {
+                let pps = app.ui.timeline.pps;
+                if pps.is_finite() && pps > 0.0 {
+                    let secs = (t0.seconds() - (p.x - x0) as f64 / pps).max(0.0);
+                    app.session.set_playhead(rate.snap_nearest(Tick::from_seconds_f64(secs)));
+                }
+                if app.playback.playing {
+                    app.stop();
+                }
+                ctx.request_repaint();
+                return;
+            }
+            // the release ends the scrub and does nothing else
+            app.tl.touch_scrub = None;
+            return;
+        }
+    }
     // ---- what the button went down on (#259): kept from the press frame until it comes up
     if ctx.input(|i| !i.pointer.any_down() && !i.pointer.any_released()) {
         app.tl.pressed = None;
@@ -1183,7 +1212,7 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
         app.tl.cancelled = false;
         let grab = grab_at(seq, layout, p, tool, mods, roll_ripple);
         // the playhead jumps to a press on the ruler at once, not only once the pointer has moved (#1090)
-        if matches!(grab, Grab::Other(Hit::Ruler)) {
+        if matches!(grab, Grab::Other(Hit::Ruler)) && !app.ui.compact {
             scrub_playhead(app, seq, layout, p, mods.shift);
         }
         app.tl.pressed = Some(Pressed { pos: p, tick: layout.tick_at(p.x), grab, v_scroll: layout.v_scroll, a_scroll: layout.a_scroll });

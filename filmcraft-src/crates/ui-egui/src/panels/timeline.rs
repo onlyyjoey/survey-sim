@@ -97,6 +97,8 @@ pub type PeakKey = (ItemId, usize);
 #[derive(Default)]
 pub struct TlState {
     pub drag: Option<Drag>,
+    /// Touch-control copy: a one-finger scrub in the compact layout, from (start x, start playhead).
+    pub touch_scrub: Option<(f32, Tick)>,
     /// What the primary button went down on in the Timeline (#259); see [`Pressed`].
     pub pressed: Option<Pressed>,
     /// A drag or press aborted with Escape; ignores release until the button comes up (#580).
