@@ -95,7 +95,8 @@ pub(super) fn draw_top(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, se
     }
     // ----- ruler: markers row · labels · ticks · 2 pt render bar
     let clip = p.with_clip_rect(ruler);
-    let label_y = ruler.min.y + 24.0;
+    let compact = app.ui.compact;
+    let label_y = ruler.min.y + if compact { 8.0 } else { 24.0 };
     let tick_base = ruler.max.y - 3.0;
     let (minor, label_step) = ruler_steps(layout.pps / rate.as_f64(), rate.timecode_base());
     // In/Out band
@@ -127,11 +128,11 @@ pub(super) fn draw_top(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, se
     while f <= f1 {
         let x = layout.x_of(rate.tick_of(f));
         let major = f % label_step == 0;
-        let h = if major { 10.0 } else { 4.0 };
+        let h = if major { if compact { 6.0 } else { 10.0 } } else { 3.0 };
         clip.line_segment([pos2(x, tick_base - h), pos2(x, tick_base)], Stroke::new(1.0, t.tl_ruler_tick));
         if major {
             let label = format_time(rate.tick_of(f), rate, seq.settings.drop_frame, seq.settings.display, 48000);
-            clip.text(pos2(x + 1.0, label_y), Align2::CENTER_CENTER, label, Tokens::ui(11.0), t.tl_ruler_text);
+            clip.text(pos2(x + 1.0, label_y), Align2::CENTER_CENTER, label, Tokens::ui(if compact { 9.0 } else { 11.0 }), t.tl_ruler_text);
         }
         f += minor;
     }

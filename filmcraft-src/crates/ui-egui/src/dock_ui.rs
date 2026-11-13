@@ -247,7 +247,13 @@ impl FilmcraftApp {
                 .collect(),
             active: self.session.state.active_sequence.map(|id| id.0),
         };
-        let style = dock_style(ui, &t);
+        let mut style = dock_style(ui, &t);
+        // touch-control copy: slim panel tabs in the compact phone layout
+        if self.ui.compact {
+            style.tab_height = 22.0;
+            style.font = Tokens::ui(10.5);
+            style.gap = 1.0;
+        }
         // No `monitors`: the monitor list comes with the egui fork's `ViewportInfo::monitors`.
         let control_input_only = self.control_input_only;
         let armed = std::sync::Arc::clone(&self.native_ctrl_click_armed);

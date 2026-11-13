@@ -63,7 +63,15 @@ const TOP_H: f32 = 58.0; // timecode + toolbar (left) / ruler (right)
 const RULER_H: f32 = 44.0;
 const SCROLLBAR_H: f32 = 17.0;
 const DIVIDER_H: f32 = 5.0;
-const MASTER_H: f32 = 34.0;
+const MASTER_H_FULL: f32 = 34.0;
+/// Touch-control copy: the compact layout (set at the start of each Timeline pass) drops the Mix row.
+static COMPACT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Height of the Mix (master) row: none in the compact layout.
+fn master_h() -> f32 {
+    if COMPACT.load(std::sync::atomic::Ordering::Relaxed) { 0.0 } else { MASTER_H_FULL }
+}
+/// Ruler height in the compact layout.
+const COMPACT_RULER_H: f32 = 24.0;
 /// The selected gap between two clips (#648, #668).
 const GAP_FILL: Color32 = Color32::from_gray(224);
 /// Duplicate frame marker colors, one per master clip with duplicate frames in the order they
@@ -299,10 +307,11 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     };
     let rate = seq.settings.frame_rate;
     let header_w = app.ui.timeline.header_w;
-    // compact (touch-control copy): no timecode / toolbar block, just the ruler
-    let top_h = if app.ui.compact { RULER_H } else { TOP_H };
+    // compact (touch-control copy): no timecode / toolbar block and a slim ruler
+    COMPACT.store(app.ui.compact, std::sync::atomic::Ordering::Relaxed);
+    let (top_h, ruler_h) = if app.ui.compact { (COMPACT_RULER_H, COMPACT_RULER_H) } else { (TOP_H, RULER_H) };
     let content = Rect::from_min_max(pos2(rect.min.x + header_w, rect.min.y + top_h), pos2(rect.max.x - SCROLLBAR_H, rect.max.y - SCROLLBAR_H));
-    let ruler = Rect::from_min_max(pos2(content.min.x, rect.min.y + top_h - RULER_H), pos2(content.max.x, rect.min.y + top_h));
+    let ruler = Rect::from_min_max(pos2(content.min.x, rect.min.y + top_h - ruler_h), pos2(content.max.x, rect.min.y + top_h));
     app.last_timeline_width = content.width();
     let painter = ui.painter().clone();
     painter.rect_filled(rect, 0.0, t.panel_bg);
@@ -321,7 +330,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let tracks_area = Rect::from_min_max(pos2(content.min.x, content.min.y + cap_h), content.max);
     let split_y = tracks_area.min.y + (tracks_area.height() - DIVIDER_H) * app.ui.timeline.split;
     let video_area = Rect::from_min_max(pos2(rect.min.x, tracks_area.min.y), pos2(content.max.x, split_y));
-    let audio_area = Rect::from_min_max(pos2(rect.min.x, split_y + DIVIDER_H), pos2(content.max.x, tracks_area.max.y - MASTER_H));
+    let audio_area = Rect::from_min_max(pos2(rect.min.x, split_y + DIVIDER_H), pos2(content.max.x, tracks_area.max.y - master_h()));
     // compact: the tracks share out the height, so there is no empty space above or below them
     if app.ui.compact {
         let fill = |area: f32, n: usize, cur: f32| if n == 0 || !area.is_finite() { cur } else { (area / n as f32).clamp(30.0, 96.0) };
@@ -416,11 +425,9 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         app.ui.timeline.split = f.clamp(0.1, 0.9);
     }
     // master track
-    let master = Rect::from_min_max(pos2(rect.min.x, tracks_area.max.y - MASTER_H), pos2(content.max.x, tracks_area.max.y));
+    let master = Rect::from_min_max(pos2(rect.min.x, tracks_area.max.y - master_h()), pos2(content.max.x, tracks_area.max.y));
     painter.rect_filled(master, 0.0, t.tl_header_bg);
-    if app.ui.compact {
-        painter.text(pos2(rect.min.x + header_w / 2.0, master.center().y), Align2::CENTER_CENTER, tl!("Mix"), Tokens::ui(10.0), t.text_dim);
-    } else {
+    if !app.ui.compact {
         painter.text(pos2(rect.min.x + 44.0, master.center().y), Align2::LEFT_CENTER, tl!("Mix"), Tokens::ui(11.5), t.text);
         mix_volume(app, ui, seq, Rect::from_min_max(pos2(rect.min.x + header_w - 72.0, master.min.y + 6.0), pos2(rect.min.x + header_w - 8.0, master.max.y - 6.0)));
     }

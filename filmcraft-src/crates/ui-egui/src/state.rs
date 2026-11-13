@@ -498,6 +498,9 @@ pub struct UiState {
     /// Program monitor's controls beside the picture, tracks that fill the Timeline).
     #[serde(default)]
     pub compact: bool,
+    /// Touch-control copy: the extra buttons shown in the compact Program monitor's column (command ids).
+    #[serde(default)]
+    pub side_buttons: Vec<String>,
     /// The window was already fullscreen before cinema mode started.
     #[serde(skip)]
     pub cinema_was_fullscreen: bool,
@@ -1084,6 +1087,7 @@ impl Default for UiState {
             media_browser: Default::default(),
             fullscreen_program: false,
             compact: false,
+            side_buttons: Vec::new(),
             cinema_was_fullscreen: false,
             cinema_prev_focus: None,
         }

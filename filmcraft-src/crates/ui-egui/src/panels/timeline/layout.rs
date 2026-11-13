@@ -1,4 +1,4 @@
-use super::{DIVIDER_H, FilmcraftApp, MASTER_H, Rect, Sequence, Tick, TimelineView, TrackId, TrackKind, pos2};
+use super::{DIVIDER_H, FilmcraftApp, master_h, Rect, Sequence, Tick, TimelineView, TrackId, TrackKind, pos2};
 
 /// Geometry of one visible track row.
 #[derive(Clone, Debug)]
@@ -51,7 +51,7 @@ impl Layout {
             TrackKind::Video => r.max.y = r.max.y.min(self.split_y),
             TrackKind::Audio => {
                 r.min.y = r.min.y.max(self.split_y + DIVIDER_H);
-                r.max.y = r.max.y.min(self.content.max.y - MASTER_H);
+                r.max.y = r.max.y.min(self.content.max.y - master_h());
             }
         }
         r
@@ -73,7 +73,7 @@ pub(super) fn new_track_at(seq: &Sequence, layout: &Layout, y: f32, vh: f32, ah:
         (y >= tracks_top && y < top).then(|| (TrackKind::Video, band((top - vh).max(tracks_top), top)))
     } else {
         let bottom = layout.rows.iter().filter(|r| r.kind == TrackKind::Audio).map(|r| r.rect.max.y).fold(layout.split_y + DIVIDER_H, f32::max);
-        let mix = layout.content.max.y - MASTER_H;
+        let mix = layout.content.max.y - master_h();
         (y >= bottom && y < mix).then(|| (TrackKind::Audio, band(bottom, (bottom + ah).min(mix))))
     }
 }

@@ -1,7 +1,7 @@
 use super::layout::Row;
 use super::menus::{run_track_menu, track_column_menu, track_header_popup};
 use super::{
-    Align2, Color32, CursorIcon, FilmcraftApp, Icon, MASTER_H, Rect, Sense, Sequence, Stroke, StrokeKind, TRACK_HEADER_TINT, Tokens, TrackKind, Value, json,
+    Align2, Color32, CursorIcon, FilmcraftApp, Icon, master_h, Rect, Sense, Sequence, Stroke, StrokeKind, TRACK_HEADER_TINT, Tokens, TrackKind, Value, json,
     label_color, pos2, vec2,
 };
 
@@ -203,7 +203,7 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         }
     }
     // column separator
-    ui.painter().line_segment([pos2(rect.min.x + hw - 0.5, vclip.min.y), pos2(rect.min.x + hw - 0.5, aclip.max.y + MASTER_H)], Stroke::new(1.0, t.separator));
+    ui.painter().line_segment([pos2(rect.min.x + hw - 0.5, vclip.min.y), pos2(rect.min.x + hw - 0.5, aclip.max.y + master_h())], Stroke::new(1.0, t.separator));
     for (cmd, params) in actions {
         if let Err(e) = app.session.execute(&cmd, params) {
             app.ui.status = e.to_string();
