@@ -609,6 +609,8 @@
       document.body.classList.toggle("fct-cinema", !!st.cinema);
       if (typeof st.playing === "boolean") setPlaying(st.playing);
       if (st.mode && st.mode !== mode) { mode = st.mode; syncTop(); }
+      const sel = (st.selected | 0) > 0;
+      if (sel !== clipMode && typeof renderStrip === "function") { clipMode = sel; renderStrip(); }
       syncAspect();
     } catch { /* older build */ }
   }
@@ -668,6 +670,7 @@
     "t-type": { label: "Text", icon: "text", fn: () => setTool("type", "Text: tap the video where the text goes").then(syncStrip) },
     "t-ripple": { label: "Ripple", icon: "ripple", fn: () => setTool("ripple", "Ripple trim").then(syncStrip) },
     "t-hand": { label: "Pan", icon: "hand", fn: () => setTool("hand", "Pan").then(syncStrip) },
+    back: { label: "Done", icon: "frameL", cls: "back", fn: () => run(null, () => menu("edit.deselectAll")) },
     audio: { label: "Audio", icon: "music", fn: () => { mediaFilter = "audio"; openDrawer(); } },
     media: { label: "Media", icon: "media", cls: "hot", fn: () => (drawerOpen ? closeDrawer() : openDrawer()) },
     "p-effects": { label: "Effects", icon: "trans", fn: sideBtn("effects", "Effects", "Effects: drag one onto a clip") },
@@ -709,14 +712,19 @@
   if (!store.get("noPlayMigrated", false)) { order = order.filter((id) => id !== "play"); store.set("noPlayMigrated", true); store.set("strip", order); }
   if (!order.includes("more")) order.push("more"); // always a way back to settings
   order = loadOrder();
+  // KineMaster style: with a clip selected, the bar shows that clip's tools; "Done" goes back
+  const CLIP_ORDER = ["back", "split", "delete", "duplicate", "speed", "volume", "transition", "freeze", "p-effectcontrols", "copy", "paste", "deletegap", "t-razor"];
+  let clipMode = false;
   function renderStrip() {
     bar.textContent = "";
+    bar.classList.toggle("clip", clipMode);
     for (const k of Object.keys(strip)) delete strip[k];
     playBtns.length = 0;
-    for (const id of order) {
+    for (const id of (clipMode ? CLIP_ORDER : order)) {
       const d = BUTTONS[id];
+      if (!d) continue;
       const b = el("button", { type: "button", class: "fct-b " + (d.cls || ""), "data-id": id, "aria-label": d.label, title: d.label }, `<span class="i">${ico(d.icon)}</span><span class="l">${d.label}</span>`);
-      b.addEventListener("click", () => { buzz(5); d.fn(); });
+      b.addEventListener("click", () => { buzz(5); Promise.resolve(d.fn()).finally(soon); });
       bar.appendChild(b);
       strip[id] = b;
       if (id === "play") playBtns.push(b);
@@ -808,6 +816,27 @@
   };
 
   const pt = (t) => ({ id: t.identifier, x: t.clientX, y: t.clientY });
+  // CSS px → editor points, for hit tests during a gesture
+  let pppNow = 0;
+  const refreshPpp = () => { if (ready()) req("ui.inspect").then((i) => { pppNow = (i && i.pixelsPerPoint) || 0; }).catch(() => {}); };
+  addEventListener("resize", () => setTimeout(refreshPpp, 400));
+  const toPts = (cx, cy) => {
+    const r = canvas.getBoundingClientRect();
+    const z = pppNow / (devicePixelRatio || 1) || 1;
+    return { x: (cx - r.left) / z, y: (cy - r.top) / z };
+  };
+  // one finger on empty timeline space scrubs (KineMaster style) instead of drawing a selection box
+  let scrubBusy = false, scrubWant = null;
+  const scrubTo = async (sec) => {
+    scrubWant = Math.max(0, sec);
+    if (scrubBusy) return;
+    scrubBusy = true;
+    while (scrubWant !== null) {
+      const v = scrubWant; scrubWant = null;
+      try { await exec("playhead.set", { seconds: v }); } catch { /* ignore */ }
+    }
+    scrubBusy = false;
+  };
   const find = (list, id) => { for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i]; return null; };
   const two = (e) => {
     const a = find(e.touches, g.ids[0]) || e.touches[0];
@@ -832,6 +861,14 @@
     if (!g) {
       const t = pt(e.changedTouches[0]);
       g = { state: "pending", ids: [t.id], sx: t.x, sy: t.y, x: t.x, y: t.y, t0: performance.now(), fingers: 1, moved: false, edge: t.x - canvas.getBoundingClientRect().left < EDGE };
+      if (layout === "simple" && ready() && pppNow) {
+        const gg = g;
+        req("ui.timeline.hit", toPts(t.x, t.y)).then((h) => { gg.hit = h || { hit: "none" }; }).catch(() => { gg.hit = { hit: "none" }; });
+        req("ui.touchState").then((st) => { gg.st = st; }).catch(() => {});
+      } else {
+        g.hit = { hit: "none" };
+        if (!pppNow) refreshPpp();
+      }
       g.timer = setTimeout(longPress, LONG_MS);
       return;
     }
@@ -862,12 +899,40 @@
       }
       if (g.edge && Math.hypot(t.clientX - g.sx, t.clientY - g.sy) <= 24) return;
       if (Math.hypot(t.clientX - g.sx, t.clientY - g.sy) > SLOP) {
+        // wait a moment for the hit test, so the gesture knows what is under the finger
+        if ((g.hit === undefined || g.st === undefined && g.hit && (g.hit.hit === "empty" || g.hit.hit === "ruler")) && performance.now() - g.t0 < 220) return;
         clearTimeout(g.timer);
-        g.state = "drag";
-        press(g.sx, g.sy, 0);
-        g.x = t.clientX; g.y = t.clientY;
-        hover(g.x, g.y, 1);
-      }
+        const h = g.hit && g.hit.hit;
+        const dx = t.clientX - g.sx, dy = t.clientY - g.sy;
+        if ((h === "empty" || h === "ruler") && g.st && g.st.pps > 0) {
+          if (Math.abs(dx) >= Math.abs(dy) || h === "ruler") {
+            g.state = "scrub";
+            g.ph0 = g.st.playhead || 0;
+            if (g.st.playing) req("ui.playback", { action: "stop" }).then(() => setPlaying(false)).catch(() => {});
+          } else {
+            g.state = "vscroll";
+            g.ly = g.sy;
+            hover(g.sx, g.sy, 0);
+          }
+        } else {
+          g.state = "drag";
+          press(g.sx, g.sy, 0);
+          g.x = t.clientX; g.y = t.clientY;
+          hover(g.x, g.y, 1);
+          return;
+        }
+      } else return;
+    }
+    if (g.state === "scrub") {
+      const t = find(e.touches, g.ids[0]);
+      if (!t) return;
+      const z = pppNow / (devicePixelRatio || 1) || 1;
+      scrubTo(g.ph0 - ((t.clientX - g.sx) / z) / g.st.pps);
+    } else if (g.state === "vscroll") {
+      const t = find(e.touches, g.ids[0]);
+      if (!t) return;
+      wheel(g.sx, g.sy, 0, -(t.clientY - g.ly), false);
+      g.ly = t.clientY;
     } else if (g.state === "drag") {
       const t = find(e.touches, g.ids[0]);
       if (!t) return;
@@ -899,10 +964,14 @@
       release(g.x, g.y, 0);
       leave();
       soon();
+    } else if ((g.state === "scrub" || g.state === "vscroll") && ended) {
+      g.state = "done";
+      soon();
     } else if (g.state === "drag" && ended) {
       release(g.x, g.y, 0);
       leave();
       g.state = "done";
+      soon();
     }
     if (e.touches.length === 0) {
       if (g.state === "multi" && !g.moved && performance.now() - g.t0 < MULTI_TAP_MS + 200) {
@@ -947,6 +1016,7 @@
   const startUp = () => {
     if (!ready()) { setTimeout(startUp, 400); return; }
     if (layout === "simple") applyLayout("simple", true);
+    setTimeout(refreshPpp, 800);
     checkStart();
     if (coarse && !store.get("helped2", false)) setTimeout(() => { if (!document.body.classList.contains("fct-start-on")) helpSheet(); }, 700);
   };

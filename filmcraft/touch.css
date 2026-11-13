@@ -261,3 +261,8 @@ body.fct-cinema #fct-exit { display: grid; }
   #fct-drawer { left: 0; bottom: calc(var(--fct-bot) + var(--fct-sbb)); top: calc(var(--fct-sat) + var(--fct-top)); width: min(360px, 88vw); padding-bottom: 8px; }
   #fct-toast { bottom: calc(var(--fct-bot) + var(--fct-sbb) + 12px); }
 }
+
+/* clip tools (a clip is selected) */
+#fct-bar.clip { background: #1d1a10; }
+#fct-bar.clip .fct-b.back svg { color: #ffd23f; }
+#fct-bar.clip .fct-b.back .l { color: #ffd23f; }
