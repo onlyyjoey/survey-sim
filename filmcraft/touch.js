@@ -97,6 +97,7 @@
     key: '<path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/>',
     fill: '<rect x="7" y="3.5" width="10" height="17" rx="1.5"/><rect x="3.5" y="8.5" width="17" height="7" rx="1"/>',
     lockv: '<path d="M12 3.5v17M8.5 7 12 3.5 15.5 7M8.5 17l3.5 3.5 3.5-3.5"/>',
+    lockr: '<path d="M18.5 12a6.5 6.5 0 1 1-2-4.7"/><path d="M17 3.5v4h-4"/>',
     lockh: '<path d="M3.5 12h17M7 8.5 3.5 12 7 15.5M17 8.5l3.5 3.5-3.5 3.5"/>',
     down: '<path d="M6 9.5l6 6 6-6"/>',
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
@@ -692,17 +693,19 @@
   // the playhead or jump to the previous / next one. Scrub the timeline to move between moments.
   const kf = el("div", { id: "fct-kf", class: "fct", role: "dialog", "aria-label": "Keyframes" });
   const KF_PARAMS = { scale: { label: "Scale", min: 0, max: 400, step: 1, unit: "%" }, position: { label: "Position" }, rotation: { label: "Rotation", min: -180, max: 180, step: 1, unit: "°" }, opacity: { label: "Opacity", min: 0, max: 100, step: 1, unit: "%" } };
-  let kfParam = "scale", kfState = null, kfTimer = 0, kfSending = false, kfWant = null;
+  let kfParam = store.get("kfParam", "scale"), kfState = null, kfTimer = 0, kfSending = false, kfWant = null;
   kf.innerHTML = `<div class="hd"><span>Keyframes</span><button type="button" class="x" aria-label="Close">${ico("close")}</button></div>
     <div class="chips">${Object.entries(KF_PARAMS).map(([k, p]) => `<button type="button" data-p="${k}">${p.label}</button>`).join("")}</div>
     <div class="clipname"></div><div class="val">–</div>
     <div class="sliders"></div>
-    <div class="locks"><button type="button" class="lv" aria-label="Lock up and down">${ico("lockv")}<span>Lock ↕</span></button><button type="button" class="lh" aria-label="Lock left and right">${ico("lockh")}<span>Lock ↔</span></button></div>
+    <div class="locks"><button type="button" class="lv" aria-label="Lock up and down">${ico("lockv")}<span>Lock ↕</span></button><button type="button" class="lh" aria-label="Lock left and right">${ico("lockh")}<span>Lock ↔</span></button><button type="button" class="lr" aria-label="Lock rotation">${ico("lockr")}<span>Lock ⟳</span></button></div>
     <div class="nav"><button type="button" class="prev" aria-label="Previous keyframe">${ico("frameL")}</button><button type="button" class="key" aria-label="Add or remove keyframe">${ico("key")}</button><button type="button" class="next" aria-label="Next keyframe">${ico("frameR")}</button></div>
     <div class="hint"></div>`;
   const kfSliders = kf.querySelector(".sliders");
-  let lockV = store.get("lockV", false), lockH = store.get("lockH", false);
-  const syncLocks = () => { kf.querySelector(".lv").classList.toggle("on", lockV); kf.querySelector(".lh").classList.toggle("on", lockH); };
+  // the locks and the chosen setting are kept on this device
+  let lockV = store.get("lockV", false), lockH = store.get("lockH", false), lockR = store.get("lockR", true);
+  const syncLocks = () => { kf.querySelector(".lv").classList.toggle("on", lockV); kf.querySelector(".lh").classList.toggle("on", lockH); kf.querySelector(".lr").classList.toggle("on", lockR); };
+  kf.querySelector(".lr").addEventListener("click", () => { lockR = !lockR; store.set("lockR", lockR); syncLocks(); toast(lockR ? "Rotation locked" : "Twist two fingers to rotate"); });
   kf.querySelector(".lv").addEventListener("click", () => { lockV = !lockV; store.set("lockV", lockV); syncLocks(); });
   kf.querySelector(".lh").addEventListener("click", () => { lockH = !lockH; store.set("lockH", lockH); syncLocks(); });
   syncLocks();
@@ -710,11 +713,11 @@
   let kfLive = null, picCss = null;
   async function refreshLive() {
     try {
-      const [p, sc] = await Promise.all([req("ui.keyframeState", { param: "position" }), req("ui.keyframeState", { param: "scale" })]);
+      const [p, sc, ro] = await Promise.all([req("ui.keyframeState", { param: "position" }), req("ui.keyframeState", { param: "scale" }), req("ui.keyframeState", { param: "rotation" })]);
       if (!p || p.clip == null) { kfLive = null; return; }
       const w = p.width || 1920, h = p.height || 1080;
       const v = p.value || [];
-      kfLive = { clip: p.clip, w, h, pos: [v[0] != null ? v[0] : w / 2, v[1] != null ? v[1] : h / 2], scale: sc && sc.value != null ? sc.value : 100 };
+      kfLive = { clip: p.clip, w, h, pos: [v[0] != null ? v[0] : w / 2, v[1] != null ? v[1] : h / 2], scale: sc && sc.value != null ? sc.value : 100, rot: ro && ro.value != null ? ro.value : 0 };
       const e = (await req("ui.elements", { prefix: "program.picture" }))[0];
       if (e && pppNow) {
         const r = canvas.getBoundingClientRect(), z = pppNow / (devicePixelRatio || 1);
@@ -724,8 +727,8 @@
   }
   // move / pinch the video with the keyframe panel open: position and scale together
   let kfMoveBusy = false, kfMoveWant = null;
-  async function kfMoveSend(pos, scale) {
-    kfMoveWant = { pos, scale };
+  async function kfMoveSend(pos, scale, rot) {
+    kfMoveWant = { pos, scale, rot };
     if (kfMoveBusy) return;
     kfMoveBusy = true;
     while (kfMoveWant) {
@@ -733,23 +736,25 @@
       try {
         if (v.pos) await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "position", value: v.pos, merge: "kfmove" });
         if (v.scale != null) await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "scale", value: v.scale, merge: "kfmove" });
+        if (v.rot != null) await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "rotation", value: v.rot, merge: "kfmove" });
       } catch (e) { toast(friendly(String(e && e.message || e)), true); break; }
     }
     kfMoveBusy = false;
   }
-  async function kfMoveCommit(pos, scale) {
+  async function kfMoveCommit(pos, scale, rot) {
     // a keyframe for both position and scale at the playhead
     while (kfMoveBusy) await new Promise((r) => setTimeout(r, 30));
     try {
       await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "position", value: pos, keyframe: true, merge: "kfmove" });
       await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "scale", value: scale, keyframe: true, merge: "kfmove" });
+      if (rot != null) await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "rotation", value: rot, keyframe: true, merge: "kfmove" });
       buzz(8);
     } catch (e) { toast(friendly(String(e && e.message || e)), true); }
     refreshLive(); refreshKf();
   }
   const inPic = (x, y) => document.body.classList.contains("fct-kf-on") && kfLive && picCss && x >= picCss.x && x <= picCss.x + picCss.w && y >= picCss.y && y <= picCss.y + picCss.h && !kf.contains(document.elementFromPoint(x, y));
   kf.querySelector(".x").addEventListener("click", () => toggleKf(false));
-  kf.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => { kfParam = b.dataset.p; buildSliders(); refreshKf(); }));
+  kf.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => { kfParam = b.dataset.p; store.set("kfParam", kfParam); buildSliders(); refreshKf(); }));
   kf.querySelector(".key").addEventListener("click", async () => {
     if (!kfState || kfState.clip == null) return;
     buzz(10);
@@ -1042,7 +1047,7 @@
     const a = find(e.touches, g.ids[0]) || e.touches[0];
     const b = find(e.touches, g.ids[1]) || e.touches[1];
     if (!a || !b) return null;
-    return { mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) };
+    return { mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), ang: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) };
   };
 
   function longPress() {
@@ -1061,7 +1066,7 @@
     if (!g) {
       const t = pt(e.changedTouches[0]);
       g = { state: "pending", ids: [t.id], sx: t.x, sy: t.y, x: t.x, y: t.y, t0: performance.now(), fingers: 1, moved: false, edge: t.x - canvas.getBoundingClientRect().left < EDGE };
-      if (inPic(t.x, t.y)) { g.kf = { pos: kfLive.pos.slice(), scale: kfLive.scale }; g.edge = false; }
+      if (inPic(t.x, t.y)) { g.kf = { pos: kfLive.pos.slice(), scale: kfLive.scale, rot: kfLive.rot }; g.edge = false; }
       // (the editor itself turns a drag on empty timeline space into a scrub in the compact layout)
       if (false) {
         const gg = g;
@@ -1083,7 +1088,7 @@
           // pinch the video: scale (and move) it
           g.state = "kfpinch";
           const m0 = two(e);
-          if (m0) { g.kfp = { d: m0.d, mx: m0.mx, my: m0.my, pos: (g.kfCur && g.kfCur.pos) || g.kf.pos.slice(), scale: (g.kfCur && g.kfCur.scale) || g.kf.scale }; }
+          if (m0) { g.kfp = { d: m0.d, ang: m0.ang, mx: m0.mx, my: m0.my, pos: (g.kfCur && g.kfCur.pos) || g.kf.pos.slice(), scale: (g.kfCur && g.kfCur.scale) || g.kf.scale }; }
           return;
         }
         if (g.state === "pending") { g.state = "multi"; g.t0 = performance.now(); }
@@ -1140,7 +1145,7 @@
     }
     if (g.state === "kfmove" || g.state === "kfpinch") {
       const k = picCss.w > 0 ? kfLive.w / picCss.w : 1; // sequence px per screen px
-      let pos, scale;
+      let pos, scale, rot = null;
       if (g.state === "kfmove") {
         const t = find(e.touches, g.ids[0]);
         if (!t) return;
@@ -1151,9 +1156,14 @@
         if (!m || !g.kfp) return;
         scale = Math.max(1, g.kfp.scale * (m.d / Math.max(1, g.kfp.d)));
         pos = [g.kfp.pos[0] + (lockH ? 0 : (m.mx - g.kfp.mx) * k), g.kfp.pos[1] + (lockV ? 0 : (m.my - g.kfp.my) * k)];
+        if (!lockR) {
+          let da = (m.ang - g.kfp.ang) * 180 / Math.PI;
+          if (da > 180) da -= 360; if (da < -180) da += 360;
+          rot = (g.kf.rot || 0) + da;
+        }
       }
-      g.kfCur = { pos, scale };
-      kfMoveSend(pos, g.state === "kfpinch" ? scale : null);
+      g.kfCur = { pos, scale, rot };
+      kfMoveSend(pos, g.state === "kfpinch" ? scale : null, rot);
       return;
     }
     if (g.state === "scrub") {
@@ -1192,7 +1202,7 @@
     const ended = Array.from(e.changedTouches).some((t) => t.identifier === g.ids[0]);
     if ((g.state === "kfmove" || g.state === "kfpinch") && e.touches.length === 0) {
       const c = g.kfCur;
-      if (c) kfMoveCommit(c.pos, c.scale);
+      if (c) kfMoveCommit(c.pos, c.scale, c.rot);
       clearTimeout(g.timer);
       g = null;
       return;
