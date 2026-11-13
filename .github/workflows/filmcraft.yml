@@ -1,0 +1,83 @@
+# Builds the FilmCraft video editor (filmcraft-src/, Rust → WebAssembly) and publishes it to
+# /filmcraft/ on this repository's GitHub Pages site, so it opens at
+# https://onlyyjoey.github.io/survey-sim/filmcraft/ and can be added to the Home Screen.
+name: Build FilmCraft web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "filmcraft-src/**"
+      - ".github/workflows/filmcraft.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: filmcraft-web
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: filmcraft-src
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain with the WebAssembly target
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup default stable
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: filmcraft-src
+          shared-key: filmcraft-web
+
+      - name: wasm-bindgen CLI (exact version the app needs)
+        run: |
+          V="$(sed -n 's/^const WASM_BINDGEN: &str = "\(.*\)";$/\1/p' xtask/src/main.rs)"
+          echo "wasm-bindgen $V"
+          if ! { command -v wasm-bindgen >/dev/null && wasm-bindgen --version | grep -qF "$V"; }; then
+            cargo install wasm-bindgen-cli --version "$V" --locked
+          fi
+
+      - name: Build the web app
+        run: cargo xtask web
+
+      - name: Publish into /filmcraft/
+        working-directory: .
+        run: |
+          DIST=filmcraft-src/target/web/dist
+          test -f "$DIST/index.html" && test -f "$DIST/filmcraft_web_bg.wasm"
+          rm -rf filmcraft
+          mkdir -p filmcraft
+          cp -R "$DIST/." filmcraft/
+          # new offline cache for every build
+          sed -i "s/__FC_SW_BUILD__/${GITHUB_SHA::12}/" filmcraft/sw.js
+          ls -lh filmcraft
+
+      - name: Commit the build
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A filmcraft
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "FilmCraft web build ${GITHUB_SHA::7}"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && break
+            sleep 5
+          done
+
+      - name: Ask GitHub Pages to rebuild
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" || echo "Pages will pick the commit up on its own"

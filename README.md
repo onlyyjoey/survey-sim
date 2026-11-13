@@ -17,3 +17,13 @@ Drop or pick a PDF and choose **Open plan**: georeference it from known points (
 
 ### TP3 Editor (Topcon project)
 Drop or pick a `.tp3` (Topcon Pocket-3D / Magnet project export): see all points, lines, surfaces and control on a map, tap a boundary around the area to keep, and save a `-clean.tp3` with everything outside removed on **every** layer (points, lines, surface triangles, labels; control optional; optional buffer). The rest of the file is kept as-is and the result is re-read as a self-check before saving. Also exports the kept points to CSV and the lines to DXF. **Edit layers**: drag to set the order the data collector lists them, rename, change color / symbol (from the ones the job already uses), combine layers (or "Find look-alikes" like `fiber` / `fiber 2.0`), delete a layer with everything on it, or empty it (just its points, or everything) and keep the layer. Swipe a layer left for Empty / Delete (long swipe deletes, Undo in the toast). Combining layers can clean up doubles: points on both layers (same spot within a tolerance, or same point #) are kept once — from the layer you pick (newest by default), optionally keeping the other layer's point numbers/codes — while points only on one layer are kept. Each layer is tagged Points / Lines / Points + lines. Per-layer data-collector display toggles (Show layer, point names, descriptions, elevations) with an all-on/all-off "Point labels" sheet; "Number names" (01, 02…) keeps your order when the collector sorts by name. The map has a scale bar like the data collector. Look-alikes has a Strict → Loose sensitivity slider and per-layer ticks — then Save. Test the clean file on a copy in the controller and keep the original.
+
+## FilmCraft (video editor)
+
+Open: https://onlyyjoey.github.io/survey-sim/filmcraft/
+
+A Premiere-style video editor (a copy of the open-source [FilmCraft](https://github.com/storytold/filmcraft)) with CapCut / KineMaster-style touch controls: a bottom tool bar (Split, Delete, Delete gap, Speed, Volume, Transition, Text, Media, Audio, Tools, Layout, Undo/Redo, Export), a jog strip for frame-by-frame scrubbing, and a big play button rail when the phone is sideways. Gestures on the editor: tap = click, drag = move/trim, long-press = right-click menu, pinch = zoom the timeline or monitor, two-finger drag = scroll, two-finger tap = undo, three-finger tap = redo. Media stays on the phone.
+
+On iPhone: open in Safari → Share → **Add to Home Screen**. Works best in landscape.
+
+The source is in `filmcraft-src/`. Any push that changes it rebuilds the app (GitHub Actions → "Build FilmCraft web app", about 15–25 minutes) and publishes it to `filmcraft/`. You can also run that workflow by hand from the Actions tab.
