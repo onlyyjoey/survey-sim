@@ -165,7 +165,8 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
     api::install()?;
     import::install_drop_handlers()?;
 
-    let demo = !in_host_mode && !query_flag("empty");
+    // This touch-control copy starts on an empty project; `?demo` opens the demo project.
+    let demo = !in_host_mode && query_flag("demo") && !query_flag("empty");
     let mut web_options = eframe::WebOptions::default();
     // `?webgl`: WebGL2 only. The page reloads with it when starting on WebGPU fails (an adapter
     // whose device can't be created, a driver the browser rejects…); see `index.html`.

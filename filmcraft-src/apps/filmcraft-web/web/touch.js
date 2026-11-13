@@ -208,6 +208,14 @@
     files.forEach((f) => makeThumb(f).then(() => drawerOpen && renderMedia()));
     const ids = (res.items || []).map((x) => (x && typeof x === "object" ? (x.item ?? x.id) : x)).filter((x) => Number.isFinite(x));
     if (!ids.length) { toast((res.errors && res.errors[0]) || "Nothing could be imported", true); return; }
+    const seqNow = await sequence();
+    if (startNew || !seqNow) {
+      startNew = false;
+      const name = files.length === 1 ? files[0].name.replace(/\.[^.]+$/, "") : "My Video";
+      const r = await run("New video started", () => exec("file.newSequence", { name, fromItems: ids }));
+      if (r !== undefined) { hideStart(); if (layout === "simple") applyLayout("simple", true); }
+      return;
+    }
     toast(ids.length === 1 ? "Imported — tap it or drag it onto the timeline" : ids.length + " files imported");
     openDrawer();
   });
@@ -514,7 +522,6 @@
   // ------------------------------------------------------------------ top bar: Home, the three modes, and the full menus
   const top = el("div", { id: "fct-top", class: "fct" });
   const tb = (id, html, label, fn) => { const b = el("button", { type: "button", "data-id": id, "aria-label": label }, html); b.addEventListener("click", fn); top.appendChild(b); return b; };
-  tb("home", ico("home"), "Home", () => setMode("import"));
   const seg = el("div", { class: "seg" });
   top.appendChild(seg);
   for (const [m, label] of [["import", "Import"], ["edit", "Edit"], ["export", "Export"]]) {
@@ -524,6 +531,7 @@
   }
   top.appendChild(el("div", { class: "sp" }));
   tb("menu", ico("menu") + "<span>Menu</span>", "Menus", () => menuSheet([]));
+  tb("home", ico("home"), "Home", () => showStart(true));
   function syncTop() { for (const b of seg.children) b.classList.toggle("on", b.dataset.mode === mode); }
   syncTop();
 
@@ -566,6 +574,44 @@
       }
       s.appendChild(list);
     });
+  }
+
+  // ------------------------------------------------------------------ start screen: add files to begin
+  const start = el("div", { id: "fct-start", class: "fct", role: "dialog", "aria-label": "Start" });
+  start.innerHTML = `
+    <div class="box">
+      <img src="icon-192.png" alt="" width="64" height="64">
+      <h1>New video</h1>
+      <p>Pick videos, photos or music from your phone. They go on the timeline in the order you pick them.</p>
+      <button type="button" class="fct-primary big" data-a="new">${ico("plus")}<span>Add videos &amp; photos</span></button>
+      <div class="row2">
+        <button type="button" data-a="open">${ico("media")}<span>Open project</span></button>
+        <button type="button" data-a="recent">${ico("home")}<span>Recent projects</span></button>
+      </div>
+      <button type="button" class="back" data-a="back">Back to editing</button>
+    </div>`;
+  let startNew = false; // the next import starts a new video
+  start.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-a]");
+    if (!b) return;
+    const a = b.dataset.a;
+    if (a === "new") { startNew = true; pick(); }
+    else if (a === "open") { hideStart(); run(null, () => menu("file.open")).then(() => setTimeout(checkStart, 1500)); }
+    else if (a === "recent") { hideStart(); setMode("import"); }
+    else if (a === "back") hideStart();
+  });
+  async function showStart(fromHome) {
+    const seq = await sequence();
+    start.querySelector(".back").hidden = !seq;
+    start.querySelector("h1").textContent = seq && fromHome ? "Home" : "New video";
+    document.body.classList.add("fct-start-on");
+    closeDrawer(); closeSheet();
+  }
+  function hideStart() { startNew = false; document.body.classList.remove("fct-start-on"); }
+  async function checkStart() {
+    if (!ready()) return;
+    const seq = await sequence();
+    if (!seq && mode === "edit") showStart(false); else if (seq && !startNew) hideStart();
   }
 
   // ------------------------------------------------------------------ the strip (left side): one column, scrolls, order set in More ▸ Customize
@@ -676,7 +722,7 @@
     store.set("on", on);
   }
 
-  document.body.append(top, bar, toggle, dScrim, drawer, ghost, scrim, toastEl, picker);
+  document.body.append(top, bar, toggle, start, dScrim, drawer, ghost, scrim, toastEl, picker);
   const wantOn = qs.has("touch") ? qs.get("touch") !== "0" : store.get("on", coarse);
   setOn(!!wantOn);
   document.body.classList.toggle("fct-simple", layout === "simple");
@@ -847,7 +893,8 @@
   const startUp = () => {
     if (!ready()) { setTimeout(startUp, 400); return; }
     if (layout === "simple") applyLayout("simple", true);
-    if (coarse && !store.get("helped2", false)) setTimeout(helpSheet, 700);
+    checkStart();
+    if (coarse && !store.get("helped2", false)) setTimeout(() => { if (!document.body.classList.contains("fct-start-on")) helpSheet(); }, 700);
   };
   startUp();
 
