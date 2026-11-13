@@ -20,10 +20,5 @@ Drop or pick a `.tp3` (Topcon Pocket-3D / Magnet project export): see all points
 
 ## FilmCraft (video editor)
 
-Open: https://onlyyjoey.github.io/survey-sim/filmcraft/
+Moved to its own repository: https://github.com/onlyyjoey/Video-editor — open it at https://onlyyjoey.github.io/Video-editor/
 
-A Premiere-style video editor (a copy of the open-source [FilmCraft](https://github.com/storytold/filmcraft)) set up for phones like CapCut: the video on top and a full-width timeline below, a slim top bar (Home · Import / Edit / Export · Menu with every menu), and a small tool strip on the left (Play, Split, Delete, Undo/Redo, Select / Blade / Text tools, and buttons that open side panels: Media, Effects, Adjust, Mixer, Levels). Swipe in from the left edge of the editor for your media: tap a file to add it at the playhead or drag it onto the timeline. "More" has speed, volume, transitions, color, sound, titles, export and the full editor layout. Gestures: tap = click, drag = move/trim, long-press = menu, pinch = zoom, two fingers = scroll, two-finger tap = undo, three-finger tap = redo. Media stays on the phone.
-
-On iPhone: open in Safari → Share → **Add to Home Screen**. Works best in landscape.
-
-The source is in `filmcraft-src/`. Any push that changes it rebuilds the app (GitHub Actions → "Build FilmCraft web app", about 15–25 minutes) and publishes it to `filmcraft/`. You can also run that workflow by hand from the Actions tab.
