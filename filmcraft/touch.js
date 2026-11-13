@@ -330,6 +330,7 @@
     mini("editL", "Previous edit", () => run(null, () => menu("playhead.prevEdit"))),
     jog,
     mini("editR", "Next edit", () => run(null, () => menu("playhead.nextEdit"))),
+    mini("hide", "Hide touch controls", () => setOn(false)),
   );
   const bar = el("div", { id: "fct-bar", role: "toolbar", "aria-label": "Editing tools" });
   for (const t of TOOLS) {
