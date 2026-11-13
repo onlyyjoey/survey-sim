@@ -154,7 +154,8 @@
     return {
       showHeader: false, showStatusBar: false, compact: true,
       phoneLayout: side ? "panel:" + side : "video",
-      videoShare: bigVideo ? 0.6 : landscape() ? 0.5 : 0.42,
+      bareMonitor: !landscape(),
+      videoShare: landscape() ? (bigVideo ? 0.6 : 0.5) : (bigVideo ? 0.62 : 0.54),
       sideShare: landscape() ? 0.36 : 0.62,
     };
   }
@@ -174,7 +175,10 @@
   let relayoutT = 0;
   addEventListener("resize", () => {
     clearTimeout(relayoutT);
-    relayoutT = setTimeout(() => { if (layout === "simple" && ready()) req("ui.set", phoneParams()).catch(() => {}); }, 250);
+    relayoutT = setTimeout(() => {
+      if (typeof renderStrip === "function" && orientKey !== curKey()) { orientKey = curKey(); order = loadOrder(); renderStrip(); }
+      if (layout === "simple" && ready()) req("ui.set", phoneParams()).catch(() => {});
+    }, 250);
   });
 
   // ------------------------------------------------------------------ media: import, list, add to the timeline
@@ -531,8 +535,24 @@
     seg.appendChild(b);
   }
   top.appendChild(el("div", { class: "sp" }));
+  const aspect = el("button", { type: "button", class: "aspect", "aria-label": "Video size" }, "");
+  aspect.addEventListener("click", () => run(null, () => menu("sequence.settings")));
+  top.appendChild(aspect);
+  top.appendChild(el("div", { class: "sp sp2" }));
   tb("menu", ico("menu") + "<span>Menu</span>", "Menus", () => menuSheet([]));
   tb("home", ico("home"), "Home", () => showStart(true));
+  const expBtn = tb("export", ico("export"), "Export", () => exportNow());
+  expBtn.classList.add("exp");
+  async function syncAspect() {
+    const q = await sequence();
+    if (!q || !q.settings) { aspect.textContent = ""; return; }
+    const w = q.settings.width || 0, h = q.settings.height || 0;
+    const g = (a, b) => (b ? g(b, a % b) : a);
+    const d = g(w, h) || 1;
+    let label = w / d + ":" + h / d;
+    if (w / d > 50) label = w + "×" + h;
+    aspect.textContent = label;
+  }
   function syncTop() { for (const b of seg.children) b.classList.toggle("on", b.dataset.mode === mode); }
   syncTop();
 
@@ -589,6 +609,7 @@
       document.body.classList.toggle("fct-cinema", !!st.cinema);
       if (typeof st.playing === "boolean") setPlaying(st.playing);
       if (st.mode && st.mode !== mode) { mode = st.mode; syncTop(); }
+      syncAspect();
     } catch { /* older build */ }
   }
   const soon = () => { clearTimeout(syncT); syncT = setTimeout(syncState, 280); };
@@ -646,6 +667,7 @@
     "t-type": { label: "Text", icon: "text", fn: () => setTool("type", "Text: tap the video where the text goes").then(syncStrip) },
     "t-ripple": { label: "Ripple", icon: "ripple", fn: () => setTool("ripple", "Ripple trim").then(syncStrip) },
     "t-hand": { label: "Pan", icon: "hand", fn: () => setTool("hand", "Pan").then(syncStrip) },
+    audio: { label: "Audio", icon: "music", fn: () => { mediaFilter = "audio"; openDrawer(); } },
     media: { label: "Media", icon: "media", cls: "hot", fn: () => (drawerOpen ? closeDrawer() : openDrawer()) },
     "p-effects": { label: "Effects", icon: "trans", fn: sideBtn("effects", "Effects", "Effects: drag one onto a clip") },
     "p-effectcontrols": { label: "Adjust", icon: "speed", fn: sideBtn("effectcontrols", "Adjust", "Adjust the selected clip") },
@@ -670,11 +692,22 @@
     export: { label: "Export", icon: "export", fn: () => exportNow() },
     more: { label: "More", icon: "more", fn: () => moreSheet() },
   };
+  const DEFAULT_PORTRAIT = ["media", "audio", "t-type", "p-effects", "split", "delete", "speed", "volume", "transition", "p-effectcontrols", "duplicate", "p-audiotrackmixer", "p-audiometers", "t-selection", "t-razor", "more"];
   const DEFAULT_ORDER = ["split", "delete", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
+  const curKey = () => (landscape() ? "strip" : "stripP");
+  const defaultFor = (k) => (k === "stripP" ? DEFAULT_PORTRAIT : DEFAULT_ORDER);
+  let orientKey = curKey();
+  function loadOrder() {
+    const k = curKey();
+    const o = (store.get(k, null) || defaultFor(k)).filter((id) => BUTTONS[id]);
+    if (!o.includes("more")) o.push("more");
+    return o;
+  }
   let order = (store.get("strip", null) || DEFAULT_ORDER).filter((id) => BUTTONS[id]);
   // Play lives beside the video now: take it off the strip once (it can be put back in Customize)
   if (!store.get("noPlayMigrated", false)) { order = order.filter((id) => id !== "play"); store.set("noPlayMigrated", true); store.set("strip", order); }
   if (!order.includes("more")) order.push("more"); // always a way back to settings
+  order = loadOrder();
   function renderStrip() {
     bar.textContent = "";
     for (const k of Object.keys(strip)) delete strip[k];
@@ -697,12 +730,12 @@
     }
     if (strip.media) strip.media.classList.toggle("on", drawerOpen);
   }
-  function saveOrder() { store.set("strip", order); renderStrip(); }
+  function saveOrder() { store.set(curKey(), order); renderStrip(); }
 
   // More ▸ Customize buttons: show / hide each button and move it up or down
   function customizeSheet() {
     sheet("Customize buttons", (s) => {
-      s.appendChild(el("p", { class: "fct-note" }, "Buttons run top to bottom on the left. Scroll the strip for the rest."));
+      s.appendChild(el("p", { class: "fct-note" }, landscape() ? "Sideways: buttons run top to bottom on the left. Scroll the strip for the rest." : "Upright: buttons run left to right along the bottom. Swipe the bar for the rest. (Sideways has its own order.)"));
       const list = el("div", { class: "fct-cust" });
       const draw = () => {
         list.textContent = "";
@@ -728,7 +761,7 @@
       draw();
       s.appendChild(list);
       const reset = el("button", { type: "button", class: "fct-primary" }, "Reset to default");
-      reset.addEventListener("click", () => { order = DEFAULT_ORDER.slice(); saveOrder(); draw(); });
+      reset.addEventListener("click", () => { order = defaultFor(curKey()).slice(); saveOrder(); draw(); });
       s.appendChild(reset);
     });
   }

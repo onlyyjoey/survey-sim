@@ -135,6 +135,9 @@ fn handle_ui_set(app: &mut FilmcraftApp, ctx: &egui::Context, p: &Value) -> Outc
     if let Some(b) = p.get("showStatusBar").and_then(Value::as_bool) {
         app.ui.show_status_bar = b;
     }
+    if let Some(b) = p.get("bareMonitor").and_then(Value::as_bool) {
+        app.ui.bare_monitor = b;
+    }
     if let Some(b) = p.get("compact").and_then(Value::as_bool) {
         app.ui.compact = b;
         app.ui.timeline.header_w = if b { 46.0 } else { 204.0 };

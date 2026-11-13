@@ -222,10 +222,13 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
     let cinema = app.ui.fullscreen_program && which == Which::Program;
     // touch-control copy: the compact Program monitor puts its controls in columns beside the
     // picture, so the picture (a vertical video above all) gets the panel's whole height
-    let side = app.ui.compact && which == Which::Program && !cinema;
+    let bare = app.ui.compact && app.ui.bare_monitor && which == Which::Program && !cinema;
+    let side = app.ui.compact && !bare && which == Which::Program && !cinema;
     let side_w = if side { side_width(app, rect) } else { 0.0 };
     let (controls_h, pad) = if cinema {
         (0.0, 0.0)
+    } else if bare {
+        (BARE_ROW_H, 0.0)
     } else if side {
         (0.0, 2.0)
     } else {
@@ -427,6 +430,12 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
         app.ui.status = name.clone();
     }
 
+    if bare {
+        let tc = format_time(time, rate, drop_frame, time_display, 48000);
+        let dur = format_time(duration, rate, drop_frame, time_display, 48000);
+        bare_controls(app, ui, rect, video_area, &tc, &dur);
+        return;
+    }
     if side {
         let column = Rect::from_min_max(pos2(rect.max.x - side_w, rect.min.y), rect.max);
         let tc = format_time(time, rate, drop_frame, time_display, 48000);
@@ -1545,6 +1554,76 @@ fn side_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, col: Rect, tc: &str,
     match pressed {
         Some("view.fullScreenProgram") => {
             if let Err(e) = crate::menus::invoke(app, &ctx, "view.fullScreenProgram", json!({})) {
+                app.ui.status = e;
+            }
+        }
+        Some(cmd) => invoke_transport(app, &ctx, Which::Program, cmd),
+        None => {}
+    }
+}
+
+/// Height of the transport row under the bare (portrait) Program monitor.
+const BARE_ROW_H: f32 = 44.0;
+
+/// Touch-control copy, portrait (KineMaster style): a full-screen button in the picture area's
+/// bottom-right corner, and under the picture one row with the time on the left, previous edit /
+/// play / next edit in the middle, and undo / redo on the right.
+fn bare_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, video_area: Rect, tc: &str, dur: &str) {
+    let t = app.tokens;
+    let ctx = ui.ctx().clone();
+    let p = ui.painter().clone();
+    let mut pressed: Option<&str> = None;
+    // full screen, in the corner of the picture area
+    let fr = Rect::from_min_size(video_area.max - vec2(40.0, 40.0), vec2(34.0, 34.0));
+    let fresp = ui.interact(fr, egui::Id::unique("program-bare-fullscreen"), Sense::click());
+    app.auto.add("program.bare.fullscreen", fr, "Full screen");
+    p.rect_filled(fr, 8.0, Color32::from_black_alpha(if fresp.hovered() { 170 } else { 110 }));
+    icons::paint(&p, fr.shrink(8.0), Icon::Fullscreen, Color32::WHITE);
+    if fresp.clicked() {
+        pressed = Some("view.fullScreenProgram");
+    }
+    // the row under the picture
+    let row = Rect::from_min_max(pos2(rect.min.x, rect.max.y - BARE_ROW_H), rect.max);
+    p.rect_filled(row, 0.0, t.panel_bg);
+    let short = |s: &str| s.strip_prefix("00:").or_else(|| s.strip_prefix("00;")).unwrap_or(s).to_string();
+    p.text(pos2(row.min.x + 10.0, row.center().y - 7.0), Align2::LEFT_CENTER, short(tc), Tokens::ui(10.5), t.timecode);
+    p.text(pos2(row.min.x + 10.0, row.center().y + 8.0), Align2::LEFT_CENTER, short(dur), Tokens::ui(10.0), t.text_dim);
+    let playing = app.playback.playing;
+    let mid: [(Icon, &str, f32); 3] =
+        [(Icon::PrevEdit, "playhead.prevEdit", 34.0), (if playing { Icon::Pause } else { Icon::Play }, "playback.toggle", 44.0), (Icon::NextEdit, "playhead.nextEdit", 34.0)];
+    let mut x = row.center().x - (34.0 + 44.0 + 34.0 + 16.0) / 2.0;
+    for (icon, cmd, w) in mid {
+        let r = Rect::from_min_size(pos2(x, row.center().y - 18.0), vec2(w, 36.0));
+        let resp = ui.interact(r, egui::Id::unique(("program-bare", cmd)), Sense::click());
+        app.auto.add(&format!("program.bare.{cmd}"), r, cmd);
+        if resp.hovered() {
+            p.rect_filled(r, 8.0, t.hover);
+        }
+        let s = if cmd == "playback.toggle" { 22.0 } else { 18.0 };
+        icons::paint(&p, Rect::from_center_size(r.center(), vec2(s, s)), icon, t.text);
+        if resp.clicked() {
+            pressed = Some(cmd);
+        }
+        x += w + 8.0;
+    }
+    let ends: [(Icon, &str); 2] = [(Icon::Undo, "edit.undo"), (Icon::Redo, "edit.redo")];
+    let mut x = row.max.x - 2.0 * 40.0 - 6.0;
+    for (icon, cmd) in ends {
+        let r = Rect::from_min_size(pos2(x, row.center().y - 18.0), vec2(36.0, 36.0));
+        let resp = ui.interact(r, egui::Id::unique(("program-bare", cmd)), Sense::click());
+        app.auto.add(&format!("program.bare.{cmd}"), r, cmd);
+        if resp.hovered() {
+            p.rect_filled(r, 8.0, t.hover);
+        }
+        icons::paint(&p, Rect::from_center_size(r.center(), vec2(19.0, 19.0)), icon, t.text);
+        if resp.clicked() {
+            pressed = Some(cmd);
+        }
+        x += 40.0;
+    }
+    match pressed {
+        Some(cmd @ ("view.fullScreenProgram" | "edit.undo" | "edit.redo")) => {
+            if let Err(e) = crate::menus::invoke(app, &ctx, cmd, json!({})) {
                 app.ui.status = e;
             }
         }

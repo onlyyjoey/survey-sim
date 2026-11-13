@@ -501,6 +501,10 @@ pub struct UiState {
     /// Touch-control copy: the extra buttons shown in the compact Program monitor's column (command ids).
     #[serde(default)]
     pub side_buttons: Vec<String>,
+    /// Touch-control copy, portrait: the Program monitor shows only the picture with a transport row
+    /// under it (KineMaster style), and the panels have no tab bars.
+    #[serde(default)]
+    pub bare_monitor: bool,
     /// The window was already fullscreen before cinema mode started.
     #[serde(skip)]
     pub cinema_was_fullscreen: bool,
@@ -1088,6 +1092,7 @@ impl Default for UiState {
             fullscreen_program: false,
             compact: false,
             side_buttons: Vec::new(),
+            bare_monitor: false,
             cinema_was_fullscreen: false,
             cinema_prev_focus: None,
         }
