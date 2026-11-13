@@ -292,3 +292,15 @@ body.fct-kf-on #fct-kf { display: flex; }
 #fct-kf .nav .key.on { background: #3a2f0c; color: #ffd23f; }
 #fct-kf .nav .key.on svg { fill: currentColor; }
 #fct-kf .hint { display: none; font-size: 10.5px; color: var(--fct-dim); line-height: 1.3; text-align: center; }
+
+#fct-kf .locks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+#fct-kf .locks button { height: 30px; border-radius: 8px; background: var(--fct-raise); display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; color: var(--fct-dim); }
+#fct-kf .locks svg { width: 14px; height: 14px; }
+#fct-kf .locks button.on { background: #3a2f0c; color: #ffd23f; }
+.fct-grid button .sw { width: 38px; height: 52px; border-radius: 5px; background: linear-gradient(#6a5acd, #2a8a7a); position: relative; overflow: hidden; }
+.fct-grid button .sw::after { content: ""; position: absolute; left: 0; right: 0; top: 34%; height: 32%; background: linear-gradient(90deg, #ff8a5c, #ffd23f); }
+.fct-grid .fill-blur .sw { filter: none; background: linear-gradient(#8a7ad0, #4aa89a); }
+.fct-grid .fill-blurStrong .sw { background: linear-gradient(#b3a8e6, #8fd0c4); }
+.fct-grid .fill-blurDark .sw { background: linear-gradient(#2d2650, #173c36); }
+.fct-grid .fill-zoom .sw { background: linear-gradient(135deg, #ff8a5c, #ffd23f 40%, #6a5acd); }
+.fct-grid .fill-zoomDark .sw { background: linear-gradient(135deg, #5a3020, #5a4a10 40%, #241e48); }

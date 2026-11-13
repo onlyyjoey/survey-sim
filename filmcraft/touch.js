@@ -95,6 +95,9 @@
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
     up: '<path d="M6 14.5 12 8.5l6 6"/>',
     key: '<path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/>',
+    fill: '<rect x="7" y="3.5" width="10" height="17" rx="1.5"/><rect x="3.5" y="8.5" width="17" height="7" rx="1"/>',
+    lockv: '<path d="M12 3.5v17M8.5 7 12 3.5 15.5 7M8.5 17l3.5 3.5 3.5-3.5"/>',
+    lockh: '<path d="M3.5 12h17M7 8.5 3.5 12 7 15.5M17 8.5l3.5 3.5-3.5 3.5"/>',
     down: '<path d="M6 9.5l6 6 6-6"/>',
     save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
   };
@@ -657,6 +660,32 @@
     syncAspect();
   }
 
+  // ------------------------------------------------------------------ background fill (landscape video in a vertical frame)
+  function fillSheet() {
+    const styles = [
+      ["blur", "Blur", "The video, blurred, fills the bars"],
+      ["blurStrong", "Strong blur", "Softer, more abstract background"],
+      ["blurDark", "Dark blur", "Blurred and dimmed so the video pops"],
+      ["zoom", "Zoom", "A zoomed-in copy, no blur"],
+      ["zoomDark", "Dark zoom", "Zoomed in and dimmed"],
+    ];
+    sheet("Fill the bars", (s) => {
+      s.appendChild(el("p", { class: "fct-note" }, "For a landscape clip in a vertical (9:16) video: the bars get a copy of the clip. Applies to the clip under the playhead."));
+      const g = el("div", { class: "fct-grid" });
+      for (const [id, label, tip] of styles) {
+        const b = el("button", { type: "button", class: "fill-" + id }, `<span class="sw"></span><span>${label}</span>`);
+        b.title = tip;
+        b.addEventListener("click", async () => {
+          closeSheet();
+          const r = await run("Fill: " + label + " — undo to remove", () => req("ui.backgroundFill", { style: id }));
+          if (r) soon();
+        });
+        g.appendChild(b);
+      }
+      s.appendChild(g);
+    });
+  }
+
   // ------------------------------------------------------------------ keyframe panel
   // Over the left of the video (the video keeps its size): pick Scale, Position, Rotation or
   // Opacity, set it with the slider (or drag the video to move it), and add / remove a keyframe at
@@ -668,9 +697,57 @@
     <div class="chips">${Object.entries(KF_PARAMS).map(([k, p]) => `<button type="button" data-p="${k}">${p.label}</button>`).join("")}</div>
     <div class="clipname"></div><div class="val">–</div>
     <div class="sliders"></div>
+    <div class="locks"><button type="button" class="lv" aria-label="Lock up and down">${ico("lockv")}<span>Lock ↕</span></button><button type="button" class="lh" aria-label="Lock left and right">${ico("lockh")}<span>Lock ↔</span></button></div>
     <div class="nav"><button type="button" class="prev" aria-label="Previous keyframe">${ico("frameL")}</button><button type="button" class="key" aria-label="Add or remove keyframe">${ico("key")}</button><button type="button" class="next" aria-label="Next keyframe">${ico("frameR")}</button></div>
     <div class="hint"></div>`;
   const kfSliders = kf.querySelector(".sliders");
+  let lockV = store.get("lockV", false), lockH = store.get("lockH", false);
+  const syncLocks = () => { kf.querySelector(".lv").classList.toggle("on", lockV); kf.querySelector(".lh").classList.toggle("on", lockH); };
+  kf.querySelector(".lv").addEventListener("click", () => { lockV = !lockV; store.set("lockV", lockV); syncLocks(); });
+  kf.querySelector(".lh").addEventListener("click", () => { lockH = !lockH; store.set("lockH", lockH); syncLocks(); });
+  syncLocks();
+  // live values for moving the video by hand, and where the picture is on screen
+  let kfLive = null, picCss = null;
+  async function refreshLive() {
+    try {
+      const [p, sc] = await Promise.all([req("ui.keyframeState", { param: "position" }), req("ui.keyframeState", { param: "scale" })]);
+      if (!p || p.clip == null) { kfLive = null; return; }
+      const w = p.width || 1920, h = p.height || 1080;
+      const v = p.value || [];
+      kfLive = { clip: p.clip, w, h, pos: [v[0] != null ? v[0] : w / 2, v[1] != null ? v[1] : h / 2], scale: sc && sc.value != null ? sc.value : 100 };
+      const e = (await req("ui.elements", { prefix: "program.picture" }))[0];
+      if (e && pppNow) {
+        const r = canvas.getBoundingClientRect(), z = pppNow / (devicePixelRatio || 1);
+        picCss = { x: r.left + e.rect[0] * z, y: r.top + e.rect[1] * z, w: e.rect[2] * z, h: e.rect[3] * z };
+      }
+    } catch { /* keep the last */ }
+  }
+  // move / pinch the video with the keyframe panel open: position and scale together
+  let kfMoveBusy = false, kfMoveWant = null;
+  async function kfMoveSend(pos, scale) {
+    kfMoveWant = { pos, scale };
+    if (kfMoveBusy) return;
+    kfMoveBusy = true;
+    while (kfMoveWant) {
+      const v = kfMoveWant; kfMoveWant = null;
+      try {
+        if (v.pos) await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "position", value: v.pos, merge: "kfmove" });
+        if (v.scale != null) await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "scale", value: v.scale, merge: "kfmove" });
+      } catch (e) { toast(friendly(String(e && e.message || e)), true); break; }
+    }
+    kfMoveBusy = false;
+  }
+  async function kfMoveCommit(pos, scale) {
+    // a keyframe for both position and scale at the playhead
+    while (kfMoveBusy) await new Promise((r) => setTimeout(r, 30));
+    try {
+      await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "position", value: pos, keyframe: true, merge: "kfmove" });
+      await exec("effects.setParam", { clip: kfLive.clip, effect: "motion", param: "scale", value: scale, keyframe: true, merge: "kfmove" });
+      buzz(8);
+    } catch (e) { toast(friendly(String(e && e.message || e)), true); }
+    refreshLive(); refreshKf();
+  }
+  const inPic = (x, y) => document.body.classList.contains("fct-kf-on") && kfLive && picCss && x >= picCss.x && x <= picCss.x + picCss.w && y >= picCss.y && y <= picCss.y + picCss.h && !kf.contains(document.elementFromPoint(x, y));
   kf.querySelector(".x").addEventListener("click", () => toggleKf(false));
   kf.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => { kfParam = b.dataset.p; buildSliders(); refreshKf(); }));
   kf.querySelector(".key").addEventListener("click", async () => {
@@ -763,7 +840,8 @@
     const st = await req("ui.keyframeState", { param: kfParam }).catch(() => null);
     if (st && st.clip != null) await exec("timeline.select", { clips: [st.clip] }).catch(() => {});
     refreshKf();
-    kfTimer = setInterval(() => { if (!kfSending) refreshKf(); }, 700);
+    refreshLive();
+    kfTimer = setInterval(() => { if (!kfSending) refreshKf(); if (!kfMoveBusy && !(g && g.kf)) refreshLive(); }, 700);
   }
   addEventListener("resize", () => setTimeout(placeKf, 300));
 
@@ -783,6 +861,7 @@
     "t-ripple": { label: "Ripple", icon: "ripple", fn: () => setTool("ripple", "Ripple trim").then(syncStrip) },
     "t-hand": { label: "Pan", icon: "hand", fn: () => setTool("hand", "Pan").then(syncStrip) },
     keyframe: { label: "Keyframe", icon: "key", fn: () => toggleKf() },
+    fill: { label: "Fill", icon: "fill", fn: () => fillSheet() },
     back: { label: "Done", icon: "frameL", cls: "back", fn: () => run(null, () => menu("edit.deselectAll")) },
     audio: { label: "Audio", icon: "music", fn: () => { mediaFilter = "audio"; openDrawer(); } },
     media: { label: "Media", icon: "media", cls: "hot", fn: () => (drawerOpen ? closeDrawer() : openDrawer()) },
@@ -834,7 +913,7 @@
   }
   order = loadOrder();
   // KineMaster style: with a clip selected, the bar shows that clip's tools; "Done" goes back
-  const CLIP_ORDER = ["back", "keyframe", "split", "delete", "duplicate", "speed", "volume", "transition", "freeze", "p-effectcontrols", "copy", "paste", "deletegap", "t-razor"];
+  const CLIP_ORDER = ["back", "keyframe", "fill", "split", "delete", "duplicate", "speed", "volume", "transition", "freeze", "p-effectcontrols", "copy", "paste", "deletegap", "t-razor"];
   let clipMode = false;
   function renderStrip() {
     bar.textContent = "";
@@ -982,6 +1061,7 @@
     if (!g) {
       const t = pt(e.changedTouches[0]);
       g = { state: "pending", ids: [t.id], sx: t.x, sy: t.y, x: t.x, y: t.y, t0: performance.now(), fingers: 1, moved: false, edge: t.x - canvas.getBoundingClientRect().left < EDGE };
+      if (inPic(t.x, t.y)) { g.kf = { pos: kfLive.pos.slice(), scale: kfLive.scale }; g.edge = false; }
       // (the editor itself turns a drag on empty timeline space into a scrub in the compact layout)
       if (false) {
         const gg = g;
@@ -995,10 +1075,19 @@
       return;
     }
     g.fingers = Math.max(g.fingers, e.touches.length);
-    if (g.state === "pending" || g.state === "multi") {
+    if (g.state === "pending" || g.state === "multi" || g.state === "kfmove") {
       clearTimeout(g.timer);
       for (const t of e.changedTouches) if (g.ids.length < 2) g.ids.push(t.identifier);
-      if (g.state === "pending") { g.state = "multi"; g.t0 = performance.now(); }
+      if (g.state === "pending" || g.state === "kfmove") {
+        if (g.kf) {
+          // pinch the video: scale (and move) it
+          g.state = "kfpinch";
+          const m0 = two(e);
+          if (m0) { g.kfp = { d: m0.d, mx: m0.mx, my: m0.my, pos: (g.kfCur && g.kfCur.pos) || g.kf.pos.slice(), scale: (g.kfCur && g.kfCur.scale) || g.kf.scale }; }
+          return;
+        }
+        if (g.state === "pending") { g.state = "multi"; g.t0 = performance.now(); }
+      }
       const m = two(e);
       if (m) { g.mx = m.mx; g.my = m.my; g.d = m.d; }
     }
@@ -1020,7 +1109,11 @@
         return;
       }
       if (g.edge && Math.hypot(t.clientX - g.sx, t.clientY - g.sy) <= 24) return;
-      if (Math.hypot(t.clientX - g.sx, t.clientY - g.sy) > SLOP) {
+      if (g.kf && Math.hypot(t.clientX - g.sx, t.clientY - g.sy) > SLOP) {
+        clearTimeout(g.timer);
+        g.state = "kfmove";
+      }
+      if (g.state === "pending" && Math.hypot(t.clientX - g.sx, t.clientY - g.sy) > SLOP) {
         // wait a moment for the hit test, so the gesture knows what is under the finger
 
         clearTimeout(g.timer);
@@ -1044,6 +1137,24 @@
           return;
         }
       } else return;
+    }
+    if (g.state === "kfmove" || g.state === "kfpinch") {
+      const k = picCss.w > 0 ? kfLive.w / picCss.w : 1; // sequence px per screen px
+      let pos, scale;
+      if (g.state === "kfmove") {
+        const t = find(e.touches, g.ids[0]);
+        if (!t) return;
+        pos = [g.kf.pos[0] + (lockH ? 0 : (t.clientX - g.sx) * k), g.kf.pos[1] + (lockV ? 0 : (t.clientY - g.sy) * k)];
+        scale = g.kf.scale;
+      } else {
+        const m = two(e);
+        if (!m || !g.kfp) return;
+        scale = Math.max(1, g.kfp.scale * (m.d / Math.max(1, g.kfp.d)));
+        pos = [g.kfp.pos[0] + (lockH ? 0 : (m.mx - g.kfp.mx) * k), g.kfp.pos[1] + (lockV ? 0 : (m.my - g.kfp.my) * k)];
+      }
+      g.kfCur = { pos, scale };
+      kfMoveSend(pos, g.state === "kfpinch" ? scale : null);
+      return;
     }
     if (g.state === "scrub") {
       const t = find(e.touches, g.ids[0]);
@@ -1079,6 +1190,13 @@
     e.preventDefault();
     e.stopImmediatePropagation();
     const ended = Array.from(e.changedTouches).some((t) => t.identifier === g.ids[0]);
+    if ((g.state === "kfmove" || g.state === "kfpinch") && e.touches.length === 0) {
+      const c = g.kfCur;
+      if (c) kfMoveCommit(c.pos, c.scale);
+      clearTimeout(g.timer);
+      g = null;
+      return;
+    }
     if (g.state === "pending" && ended) {
       clearTimeout(g.timer);
       // a tap: a full click, dispatched inside this real touch event so iOS can raise the keyboard
