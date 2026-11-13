@@ -22,7 +22,7 @@ Drop or pick a `.tp3` (Topcon Pocket-3D / Magnet project export): see all points
 
 Open: https://onlyyjoey.github.io/survey-sim/filmcraft/
 
-A Premiere-style video editor (a copy of the open-source [FilmCraft](https://github.com/storytold/filmcraft)) with CapCut / KineMaster-style touch controls: a bottom tool bar (Split, Delete, Delete gap, Speed, Volume, Transition, Text, Media, Audio, Tools, Layout, Undo/Redo, Export), a jog strip for frame-by-frame scrubbing, and a big play button rail when the phone is sideways. Gestures on the editor: tap = click, drag = move/trim, long-press = right-click menu, pinch = zoom the timeline or monitor, two-finger drag = scroll, two-finger tap = undo, three-finger tap = redo. Media stays on the phone.
+A Premiere-style video editor (a copy of the open-source [FilmCraft](https://github.com/storytold/filmcraft)) set up for phones like CapCut: the video on top and a full-width timeline below, a slim top bar (Home · Import / Edit / Export · Menu with every menu), and a small tool strip on the left (Play, Split, Delete, Undo/Redo, Select / Blade / Text tools, and buttons that open side panels: Media, Effects, Adjust, Mixer, Levels). Swipe in from the left edge of the editor for your media: tap a file to add it at the playhead or drag it onto the timeline. "More" has speed, volume, transitions, color, sound, titles, export and the full editor layout. Gestures: tap = click, drag = move/trim, long-press = menu, pinch = zoom, two fingers = scroll, two-finger tap = undo, three-finger tap = redo. Media stays on the phone.
 
 On iPhone: open in Safari → Share → **Add to Home Screen**. Works best in landscape.
 

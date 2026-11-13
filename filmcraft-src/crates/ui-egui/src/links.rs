@@ -7,10 +7,13 @@
 pub const APP: &str = "filmcraft";
 
 /// The ArtCraft community Discord.
+#[allow(dead_code)]
 pub const DISCORD: &str = "https://discord.gg/artcraft";
 /// The ArtCraft website.
+#[allow(dead_code)]
 pub const WEBSITE: &str = "https://getartcraft.com";
 /// FilmCraft's page on the ArtCraft website.
+#[allow(dead_code)]
 pub const APP_PAGE: &str = "https://getartcraft.com/apps/filmcraft";
 /// FilmCraft's source repository.
 pub const GITHUB: &str = "https://github.com/storytold/filmcraft";
@@ -18,10 +21,8 @@ pub const GITHUB: &str = "https://github.com/storytold/filmcraft";
 pub const ISSUES: &str = "https://github.com/storytold/filmcraft/issues";
 
 /// (command id, label, url) for every link, in menu order.
-pub const ALL: [(&str, &str, &str); 5] = [
-    ("help.discord", "Join the ArtCraft Discord…", DISCORD),
-    ("help.website", "ArtCraft Website", WEBSITE),
-    ("help.appPage", "FilmCraft on getartcraft.com", APP_PAGE),
+/// (This touch-control copy leaves out the ArtCraft Discord and website links.)
+pub const ALL: [(&str, &str, &str); 2] = [
     ("help.github", "FilmCraft on GitHub", GITHUB),
     ("help.reportIssue", "Report an Issue…", ISSUES),
 ];

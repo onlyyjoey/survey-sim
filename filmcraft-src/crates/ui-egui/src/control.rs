@@ -135,8 +135,13 @@ fn handle_ui_set(app: &mut FilmcraftApp, ctx: &egui::Context, p: &Value) -> Outc
     if let Some(b) = p.get("showStatusBar").and_then(Value::as_bool) {
         app.ui.show_status_bar = b;
     }
+    // `phoneLayout`: "video" (bigger monitor), "even", or "panel:<name>" (that panel on the left);
+    // `videoShare` / `sideShare` override the split ratios.
     if let Some(l) = s("phoneLayout") {
-        app.ui.dock = crate::dock::phone_layout(l == "video");
+        let side = l.strip_prefix("panel:").and_then(PanelKind::from_name);
+        let video = p.get("videoShare").and_then(Value::as_f64).map_or(if l == "even" { 0.5 } else { 0.58 }, |v| v as f32);
+        let side_share = p.get("sideShare").and_then(Value::as_f64).map_or(0.4, |v| v as f32);
+        app.ui.dock = crate::dock::phone_layout(side, video, side_share);
         app.ui.keys.maximized = None;
     }
     if let Some(t) = s("tool") {

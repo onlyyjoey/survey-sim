@@ -422,12 +422,19 @@ const TOOLS_WIDTH: f32 = 64.0;
 const METERS_WIDTH: f32 = 116.0;
 
 /// The default layout of a named workspace.
-/// The phone layout of the touch-control copy: the Program monitor over the Timeline and
-/// nothing else. `big_video` gives the monitor the larger share.
-pub fn phone_layout(big_video: bool) -> Layout {
+/// The phone layout of the touch-control copy: the Program monitor over a full-width Timeline,
+/// and optionally one more panel (Effects, the audio mixer, the meters…) opened full height on
+/// the left. `video_share` is the monitor's share of the height, `side_share` the side panel's
+/// share of the width; both are kept to sensible bounds.
+pub fn phone_layout(side: Option<PanelKind>, video_share: f32, side_share: f32) -> Layout {
     use PanelKind::{Program, Timeline};
-    let size = if big_video { SplitSize::Ratio(0.62) } else { SplitSize::Ratio(0.5) };
-    Layout { root: Some(vsplit(size, tabs(&[Program], 0), tabs(&[Timeline], 0))), floating: vec![] }
+    let share = |v: f32, fallback: f32| if v.is_finite() { v.clamp(0.15, 0.85) } else { fallback };
+    let main = vsplit(SplitSize::Ratio(share(video_share, 0.5)), tabs(&[Program], 0), tabs(&[Timeline], 0));
+    let root = match side {
+        Some(panel) if panel != Program && panel != Timeline => hsplit(SplitSize::Ratio(share(side_share, 0.4)), tabs(&[panel], 0), main),
+        _ => main,
+    };
+    Layout { root: Some(root), floating: vec![] }
 }
 
 pub fn workspace(name: &str) -> Layout {
