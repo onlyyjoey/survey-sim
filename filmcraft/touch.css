@@ -194,3 +194,27 @@ body.fct-drawer-peek #fct-dscrim { opacity: 0; }
   border: 2px solid var(--fct-accent); pointer-events: none; animation: fct-ring .45s ease-out forwards;
 }
 @keyframes fct-ring { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.25); opacity: 0; } }
+
+/* ---------- start screen ---------- */
+#fct-start {
+  position: fixed; inset: 0; z-index: 38; display: none; align-items: center; justify-content: center;
+  padding: calc(var(--fct-sat) + 16px) calc(var(--fct-sar) + 16px) calc(var(--fct-sab) + 16px) calc(var(--fct-sal) + 16px);
+  background: radial-gradient(120% 80% at 50% 0%, #20302f 0%, var(--fct-bg) 60%);
+}
+body.fct-start-on #fct-start { display: flex; }
+#fct-start .box { width: min(400px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+#fct-start img { border-radius: 16px; }
+#fct-start h1 { margin: 6px 0 0; font-size: 24px; font-weight: 700; }
+#fct-start p { margin: 0 0 8px; color: var(--fct-dim); font-size: 14px; line-height: 1.4; }
+#fct-start .big { height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px !important; border-radius: 14px; }
+#fct-start .big svg { width: 22px; height: 22px; stroke-width: 2.4; }
+#fct-start .row2 { display: flex; gap: 8px; width: 100%; }
+#fct-start .row2 button { flex: 1; height: 46px; border-radius: 12px; background: var(--fct-raise); display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; }
+#fct-start .row2 svg { width: 18px; height: 18px; }
+#fct-start .back { margin-top: 6px; height: 36px; padding: 0 14px; color: var(--fct-accent); font-size: 14px; }
+@media (orientation: landscape) and (max-height: 600px) {
+  #fct-start img { width: 44px; height: 44px; }
+  #fct-start h1 { font-size: 20px; margin: 0; }
+  #fct-start p { display: none; }
+  #fct-start .box { gap: 8px; }
+}
