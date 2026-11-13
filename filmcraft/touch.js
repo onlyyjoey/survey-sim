@@ -6,9 +6,10 @@
 //     for the editor: tap = click, drag = drag, long-press = right-click (context menu),
 //     pinch = zoom (timeline / monitors), two-finger drag = scroll, two-finger tap = undo,
 //     three-finger tap = redo.
-//  2. A docked toolbar with big buttons (split, delete, speed, volume, text, import, export…),
-//     a jog strip for frame-accurate scrubbing, and a play rail in landscape. Buttons drive the
-//     editor through its built-in `window.filmcraft` command API.
+//  2. A CapCut-style phone layout: video on top, timeline below, one slim bar of buttons
+//     (bottom in portrait, right side in landscape), a media drawer that slides in from the left
+//     (tap a file to add it, or drag it onto the timeline), and everything else under "More".
+//     Buttons drive the editor through its built-in `window.filmcraft` command API.
 (() => {
   "use strict";
 
@@ -119,21 +120,60 @@
   }
   const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* not supported */ } };
 
-  // ------------------------------------------------------------------ playback state
+  // ------------------------------------------------------------------ time helpers
+  const TICKS = 254016000000; // FilmCraft ticks per second
+  const fmt = (ticks) => {
+    const s = Math.max(0, Math.round((ticks || 0) / TICKS));
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  };
+  async function sequence() { try { return await exec("sequence.inspect"); } catch { return null; } }
+
+  // ------------------------------------------------------------------ playback
   let playing = false;
   const playBtns = [];
   function setPlaying(p) {
     playing = !!p;
-    for (const b of playBtns) { b.innerHTML = ico(playing ? "pause" : "play"); b.setAttribute("aria-label", playing ? "Pause" : "Play"); }
+    for (const b of playBtns) { b.querySelector(".i").innerHTML = ico(playing ? "pause" : "play"); b.setAttribute("aria-label", playing ? "Pause" : "Play"); }
   }
   async function togglePlay() {
     const r = await run(null, () => req("ui.playback", { action: "toggle" }));
     if (r && typeof r.playing === "boolean") setPlaying(r.playing);
   }
 
-  // ------------------------------------------------------------------ import (CapCut style: picked media lands on the timeline)
+  // ------------------------------------------------------------------ layout (simple phone layout or the full editor)
+  let layout = store.get("layout", coarse ? "simple" : "pro");
+  async function applyLayout(which, quiet) {
+    layout = which;
+    store.set("layout", which);
+    document.body.classList.toggle("fct-simple", which === "simple");
+    const p = which === "simple"
+      ? { showHeader: false, showStatusBar: false, phoneLayout: "video" }
+      : { showHeader: true, showStatusBar: true, workspace: "Editing" };
+    await run(quiet ? null : which === "simple" ? "Simple layout" : "Full editor layout", () => req("ui.set", p));
+  }
+
+  // ------------------------------------------------------------------ media: import, list, add to the timeline
+  const thumbs = new Map(); // item name → image URL, for files picked on this device
   const picker = el("input", { type: "file", multiple: "", hidden: "" });
-  let pickMode = "media";
+  async function makeThumb(file) {
+    if (thumbs.has(file.name)) return;
+    if (file.type.startsWith("image/")) { thumbs.set(file.name, URL.createObjectURL(file)); return; }
+    if (!file.type.startsWith("video/") && !/\.(mov|mp4|m4v|mkv|webm)$/i.test(file.name)) return;
+    try {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.muted = true; v.playsInline = true; v.preload = "metadata"; v.src = url;
+      await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = bad; setTimeout(bad, 6000); });
+      v.currentTime = Math.min(1, (v.duration || 2) / 3);
+      await new Promise((ok) => { v.onseeked = ok; setTimeout(ok, 2000); });
+      const c = document.createElement("canvas");
+      const w = 240, h = Math.round(w * ((v.videoHeight || 9) / (v.videoWidth || 16)));
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(v, 0, 0, w, h);
+      thumbs.set(file.name, c.toDataURL("image/jpeg", 0.7));
+      URL.revokeObjectURL(url);
+    } catch { /* no thumbnail; the tile shows its type */ }
+  }
   picker.addEventListener("change", async () => {
     const files = Array.from(picker.files || []);
     picker.value = "";
@@ -141,22 +181,180 @@
     toast(files.length === 1 ? "Importing " + files[0].name + "…" : "Importing " + files.length + " files…");
     const res = await run(null, () => call((f) => f.importFiles(files)));
     if (!res) return;
+    files.forEach((f) => makeThumb(f).then(() => drawerOpen && renderMedia()));
     const ids = (res.items || []).map((x) => (x && typeof x === "object" ? (x.item ?? x.id) : x)).filter((x) => Number.isFinite(x));
     if (!ids.length) { toast((res.errors && res.errors[0]) || "Nothing could be imported", true); return; }
-    let seq = null;
-    try { seq = await exec("sequence.inspect"); } catch { seq = null; }
+    toast(ids.length === 1 ? "Imported — tap it or drag it onto the timeline" : ids.length + " files imported");
+    openDrawer();
+  });
+  const pick = () => { picker.accept = "video/*,image/*,audio/*,.mov,.mp4,.mkv,.webm,.mp3,.m4a,.wav"; picker.click(); };
+
+  async function addAt(item, opts) {
+    let seq = await sequence();
     if (!seq) {
-      await run("Added to a new sequence", () => exec("file.newSequence", { name: "My Video", fromItems: ids }));
+      return run("Started a new video", () => exec("file.newSequence", { name: "My Video", fromItem: item.item }));
+    }
+    const base = { item: item.item, time: opts && opts.time != null ? opts.time : (seq.playhead || 0) };
+    if (item.type === "Audio") base.track = "A1";
+    else if (opts && opts.track != null) base.track = opts.track;
+    base.insert = !(opts && opts.overwrite);
+    try {
+      await exec("timeline.place", base);
+    } catch (e) {
+      // e.g. a picture dropped on an audio track: try again on the default track
+      delete base.track;
+      try { await exec("timeline.place", base); } catch (e2) { toast(friendly(String(e2 && e2.message || e2)), true); return; }
+    }
+    toast("Added " + item.name);
+    buzz(8);
+  }
+
+  function flatten(node, out, bin) {
+    if (!node) return out;
+    if (node.item != null) out.push({ ...node, bin });
+    for (const c of node.children || []) flatten(c, out, node.item == null ? node.name : bin);
+    return out;
+  }
+
+  // drawer
+  const drawer = el("div", { id: "fct-drawer", class: "fct", role: "dialog", "aria-label": "Media" });
+  const dHead = el("div", { class: "dh" });
+  const dAdd = el("button", { type: "button", class: "dadd" }, ico("plus") + "<span>Add</span>");
+  dAdd.addEventListener("click", pick);
+  const dClose = el("button", { type: "button", class: "dx", "aria-label": "Close" }, ico("frameL"));
+  dClose.addEventListener("click", () => closeDrawer());
+  const dTabs = el("div", { class: "dtabs" });
+  dHead.append(el("b", {}, "Media"), dAdd, dClose);
+  const dList = el("div", { class: "dlist" });
+  const dHint = el("div", { class: "dhint" }, "Tap to add at the playhead · drag onto the timeline");
+  drawer.append(dHead, dTabs, dList, dHint);
+  const dScrim = el("div", { id: "fct-dscrim", onclick: () => closeDrawer() });
+  let drawerOpen = false, mediaFilter = store.get("mediaFilter", "all"), mediaItems = [];
+  const FILTERS = [["all", "All"], ["video", "Video"], ["photo", "Photos"], ["audio", "Audio"], ["seq", "Projects"]];
+  for (const [k, label] of FILTERS) {
+    const b = el("button", { type: "button", "data-k": k }, label);
+    b.addEventListener("click", () => { mediaFilter = k; store.set("mediaFilter", k); renderMedia(); });
+    dTabs.appendChild(b);
+  }
+  const kindOf = (it) => it.type === "Sequence" ? "seq" : it.type === "Audio" ? "audio" : /\.(png|jpe?g|gif|webp|heic|avif|bmp|tiff?)$/i.test(it.name) || it.type === "Still" || it.type === "Image" ? "photo" : "video";
+  async function refreshMedia() {
+    const p = await (async () => { try { return await exec("project.inspect"); } catch { return null; } })();
+    mediaItems = p ? flatten(p.root, [], "") : [];
+    renderMedia();
+  }
+  function renderMedia() {
+    for (const b of dTabs.children) b.classList.toggle("on", b.dataset.k === mediaFilter);
+    dList.textContent = "";
+    const list = mediaItems.filter((it) => mediaFilter === "all" ? true : kindOf(it) === mediaFilter);
+    if (!list.length) {
+      const empty = el("div", { class: "dempty" }, `<p>No ${mediaFilter === "all" ? "media" : FILTERS.find((f) => f[0] === mediaFilter)[1].toLowerCase()} yet.</p>`);
+      const b = el("button", { type: "button", class: "fct-primary" }, "Add from your phone");
+      b.addEventListener("click", pick);
+      empty.appendChild(b);
+      dList.appendChild(empty);
       return;
     }
-    const opts = { items: ids, time: seq.duration || 0 };
-    if (pickMode === "audio") opts.track = "A1";
-    await run(ids.length === 1 ? "Added to the end of the timeline" : ids.length + " clips added to the timeline", () => exec("timeline.place", opts));
-  });
-  function pick(mode) {
-    pickMode = mode;
-    picker.accept = mode === "audio" ? "audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg" : "video/*,image/*,audio/*,.mov,.mp4,.mkv,.webm";
-    picker.click();
+    for (const it of list) {
+      const k = kindOf(it);
+      const tile = el("div", { class: "tile k-" + k, role: "button", tabindex: "0", "aria-label": it.name });
+      const th = el("div", { class: "th" });
+      const src = thumbs.get(it.name);
+      if (src) th.style.backgroundImage = `url("${src}")`;
+      else th.innerHTML = ico(k === "audio" ? "music" : k === "seq" ? "panels" : k === "photo" ? "media" : "play");
+      if (it.duration && k !== "photo") th.appendChild(el("span", { class: "dur" }, fmt(it.duration)));
+      tile.append(th, el("div", { class: "nm" }, it.name.replace(/</g, "&lt;")));
+      bindTile(tile, it);
+      dList.appendChild(tile);
+    }
+  }
+  function openDrawer() {
+    if (drawerOpen) { refreshMedia(); return; }
+    drawerOpen = true;
+    document.body.classList.add("fct-drawer-on");
+    refreshMedia();
+  }
+  function closeDrawer() {
+    drawerOpen = false;
+    document.body.classList.remove("fct-drawer-on");
+  }
+  // swipe the drawer back to the left to close it
+  {
+    let x0 = null;
+    drawer.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+    drawer.addEventListener("touchmove", (e) => { if (x0 !== null && !dragging && x0 - e.touches[0].clientX > 60) { x0 = null; closeDrawer(); } }, { passive: true });
+  }
+
+  // drag a tile out of the drawer onto the timeline
+  let dragging = null;
+  const ghost = el("div", { id: "fct-ghost", class: "fct" });
+  let ppp = 0;
+  async function canvasPoint(cx, cy) {
+    if (!ppp) { try { ppp = (await req("ui.inspect")).pixelsPerPoint || devicePixelRatio; } catch { ppp = devicePixelRatio; } }
+    const r = canvas.getBoundingClientRect();
+    const zoom = ppp / (devicePixelRatio || 1);
+    return { x: (cx - r.left) / zoom, y: (cy - r.top) / zoom };
+  }
+  addEventListener("resize", () => { ppp = 0; });
+  function bindTile(tile, it) {
+    let s = null, timer = 0;
+    const begin = (x, y) => {
+      dragging = { it, x, y };
+      ghost.innerHTML = tile.querySelector(".th").outerHTML;
+      ghost.style.display = "block";
+      moveGhost(x, y);
+      tile.classList.add("lift");
+      buzz(10);
+    };
+    const moveGhost = (x, y) => {
+      ghost.style.transform = `translate(${x - 44}px, ${y - 30}px)`;
+      // let the timeline show through once the finger leaves the drawer
+      document.body.classList.toggle("fct-drawer-peek", x > drawer.getBoundingClientRect().right - 10);
+    };
+    const finish = async (x, y, cancelled) => {
+      clearTimeout(timer);
+      const d = dragging; dragging = null; s = null;
+      ghost.style.display = "none";
+      tile.classList.remove("lift");
+      document.body.classList.remove("fct-drawer-peek");
+      if (!d || cancelled) return;
+      const r = canvas.getBoundingClientRect();
+      if (x < drawer.getBoundingClientRect().right - 10 || x < r.left || x > r.right || y < r.top || y > r.bottom) return;
+      closeDrawer();
+      if (it.type === "Sequence") { await run("Opened " + it.name, () => exec("sequence.open", { item: it.item })); return; }
+      let hit = null;
+      try { hit = await req("ui.timeline.hit", await canvasPoint(x, y)); } catch { hit = null; }
+      if (hit && hit.time != null && hit.hit !== "none") await addAt(it, { time: hit.time, track: hit.track, overwrite: hit.hit === "empty" });
+      else await addAt(it);
+    };
+    tile.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      s = { x: t.clientX, y: t.clientY, moved: false };
+      timer = setTimeout(() => { if (s && !dragging) begin(s.x, s.y); }, 280);
+    }, { passive: true });
+    tile.addEventListener("touchmove", (e) => {
+      if (!s) return;
+      const t = e.touches[0];
+      const dx = t.clientX - s.x, dy = t.clientY - s.y;
+      if (!dragging) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { clearTimeout(timer); s = null; return; } // scrolling the list
+        if (dx > 12) begin(t.clientX, t.clientY);
+        else return;
+      }
+      e.preventDefault();
+      dragging.x = t.clientX; dragging.y = t.clientY;
+      moveGhost(t.clientX, t.clientY);
+    }, { passive: false });
+    tile.addEventListener("touchend", (e) => {
+      clearTimeout(timer);
+      if (dragging) { e.preventDefault(); finish(dragging.x, dragging.y, false); return; }
+      if (s && !s.moved) { e.preventDefault(); s = null; tap(); }
+    });
+    tile.addEventListener("touchcancel", () => finish(0, 0, true));
+    tile.addEventListener("click", () => tap());
+    const tap = () => {
+      if (it.type === "Sequence") { run("Opened " + it.name, () => exec("sequence.open", { item: it.item })); closeDrawer(); return; }
+      addAt(it);
+    };
   }
 
   // ------------------------------------------------------------------ sheets
@@ -171,7 +369,6 @@
     document.body.appendChild(s);
     requestAnimationFrame(() => { scrim.classList.add("on"); s.classList.add("on"); });
     openSheetEl = s;
-    // swipe down to close
     let y0 = null;
     s.addEventListener("touchstart", (e) => { y0 = s.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
     s.addEventListener("touchmove", (e) => { if (y0 !== null && e.touches[0].clientY - y0 > 70) { y0 = null; closeSheet(); } }, { passive: true });
@@ -198,77 +395,62 @@
     currentTool = name;
     return run(label, () => req("ui.set", { tool: name }));
   }
-  function toolsSheet() {
-    const t = (name, label, icon) => ({ label, icon, on: currentTool === name, run: () => setTool(name, label + " tool") });
-    sheet("Tools", (s) => {
-      grid(s, null, [
-        t("selection", "Select", "hand"),
-        t("razor", "Blade", "split"),
-        t("ripple", "Ripple trim", "ripple"),
-        t("rolling", "Roll", "trans"),
-        t("ratestretch", "Stretch", "speed"),
-        t("slip", "Slip", "frameR"),
-        t("slide", "Slide", "editR"),
-        t("hand", "Pan", "hand"),
-        t("zoom", "Zoom", "zoomfit"),
-        t("type", "Text", "text"),
-        t("pen", "Pen", "tools"),
-        t("rectangle", "Shape", "panels"),
-      ]);
-    });
-  }
-  function panelsSheet() {
-    const w = (name, label, icon) => ({ label, icon, run: () => run(label + " layout", () => req("ui.set", { workspace: name })) });
-    sheet("Layout", (s) => {
-      grid(s, null, [
-        w("Editing", "Editing", "panels"),
-        w("Assembly", "Assembly", "media"),
-        w("Vertical", "Vertical", "panels"),
-        w("Color", "Color", "freeze"),
-        w("Effects", "Effects", "trans"),
-        w("Audio", "Audio", "music"),
-        w("Captions and Graphics", "Titles", "text"),
-        w("All Panels", "All panels", "panels"),
-      ]);
-      grid(s, "Interface size", [
-        { label: "Smaller", icon: "minus", keep: true, run: () => uiSize(-1) },
-        { label: "Larger", icon: "plus", keep: true, run: () => uiSize(1) },
-        { label: "Auto", icon: "zoomfit", keep: true, run: () => run("Interface size: auto", () => exec("prefs.set", { key: "appearance.uiScale", value: "auto" })) },
-      ]);
-    });
-  }
-  // "UI Scale" preference: physical pixels per point, from a fixed list
   const SCALES = [75, 100, 125, 150, 175, 200, 250, 300];
   async function uiSize(dir) {
     const info = await run(null, () => req("ui.inspect"));
     if (!info) return;
+    ppp = 0;
     const cur = Math.round((info.pixelsPerPoint || devicePixelRatio || 1) * 100);
     const next = dir > 0 ? SCALES.find((v) => v > cur + 5) : [...SCALES].reverse().find((v) => v < cur - 5);
     if (!next) { toast(dir > 0 ? "Already the largest size" : "Already the smallest size"); return; }
     await run("Interface size " + next + "%", () => exec("prefs.set", { key: "appearance.uiScale", value: String(next) }));
   }
+  const exportNow = () => run("Export: pick a format, then Export", () => req("ui.set", { mode: "export" }));
+  const backToEdit = () => run(null, () => req("ui.set", { mode: "edit" }));
+
   function moreSheet() {
-    sheet("More", (s) => {
-      grid(s, "Clip", [
+    const t = (name, label, icon) => ({ label, icon, on: currentTool === name, run: () => setTool(name, label + " tool") });
+    sheet("Edit", (s) => {
+      grid(s, null, [
+        { label: "Text", icon: "text", run: () => setTool("type", "Text: tap the video where the text goes") },
+        { label: "Speed", icon: "speed", run: () => run(null, () => menu("clip.speedDuration")) },
+        { label: "Volume", icon: "volume", run: () => run(null, () => menu("clip.audioGain")) },
+        { label: "Transition", icon: "trans", run: () => run("Transition added", () => menu("sequence.applyVideoTransition")) },
+        { label: "Freeze", icon: "freeze", run: () => run(null, () => menu("clip.frameHold")) },
+        { label: "Duplicate", icon: "dup", run: () => run("Duplicated", () => menu("edit.duplicate")) },
+        { label: "Delete gap", icon: "ripple", run: () => run("Deleted and closed the gap", () => menu("edit.rippleDelete")) },
+        { label: "Redo", icon: "redo", run: () => run("Redo", () => menu("edit.redo")) },
         { label: "Copy", icon: "copy", run: () => run("Copied", () => menu("edit.copy")) },
         { label: "Paste", icon: "paste", run: () => run("Pasted at playhead", () => menu("edit.paste")) },
-        { label: "Duplicate", icon: "dup", run: () => run("Duplicated", () => menu("edit.duplicate")) },
-        { label: "Freeze frame", icon: "freeze", run: () => run(null, () => menu("clip.frameHold")) },
+        { label: "Audio", icon: "music", run: () => { mediaFilter = "audio"; openDrawer(); } },
         { label: "Nest", icon: "nest", run: () => run(null, () => menu("clip.nest")) },
-        { label: "Select all", icon: "panels", run: () => run("All selected", () => menu("edit.selectAll")) },
       ]);
       grid(s, "Timeline", [
+        { label: "Fit timeline", icon: "zoomfit", run: () => run(null, () => menu("view.zoomToSequence")) },
+        { label: "Go to start", icon: "start", run: () => run(null, () => menu("playhead.start")) },
         { label: "Mark in", icon: "inpt", run: () => run("In point set", () => menu("markers.markIn")) },
         { label: "Mark out", icon: "outpt", run: () => run("Out point set", () => menu("markers.markOut")) },
         { label: "Marker", icon: "marker", run: () => run("Marker added", () => menu("markers.add")) },
-        { label: "Fit timeline", icon: "zoomfit", run: () => run(null, () => menu("view.zoomToSequence")) },
-        { label: "Go to start", icon: "start", run: () => run(null, () => menu("playhead.start")) },
-        { label: "Split all tracks", icon: "split", run: () => run("Split all tracks", () => menu("sequence.addEditAllTracks")) },
+        { label: "Split all", icon: "split", run: () => run("Split all tracks", () => menu("sequence.addEditAllTracks")) },
+      ]);
+      grid(s, "Tools", [
+        t("selection", "Select", "hand"), t("razor", "Blade", "split"), t("ripple", "Ripple", "ripple"),
+        t("rolling", "Roll", "trans"), t("ratestretch", "Stretch", "speed"), t("slip", "Slip", "frameR"),
       ]);
       grid(s, "Project", [
+        { label: "Export", icon: "export", run: exportNow },
+        { label: "Back to edit", icon: "panels", run: backToEdit },
         { label: "Save", icon: "save", run: () => run(null, () => menu("file.save")) },
         { label: "Open project", icon: "media", run: () => run(null, () => menu("file.open")) },
-        { label: "New sequence", icon: "plus", run: () => run(null, () => menu("file.newSequence")) },
+        { label: "New video", icon: "plus", run: () => run(null, () => menu("file.newSequence")) },
+      ]);
+      grid(s, "Screen", [
+        { label: layout === "simple" ? "Full editor" : "Simple layout", icon: "panels", run: () => applyLayout(layout === "simple" ? "pro" : "simple") },
+        { label: "Bigger timeline", icon: "panels", run: () => run(null, () => req("ui.set", { phoneLayout: "even" })) },
+        { label: "Bigger video", icon: "media", run: () => run(null, () => req("ui.set", { phoneLayout: "video" })) },
+        { label: "Smaller UI", icon: "minus", keep: true, run: () => uiSize(-1) },
+        { label: "Larger UI", icon: "plus", keep: true, run: () => uiSize(1) },
+        { label: "Hide buttons", icon: "hide", run: () => setOn(false) },
         { label: "Gestures", icon: "help", run: () => helpSheet() },
       ]);
     });
@@ -277,139 +459,54 @@
     sheet("Touch controls", (s) => {
       const ul = el("ul", { class: "fct-help" });
       for (const [g, d] of [
-        ["Tap", "Click: select a clip, press a button, place the playhead"],
-        ["Drag", "Move clips, trim edges, drag the playhead"],
-        ["Long-press", "Right-click menu for anything under your finger"],
-        ["Pinch", "Zoom the timeline or a monitor"],
-        ["Two fingers", "Scroll the timeline and panels"],
+        ["Swipe from left", "Opens your media. Tap a file to add it at the playhead, or drag it onto the timeline"],
+        ["Tap", "Select a clip, press a button, move the playhead"],
+        ["Drag", "Move clips, trim their edges, drag the playhead"],
+        ["Long-press", "Menu for whatever is under your finger"],
+        ["Pinch", "Zoom the timeline or the video"],
+        ["Two fingers", "Scroll the timeline"],
         ["2-finger tap", "Undo"],
         ["3-finger tap", "Redo"],
-        ["Jog strip", "Slide left/right to step frame by frame"],
-        ["Bottom bar", "Swipe sideways for more tools"],
+        ["⋯ button", "Text, speed, volume, transitions, export and everything else"],
       ]) ul.appendChild(el("li", {}, `<b>${g}</b><span>${d}</span>`));
       s.appendChild(ul);
-      s.appendChild(el("p", { style: "margin:14px 2px 0;color:var(--fct-dim);font-size:12px;line-height:1.4" },
-        "Tip: turn your phone sideways for the most room. Hide the controls with the pill at the top right."));
       const ok = el("button", { type: "button", class: "fct-primary" }, "Got it");
-      ok.addEventListener("click", () => { store.set("helped", true); closeSheet(); });
+      ok.addEventListener("click", () => { store.set("helped2", true); closeSheet(); });
       s.appendChild(ok);
     });
   }
 
-  // ------------------------------------------------------------------ toolbar
-  const TOOLS = [
-    { id: "split", label: "Split", icon: "split", hot: true, run: () => run("Split at playhead", () => menu("sequence.addEdit")) },
-    { id: "delete", label: "Delete", icon: "trash", danger: true, run: () => run("Deleted", () => menu("edit.clear")) },
-    { id: "ripple", label: "Delete gap", icon: "ripple", run: () => run("Deleted and closed the gap", () => menu("edit.rippleDelete")) },
-    { id: "speed", label: "Speed", icon: "speed", run: () => run(null, () => menu("clip.speedDuration")) },
-    { id: "volume", label: "Volume", icon: "volume", run: () => run(null, () => menu("clip.audioGain")) },
-    { id: "trans", label: "Transition", icon: "trans", run: () => run("Transition added", () => menu("sequence.applyVideoTransition")) },
-    { id: "text", label: "Text", icon: "text", run: () => setTool("type", "Text: tap the preview where the text goes") },
-    "|",
-    { id: "media", label: "Media", icon: "media", hot: true, run: () => pick("media") },
-    { id: "audio", label: "Audio", icon: "music", run: () => pick("audio") },
-    { id: "tools", label: "Tools", icon: "tools", run: toolsSheet },
-    { id: "panels", label: "Layout", icon: "panels", run: panelsSheet },
-    "|",
-    { id: "undo", label: "Undo", icon: "undo", run: () => run("Undo", () => menu("edit.undo")) },
-    { id: "redo", label: "Redo", icon: "redo", run: () => run("Redo", () => menu("edit.redo")) },
-    { id: "export", label: "Export", icon: "export", hot: true, run: () => run("Export: pick a format, then Export", () => req("ui.set", { mode: "export" })) },
-    { id: "more", label: "More", icon: "more", run: moreSheet },
-    { id: "help", label: "Gestures", icon: "help", run: helpSheet },
-  ];
-
-  const dock = el("div", { id: "fct-dock", class: "fct" });
-  const jogRow = el("div", { id: "fct-jogrow" });
-  const playS = el("button", { type: "button", id: "fct-play-s", class: "fct-mini", "aria-label": "Play" });
-  playS.addEventListener("click", togglePlay);
-  playBtns.push(playS);
-  const mini = (icon, label, fn) => { const b = el("button", { type: "button", class: "fct-mini", "aria-label": label, title: label }, ico(icon)); b.addEventListener("click", fn); return b; };
-  const jog = el("div", { id: "fct-jog", role: "slider", "aria-label": "Jog: slide to step frames" }, '<div class="ticks"></div><div class="needle"></div><div class="lbl">◂ SLIDE TO SCRUB ▸</div>');
-  jogRow.append(
-    playS,
-    mini("editL", "Previous edit", () => run(null, () => menu("playhead.prevEdit"))),
-    jog,
-    mini("editR", "Next edit", () => run(null, () => menu("playhead.nextEdit"))),
-    mini("hide", "Hide touch controls", () => setOn(false)),
-  );
-  const bar = el("div", { id: "fct-bar", role: "toolbar", "aria-label": "Editing tools" });
-  for (const t of TOOLS) {
-    if (t === "|") { bar.appendChild(el("div", { class: "fct-sep" })); continue; }
-    const b = el("button", { type: "button", class: "fct-tool" + (t.hot ? " hot" : "") + (t.danger ? " danger" : ""), "data-id": t.id }, ico(t.icon) + `<span>${t.label}</span>`);
-    b.addEventListener("click", () => { buzz(5); t.run(); });
+  // ------------------------------------------------------------------ the bar (bottom in portrait, right side in landscape)
+  const bar = el("div", { id: "fct-bar", class: "fct", role: "toolbar", "aria-label": "Editing" });
+  const btn = (id, label, icon, fn, cls) => {
+    const b = el("button", { type: "button", class: "fct-b " + (cls || ""), "data-id": id, "aria-label": label }, `<span class="i">${ico(icon)}</span><span class="l">${label}</span>`);
+    b.addEventListener("click", () => { buzz(5); fn(); });
     bar.appendChild(b);
-  }
-  dock.append(jogRow, bar);
-
-  // landscape rail (KineMaster-like): big play button with frame and edit stepping
-  const rail = el("div", { id: "fct-rail", class: "fct" });
-  const play = el("button", { type: "button", id: "fct-play", "aria-label": "Play" });
-  play.addEventListener("click", togglePlay);
-  playBtns.push(play);
-  const pair = (...b) => { const p = el("div", { class: "pair" }); p.append(...b); return p; };
-  const g1 = el("div", { class: "grp" });
-  g1.append(
-    pair(mini("undo", "Undo", () => run("Undo", () => menu("edit.undo"))), mini("redo", "Redo", () => run("Redo", () => menu("edit.redo")))),
-    pair(mini("media", "Add media", () => pick("media")), mini("export", "Export", () => run("Export: pick a format, then Export", () => req("ui.set", { mode: "export" })))),
-  );
-  const g2 = el("div", { class: "grp" });
-  g2.append(play);
-  const g3 = el("div", { class: "grp" });
-  g3.append(
-    pair(mini("frameL", "Back one frame", () => run(null, () => menu("playhead.stepBack"))), mini("frameR", "Forward one frame", () => run(null, () => menu("playhead.stepForward")))),
-    pair(mini("editL", "Previous edit", () => run(null, () => menu("playhead.prevEdit"))), mini("editR", "Next edit", () => run(null, () => menu("playhead.nextEdit")))),
-  );
-  rail.append(g1, g2, g3);
+    return b;
+  };
+  btn("media", "Media", "media", () => (drawerOpen ? closeDrawer() : openDrawer()), "hot");
+  btn("split", "Split", "split", () => run("Split", () => menu("sequence.addEdit")));
+  btn("delete", "Delete", "trash", () => run("Deleted", () => menu("edit.clear")), "danger");
+  playBtns.push(btn("play", "Play", "play", togglePlay, "play"));
+  btn("undo", "Undo", "undo", () => run("Undo", () => menu("edit.undo")));
+  btn("export", "Export", "export", exportNow);
+  btn("more", "More", "more", moreSheet);
   setPlaying(false);
 
-  const toggle = el("button", { type: "button", id: "fct-toggle", class: "fct" });
+  const toggle = el("button", { type: "button", id: "fct-toggle", class: "fct", "aria-label": "Show buttons" }, ico("more"));
+  toggle.addEventListener("click", () => setOn(true));
   function setOn(on) {
     document.body.classList.toggle("fct-on", on);
-    toggle.innerHTML = on ? ico("hide") + "<span>Hide</span>" : ico("hand") + "<span>Touch</span>";
-    toggle.setAttribute("aria-label", on ? "Hide touch controls" : "Show touch controls");
     store.set("on", on);
   }
-  toggle.addEventListener("click", () => setOn(!document.body.classList.contains("fct-on")));
 
-  document.body.append(dock, rail, toggle, scrim, toastEl, picker);
+  document.body.append(bar, toggle, dScrim, drawer, ghost, scrim, toastEl, picker);
   const wantOn = qs.has("touch") ? qs.get("touch") !== "0" : store.get("on", coarse);
   setOn(!!wantOn);
+  document.body.classList.toggle("fct-simple", layout === "simple");
 
-  // keyboard: space still works through the editor; keep our play icon roughly in sync
   addEventListener("keydown", (e) => { if (e.code === "Space" && e.target === canvas) setPlaying(!playing); }, true);
 
-  // ------------------------------------------------------------------ jog strip
-  {
-    let x0 = null, acc = 0, pending = 0, busy = false, lastX = 0, lastT = 0;
-    const ticks = jog.querySelector(".ticks");
-    const flush = async () => {
-      if (busy || !pending) return;
-      const n = pending; pending = 0; busy = true;
-      try { await exec("playhead.step", { frames: n }); } catch (e) { if (String(e && e.message) !== "not ready") toast(friendly(String(e && e.message || e)), true); }
-      busy = false;
-      if (pending) flush();
-    };
-    const down = (x) => { x0 = lastX = x; lastT = performance.now(); acc = 0; jog.classList.add("on"); if (playing) { req("ui.playback", { action: "stop" }).then(() => setPlaying(false)).catch(() => {}); } };
-    const move = (x) => {
-      if (x0 === null) return;
-      const now = performance.now();
-      const dx = x - lastX;
-      const v = Math.abs(dx) / Math.max(1, now - lastT); // px per ms
-      lastX = x; lastT = now;
-      // faster swipes move further (KineMaster-style jog acceleration)
-      acc += dx * (v > 1.2 ? 4 : v > 0.5 ? 2 : 1);
-      ticks.style.transform = `translateX(${((x - x0) % 8)}px)`;
-      const step = 9; // px per frame at slow speed
-      const n = Math.trunc(acc / step);
-      if (n) { acc -= n * step; pending += n; flush(); }
-    };
-    const up = () => { x0 = null; jog.classList.remove("on"); ticks.style.transform = ""; };
-    jog.addEventListener("touchstart", (e) => { e.preventDefault(); down(e.touches[0].clientX); }, { passive: false });
-    jog.addEventListener("touchmove", (e) => { e.preventDefault(); move(e.touches[0].clientX); }, { passive: false });
-    jog.addEventListener("touchend", up);
-    jog.addEventListener("touchcancel", up);
-    jog.addEventListener("mousedown", (e) => { down(e.clientX); const mm = (ev) => move(ev.clientX); const mu = () => { up(); removeEventListener("mousemove", mm); removeEventListener("mouseup", mu); }; addEventListener("mousemove", mm); addEventListener("mouseup", mu); });
-  }
 
   // ------------------------------------------------------------------ gesture layer
   // eframe reads touches as a single primary pointer, so on its own a long-press, pinch or
@@ -419,6 +516,7 @@
   const SLOP = 9;          // px a finger may wander and still be a tap / long-press
   const LONG_MS = 460;     // hold time for a long-press (right-click)
   const MULTI_TAP_MS = 320;
+  const EDGE = 22;         // px from the left edge where a swipe opens the media drawer
   let g = null;            // the current gesture
 
   const fire = (target, type, x, y, button, buttons) => {
@@ -458,7 +556,7 @@
     e.stopImmediatePropagation();
     if (!g) {
       const t = pt(e.changedTouches[0]);
-      g = { state: "pending", ids: [t.id], sx: t.x, sy: t.y, x: t.x, y: t.y, t0: performance.now(), fingers: 1, moved: false };
+      g = { state: "pending", ids: [t.id], sx: t.x, sy: t.y, x: t.x, y: t.y, t0: performance.now(), fingers: 1, moved: false, edge: t.x - canvas.getBoundingClientRect().left < EDGE };
       g.timer = setTimeout(longPress, LONG_MS);
       return;
     }
@@ -480,6 +578,14 @@
     if (g.state === "pending") {
       const t = find(e.touches, g.ids[0]);
       if (!t) return;
+      if (g.edge && t.clientX - g.sx > 24 && Math.abs(t.clientY - g.sy) < t.clientX - g.sx) {
+        // swipe in from the left edge: the media drawer
+        clearTimeout(g.timer);
+        g.state = "edge";
+        openDrawer();
+        return;
+      }
+      if (g.edge && Math.hypot(t.clientX - g.sx, t.clientY - g.sy) <= 24) return;
       if (Math.hypot(t.clientX - g.sx, t.clientY - g.sy) > SLOP) {
         clearTimeout(g.timer);
         g.state = "drag";
@@ -560,12 +666,14 @@
   // no double-tap page zoom anywhere
   document.addEventListener("dblclick", (e) => { if (e.target !== canvas) e.preventDefault(); }, { passive: false });
 
-  // ------------------------------------------------------------------ first run
-  const firstRun = () => {
-    if (!ready()) { setTimeout(firstRun, 500); return; }
-    if (coarse && !store.get("helped", false)) setTimeout(helpSheet, 600);
-  };
-  if (coarse) firstRun();
 
-  window.filmcraftTouch = { toast, setOn, help: helpSheet };
+  // ------------------------------------------------------------------ start-up
+  const startUp = () => {
+    if (!ready()) { setTimeout(startUp, 400); return; }
+    if (layout === "simple") applyLayout("simple", true);
+    if (coarse && !store.get("helped2", false)) setTimeout(helpSheet, 700);
+  };
+  startUp();
+
+  window.filmcraftTouch = { toast, setOn, help: helpSheet, layout: applyLayout, media: openDrawer };
 })();
