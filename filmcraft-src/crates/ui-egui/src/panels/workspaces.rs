@@ -179,7 +179,7 @@ pub fn dialogs(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique(title))
         .collapsible(false)
         .resizable(false)
-        .pivot(Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| match &mut d {
             WorkspaceDialog::SaveAs { name } => {

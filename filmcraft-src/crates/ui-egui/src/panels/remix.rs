@@ -52,7 +52,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Remix Properties"))
         .collapsible(false)
         .resizable(false)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.set_min_width(crate::widgets::fit_w(320.0));

@@ -43,7 +43,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(false)
-                .pivot(egui::Align2::CENTER_CENTER)
+                .pivot(crate::widgets::dialog_pivot(ctx))
                 .default_pos(crate::widgets::dialog_center(ctx))
                 .show(ctx, |ui| about(app, ui));
             if crate::widgets::escape_closes(ctx) {
@@ -125,7 +125,7 @@ fn audio_gain(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .id(egui::Id::unique("Audio Gain"))
         .collapsible(false)
         .resizable(false)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.add_space(6.0);
@@ -214,7 +214,7 @@ fn add_tracks(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .collapsible(false)
         .resizable(false)
         .default_width(crate::widgets::fit_w(320.0))
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             // everything spans the width the window has: no empty band beside the fields
@@ -344,7 +344,7 @@ fn delete_tracks(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .id(egui::Id::unique("Delete Tracks"))
         .collapsible(false)
         .resizable(false)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.set_min_width(crate::widgets::fit_w(300.0));

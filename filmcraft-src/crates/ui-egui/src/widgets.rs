@@ -528,7 +528,20 @@ pub fn fit_w(w: f32) -> f32 {
 }
 
 pub fn dialog_center(ctx: &egui::Context) -> egui::Pos2 {
-    ctx.content_rect().center()
+    let r = ctx.content_rect();
+    // touch-control copy: on a narrow (phone) screen a dialog starts at the left edge, so a dialog
+    // wider than the screen keeps its labels in view (drag its title bar to see the rest)
+    if narrow(ctx) { egui::pos2(r.min.x + 4.0, r.min.y + 44.0) } else { r.center() }
+}
+
+/// Touch-control copy: the pivot that goes with [`dialog_center`].
+pub fn dialog_pivot(ctx: &egui::Context) -> Align2 {
+    if narrow(ctx) { Align2::LEFT_TOP } else { Align2::CENTER_CENTER }
+}
+
+/// A phone-width screen.
+fn narrow(ctx: &egui::Context) -> bool {
+    ctx.content_rect().width() < 560.0
 }
 
 /// `.pivot(CENTER_CENTER).default_pos(dialog_center(ctx))` in one call, for short window chains.
@@ -538,7 +551,7 @@ pub trait CenteredDialog {
 
 impl CenteredDialog for egui::Window<'_> {
     fn centered(self, ctx: &egui::Context) -> Self {
-        self.pivot(Align2::CENTER_CENTER).default_pos(dialog_center(ctx))
+        self.pivot(dialog_pivot(ctx)).default_pos(dialog_center(ctx))
     }
 }
 

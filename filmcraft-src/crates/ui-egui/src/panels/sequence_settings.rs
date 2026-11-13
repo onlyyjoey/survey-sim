@@ -510,7 +510,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
         .collapsible(false)
         .resizable(false)
         .default_width(crate::widgets::fit_w(620.0))
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.set_width(crate::widgets::fit_w(620.0));

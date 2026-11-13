@@ -240,7 +240,7 @@ impl FilmcraftApp {
             .id(egui::Id::unique("FilmCraft hit an error"))
             .collapsible(false)
             .resizable(false)
-            .pivot(egui::Align2::CENTER_CENTER)
+            .pivot(crate::widgets::dialog_pivot(ctx))
             .default_pos(crate::widgets::dialog_center(ctx))
             .show(ctx, |ui| {
                 ui.set_max_width(460.0);

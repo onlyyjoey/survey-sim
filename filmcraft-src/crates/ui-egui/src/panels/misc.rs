@@ -193,7 +193,7 @@ pub fn history_dialogs(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(key.with("window"))
         .collapsible(false)
         .resizable(false)
-        .pivot(Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.label(tl!("Delete the dimmed actions after the current state? They cannot be redone."));

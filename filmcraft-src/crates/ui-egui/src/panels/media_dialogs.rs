@@ -169,7 +169,7 @@ fn link_media(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .resizable(false)
         .default_width(width)
         .max_width(width)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().id_salt("link-media-body-scroll").max_height((ctx.content_rect().height() - 140.0).max(1.0)).show(ui, |ui| {
@@ -386,7 +386,7 @@ fn make_offline(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Make Offline"))
         .collapsible(false)
         .resizable(false)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.label(tlf!("Make {n} selected clip(s) offline. Their clips show the offline slate until you link them again.", n));
@@ -431,7 +431,7 @@ fn create_proxies(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Create Proxies"))
         .collapsible(false)
         .resizable(false)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.label(tlf!("{n} clip(s) selected.", n = d.items.len()));
@@ -515,7 +515,7 @@ fn project_manager(app: &mut FilmcraftApp, ctx: &egui::Context) {
         .id(egui::Id::unique("Project Manager"))
         .collapsible(false)
         .resizable(false)
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(crate::widgets::dialog_pivot(ctx))
         .default_pos(crate::widgets::dialog_center(ctx))
         .show(ctx, |ui| {
             ui.label(RichText::new(tl!("Sequences")).strong());
