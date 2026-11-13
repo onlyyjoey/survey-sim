@@ -1498,8 +1498,9 @@ fn side_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, col: Rect, tc: &str,
             items.push((*cmd, *icon));
         }
     }
-    let top = col.min.y + 32.0;
     let bw = (col.width() - 8.0).clamp(26.0, 54.0);
+    playback_settings_button(app, ui, Rect::from_center_size(pos2(col.center().x, col.min.y + 44.0), vec2(bw, 24.0)));
+    let top = col.min.y + 60.0;
     // buttons shrink to fit a short panel (down to 26 pt); Play, Full Screen and "⋯" always show,
     // and picked buttons that still do not fit are left out
     let avail = (col.max.y - top - 2.0).max(0.0);
@@ -1608,6 +1609,7 @@ fn bare_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, video_ar
     }
     let ends: [(Icon, &str); 2] = [(Icon::Undo, "edit.undo"), (Icon::Redo, "edit.redo")];
     let mut x = row.max.x - 2.0 * 40.0 - 6.0;
+    playback_settings_button(app, ui, Rect::from_min_size(pos2(x - 48.0, row.center().y - 15.0), vec2(42.0, 30.0)));
     for (icon, cmd) in ends {
         let r = Rect::from_min_size(pos2(x, row.center().y - 18.0), vec2(36.0, 36.0));
         let resp = ui.interact(r, egui::Id::unique(("program-bare", cmd)), Sense::click());
@@ -1630,4 +1632,41 @@ fn bare_controls(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, video_ar
         Some(cmd) => invoke_transport(app, &ctx, Which::Program, cmd),
         None => {}
     }
+}
+
+/// Touch-control copy: the playback-quality button of the compact Program monitor. It shows the
+/// playback resolution (Full, 1/2, 1/4…); a tap opens a menu to pick a lower one for smoother
+/// playback, and the safe-margins guide.
+fn playback_settings_button(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect) {
+    let t = app.tokens;
+    let resp = ui.interact(r, egui::Id::unique("program-quality"), Sense::click());
+    app.auto.add("program.quality", r, "Playback quality");
+    let p = ui.painter();
+    p.rect_stroke(r, 6.0, Stroke::new(1.0, if resp.hovered() { t.text } else { t.text_dim }), StrokeKind::Inside);
+    let res = monitor_view::view(app, Which::Program).res;
+    p.text(r.center(), Align2::CENTER_CENTER, crate::i18n::t(res.label()), Tokens::ui(11.0), t.text);
+    egui::Popup::menu(&resp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| {
+        ui.set_min_width(210.0);
+        ui.label(egui::RichText::new("Playback quality").strong());
+        ui.label(egui::RichText::new("Lower plays smoother; export is always full quality.").small());
+        for (choice, name) in [
+            (PlaybackRes::Full, "Full (sharpest)"),
+            (PlaybackRes::Half, "1/2"),
+            (PlaybackRes::Quarter, "1/4 (smoother)"),
+            (PlaybackRes::Eighth, "1/8"),
+            (PlaybackRes::Sixteenth, "1/16 (smoothest)"),
+        ] {
+            let b = ui.add_sized(vec2(210.0, 32.0), egui::Button::selectable(choice == res, name));
+            app.auto.add(&format!("program.quality.{}", choice.label()), b.rect, name);
+            if b.clicked() {
+                monitor_view::view_mut(app, Which::Program).res = choice;
+                ui.close();
+            }
+        }
+        ui.separator();
+        let mut safe = monitor_view::view(app, Which::Program).safe_margins;
+        if ui.add_sized(vec2(210.0, 30.0), egui::Checkbox::new(&mut safe, "Safe margins")).changed() {
+            monitor_view::view_mut(app, Which::Program).safe_margins = safe;
+        }
+    });
 }
