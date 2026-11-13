@@ -670,8 +670,10 @@
     export: { label: "Export", icon: "export", fn: () => exportNow() },
     more: { label: "More", icon: "more", fn: () => moreSheet() },
   };
-  const DEFAULT_ORDER = ["play", "split", "delete", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
+  const DEFAULT_ORDER = ["split", "delete", "undo", "redo", "t-selection", "t-razor", "t-type", "media", "p-effects", "p-effectcontrols", "p-audiotrackmixer", "p-audiometers", "speed", "volume", "transition", "more"];
   let order = (store.get("strip", null) || DEFAULT_ORDER).filter((id) => BUTTONS[id]);
+  // Play lives beside the video now: take it off the strip once (it can be put back in Customize)
+  if (!store.get("noPlayMigrated", false)) { order = order.filter((id) => id !== "play"); store.set("noPlayMigrated", true); store.set("strip", order); }
   if (!order.includes("more")) order.push("more"); // always a way back to settings
   function renderStrip() {
     bar.textContent = "";

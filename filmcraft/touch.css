@@ -14,6 +14,7 @@
   --fct-sal: env(safe-area-inset-left, 0px);
   --fct-sar: env(safe-area-inset-right, 0px);
   --fct-strip: 54px;
+  --fct-sl: max(0px, calc(var(--fct-sal) - 20px));
   --fct-top: 30px;
   --fct-bottom: 0px;
 }
@@ -27,17 +28,17 @@ html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 /* Buttons on: the canvas takes everything except the slim bar (and the notch / home indicator). */
 body.fct-on #filmcraft_canvas {
   top: calc(var(--fct-sat) + var(--fct-top));
-  left: calc(var(--fct-sal) + var(--fct-strip));
+  left: calc(var(--fct-sl) + var(--fct-strip));
   right: auto;
   bottom: auto;
-  width: calc(100% - var(--fct-sal) - var(--fct-strip) - var(--fct-sar));
-  height: calc(100% - var(--fct-sat) - var(--fct-top) - var(--fct-sab));
+  width: calc(100% - var(--fct-sl) - var(--fct-strip));
+  height: calc(100% - var(--fct-sat) - var(--fct-top));
 }
 
 /* ---------- top bar: Home · Import / Edit / Export · Menu ---------- */
 #fct-top {
-  position: fixed; z-index: 36; top: 0; right: 0; left: calc(var(--fct-sal) + var(--fct-strip));
-  height: calc(var(--fct-sat) + var(--fct-top)); padding: var(--fct-sat) calc(var(--fct-sar) + 6px) 0 6px;
+  position: fixed; z-index: 36; top: 0; right: 0; left: calc(var(--fct-sl) + var(--fct-strip));
+  height: calc(var(--fct-sat) + var(--fct-top)); padding: var(--fct-sat) 10px 0 6px;
   background: var(--fct-bg); border-bottom: 1px solid var(--fct-line);
   display: none; align-items: center; gap: 6px;
 }
@@ -67,8 +68,8 @@ body:not(.fct-simple) { --fct-top: 0px; }
 
 /* ---------- the strip (left side) ---------- */
 #fct-bar {
-  position: fixed; z-index: 36; top: 0; bottom: 0; left: 0; width: calc(var(--fct-sal) + var(--fct-strip));
-  padding: calc(var(--fct-sat) + 4px) 3px calc(var(--fct-sab) + 4px) calc(var(--fct-sal) + 3px);
+  position: fixed; z-index: 36; top: 0; bottom: 0; left: 0; width: calc(var(--fct-sl) + var(--fct-strip));
+  padding: calc(var(--fct-sat) + 4px) 3px calc(var(--fct-sab) + 4px) calc(var(--fct-sl) + 3px);
   background: var(--fct-bg); border-right: 1px solid var(--fct-line);
   display: none; flex-direction: column; align-items: center; gap: 2px;
   overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
@@ -119,10 +120,10 @@ body.fct-on #fct-toggle { display: none; }
 
 /* ---------- media drawer (slides in from the left) ---------- */
 #fct-drawer {
-  position: fixed; z-index: 35; top: calc(var(--fct-sat) + var(--fct-top)); bottom: 0; left: calc(var(--fct-sal) + var(--fct-strip)); width: min(330px, calc(100vw - var(--fct-strip) - 40px));
+  position: fixed; z-index: 35; top: calc(var(--fct-sat) + var(--fct-top)); bottom: 0; left: calc(var(--fct-sl) + var(--fct-strip)); width: min(330px, calc(100vw - var(--fct-strip) - 40px));
   padding: 6px 10px calc(var(--fct-sab) + 8px) 10px;
   background: var(--fct-panel); border-right: 1px solid var(--fct-line); box-shadow: 8px 0 30px rgba(0,0,0,.35);
-  transform: translateX(calc(-100% - var(--fct-strip) - var(--fct-sal) - 20px)); transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .15s;
+  transform: translateX(calc(-100% - var(--fct-strip) - var(--fct-sl) - 20px)); transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .15s;
   display: flex; flex-direction: column;
 }
 body.fct-drawer-on #fct-drawer { transform: none; }
