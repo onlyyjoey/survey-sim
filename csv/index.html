@@ -3959,7 +3959,7 @@ function cvDraw(){
       (CV.inH==='none'?'':'<div class="field mt"><label>Geoid separation (GEOID18)</label><div class="seg" style="display:flex"><button data-cvg="auto"'+(CV.geo==='auto'?' class="on"':'')+'>Each point</button><button data-cvg="here"'+(CV.geo==='here'?' class="on"':'')+'><i class="ic" data-ic="locate"></i> My location</button><button data-cvg="manual"'+(CV.geo==='manual'?' class="on"':'')+'>Type it in</button></div></div>'+
         (CV.geo==='manual'?'<div class="field mt"><label>Geoid height N (m) — e.g. from NCAT or your collector</label><input class="inp num" id="cvGN" inputmode="decimal" placeholder="-27.315" value="'+escH(CV.gN)+'"></div>':
          CV.geo==='here'?'<div class="cvgeo" id="cvGeoBox">'+cvGeoLine()+'</div>':
-         '<p class="muted cvnote">Looks up GEOID18 for every point from NGS automatically. If there’s no signal it falls back to your last site value (within 10 km).'+(CV.gAt?' Saved: <b>N = '+(+CV.gN).toFixed(3)+' m</b>.':'')+'</p>'))+
+         '<p class="muted cvnote">GEOID18 for every point, automatically — built into the app (same model NCAT uses). If a piece of it can’t load with no signal, it uses your last site value (within 10 km).'+(CV.gAt?' Saved: <b>N = '+(+CV.gN).toFixed(3)+' m</b>.':'')+'</p>'))+
     '</div>'+
     '<div class="card"><h3>One point</h3>'+(ne?
       '<div class="row" style="gap:8px"><div class="field" style="flex:1"><label>Name</label><input class="inp" id="cv1P" value="CP1"></div><div class="field" style="flex:2"><label>Northing ('+u+')</label><input class="inp num" id="cv1N" inputmode="decimal"></div></div>'+
@@ -3999,11 +3999,20 @@ function cvHere(){
   CV.geoErr=''; CV.geoBusy='Finding your location…'; cvDraw();
   navigator.geolocation.getCurrentPosition(function(pos){ var la=pos.coords.latitude, lo=pos.coords.longitude; CV.geoBusy='Looking up GEOID18 here…'; cvDraw();
     cvNgs(la,lo).then(function(n){ CV.geoBusy=''; cvSaveSite(n,la,lo,'here'); cvDraw(); toast('Geoid N = '+n.toFixed(3)+' m at your location', true); })
-      .catch(function(e){ CV.geoBusy=''; CV.geoErr='Couldn’t reach NGS for the geoid ('+(e&&e.message||e)+'). Try again with signal, or Type it in.'; cvDraw(); });
+      .catch(function(e){ CV.geoBusy=''; CV.geoErr='Couldn’t load the geoid here ('+(e&&e.message||e)+'). Try again with signal, or Type it in.'; cvDraw(); });
   }, function(err){ CV.geoBusy=''; CV.geoErr=err&&err.code===1?'Location is turned off for this app — allow it in Settings › Safari › Location (or the browser’s site settings).':'Couldn’t get your location — try again.'; cvDraw(); },
   {enableHighAccuracy:false, timeout:15000, maximumAge:600000});
 }
-function cvNgs(lat,lon){ var k=lat.toFixed(3)+','+lon.toFixed(3); if(CV.cache[k]!=null) return Promise.resolve(CV.cache[k]);
+/* GEOID18 built into the app: 1°×1° tiles (from NGS GEOID18, public domain), bilinear on the 1-minute grid — works without NGS, and offline once a tile has been used */
+var cvTiles={};
+function cvGeoidLocal(lat,lon){ var la0=Math.floor(lat), lo0=Math.floor(lon), key=la0+'_'+(-lo0);
+  var inUS=lat>=24&&lat<58&&lon>=-130&&lon<-60, inPR=lat>=15&&lat<21&&lon>=-69&&lon<-64; if(!inUS&&!inPR) return Promise.reject(new Error('outside GEOID18 (lower 48, PR/VI)'));
+  var p=cvTiles[key]||(cvTiles[key]=fetch('geoid18/'+key+'.bin').then(function(r){ if(!r.ok) throw new Error('geoid tile '+r.status); return r.arrayBuffer(); }).then(function(b){ return {base:new DataView(b).getFloat32(0,true), v:new Int16Array(b.slice(4))}; }));
+  p.catch(function(){ delete cvTiles[key]; });
+  return p.then(function(T){ var y=(lat-la0)*60, x=(lon-lo0)*60, i=Math.min(59,Math.floor(x)), j=Math.min(59,Math.floor(y)), fx=x-i, fy=y-j, g=function(r,c){ return T.v[r*61+c]/1000+T.base; };
+    return g(j,i)*(1-fx)*(1-fy)+g(j,i+1)*fx*(1-fy)+g(j+1,i)*(1-fx)*fy+g(j+1,i+1)*fx*fy; }); }
+function cvNgs(lat,lon){ return cvGeoidLocal(lat,lon).catch(function(){ return cvNgsApi(lat,lon); }); }
+function cvNgsApi(lat,lon){ var k=lat.toFixed(3)+','+lon.toFixed(3); if(CV.cache[k]!=null) return Promise.resolve(CV.cache[k]);
   var ctl=window.AbortController?new AbortController():null, to=setTimeout(function(){ if(ctl) ctl.abort(); }, 12000);
   return fetch('https://geodesy.noaa.gov/api/geoid/ght?lat='+lat.toFixed(8)+'&lon='+lon.toFixed(8)+'&model=14', ctl?{signal:ctl.signal}:{}).then(function(r){ clearTimeout(to); if(!r.ok) throw new Error('NGS '+r.status); return r.json(); })
     .then(function(j){ var n=parseFloat(j.geoidHeight); if(isNaN(n)) throw new Error('no geoid value'); CV.cache[k]=n; return n; }, function(e){ clearTimeout(to); throw e; }); }
@@ -4044,7 +4053,7 @@ function cvOne(){
     o.innerHTML=h; cvBindCopy(o);
   }).catch(function(e){ o.innerHTML='<p class="danger" style="margin:8px 0 0">'+escH(cvErr(e))+'</p>'; });
 }
-function cvErr(e){ var m=e&&e.message||String(e); return /Type the geoid/.test(m)?m:'Couldn’t reach NGS for the geoid height ('+m+'). Try “My location” when you have signal, or “Type it in” with N for your site (NCAT shows it), or pick “No heights”.'; }
+function cvErr(e){ var m=e&&e.message||String(e); return /Type the geoid/.test(m)?m:'Couldn’t get the geoid height ('+m+'). Try “My location” when you have signal, or “Type it in” with N for your site (NCAT shows it), or pick “No heights”.'; }
 function cvBindCopy(root){ root.querySelectorAll('[data-cp]').forEach(function(b){ b.onclick=function(){ var v=b.getAttribute('data-cp'); (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(function(){ toast('Copied '+v, true); }).catch(function(){ toast(v, true); }); }; }); }
 /* ---- files ---- */
 function cvLoad(pf){ if(!pf||!pf.rows.length){ toast('That file looks empty', true); return; }
