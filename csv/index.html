@@ -176,6 +176,8 @@ html,body{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:1
 .cvres{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}.cvh{padding:8px 12px;font-weight:800;font-size:13px;background:var(--panel2)}
 .cvrow{display:flex;align-items:center;gap:8px;padding:8px 6px 8px 12px;border-top:1px solid var(--line)}.cvrow span{flex:none;width:118px;font-size:12.5px;color:var(--muted);font-weight:650}.cvrow b{flex:1;font-size:15px;word-break:break-all}
 .cvcp{border:0;background:none;color:var(--accent);width:36px;height:36px;border-radius:9px;cursor:pointer;flex:none}.cvcp:active{background:var(--panel2)}
+.cvoff{padding:7px 12px;font-size:12.5px;font-weight:650;background:color-mix(in srgb,#e8930c 18%,transparent);color:#a15c00}
+.cvgeo .btn i.ic{margin-right:4px}
 .cvwait{display:flex;gap:10px;align-items:center;margin-top:12px;color:var(--muted)}
 .cvsrc{margin:12px 0 8px;font-size:14px}.cvmap{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cvok{margin:12px 0 8px;font-weight:750}.cvtbl{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:300px}.cvtbl table{border-collapse:collapse;font-size:12px;white-space:nowrap}.cvtbl th,.cvtbl td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.cvtbl th{position:sticky;top:0;background:var(--panel2)}
@@ -3954,8 +3956,10 @@ function cvDraw(){
     '</div>'+
     '<div class="card"><h3>Heights</h3>'+
       '<div class="field"><label>'+(ne?'Your Z / elevation is':'Your height column is')+'</label><select class="inp" id="cvInH"><option value="ortho"'+(CV.inH==='ortho'?' selected':'')+'>Orthometric (NAVD88 elevation)</option><option value="ell"'+(CV.inH==='ell'?' selected':'')+'>Ellipsoid height</option><option value="none"'+(CV.inH==='none'?' selected':'')+'>No heights / copy as-is</option></select></div>'+
-      (CV.inH==='none'?'':'<div class="field mt"><label>Geoid separation (GEOID18)</label><div class="seg" style="display:flex"><button data-cvg="auto"'+(CV.geo==='auto'?' class="on"':'')+'>Look up (online)</button><button data-cvg="manual"'+(CV.geo==='manual'?' class="on"':'')+'>Type it in</button></div></div>'+
-        (CV.geo==='manual'?'<div class="field mt"><label>Geoid height N (m) — e.g. from NCAT or your collector</label><input class="inp num" id="cvGN" inputmode="decimal" placeholder="-27.315" value="'+escH(CV.gN)+'"></div>':'<p class="muted cvnote">Looks up GEOID18 for each point from NGS (needs signal). Ellipsoid h = elevation + N.</p>'))+
+      (CV.inH==='none'?'':'<div class="field mt"><label>Geoid separation (GEOID18)</label><div class="seg" style="display:flex"><button data-cvg="auto"'+(CV.geo==='auto'?' class="on"':'')+'>Each point</button><button data-cvg="here"'+(CV.geo==='here'?' class="on"':'')+'><i class="ic" data-ic="locate"></i> My location</button><button data-cvg="manual"'+(CV.geo==='manual'?' class="on"':'')+'>Type it in</button></div></div>'+
+        (CV.geo==='manual'?'<div class="field mt"><label>Geoid height N (m) — e.g. from NCAT or your collector</label><input class="inp num" id="cvGN" inputmode="decimal" placeholder="-27.315" value="'+escH(CV.gN)+'"></div>':
+         CV.geo==='here'?'<div class="cvgeo" id="cvGeoBox">'+cvGeoLine()+'</div>':
+         '<p class="muted cvnote">Looks up GEOID18 for every point from NGS automatically. If there’s no signal it falls back to your last site value (within 10 km).'+(CV.gAt?' Saved: <b>N = '+(+CV.gN).toFixed(3)+' m</b>.':'')+'</p>'))+
     '</div>'+
     '<div class="card"><h3>One point</h3>'+(ne?
       '<div class="row" style="gap:8px"><div class="field" style="flex:1"><label>Name</label><input class="inp" id="cv1P" value="CP1"></div><div class="field" style="flex:2"><label>Northing ('+u+')</label><input class="inp num" id="cv1N" inputmode="decimal"></div></div>'+
@@ -3972,7 +3976,8 @@ function cvDraw(){
   $('#cvDatum').onchange=function(){ CV.datum=this.value; ls.set('csvfix.cvDatum',CV.datum); cvDraw(); };
   if($('#cvEp')) $('#cvEp').onchange=function(){ var v=parseFloat(this.value); if(v>1990&&v<2100) CV.epoch=v; else this.value=CV.epoch; };
   $('#cvInH').onchange=function(){ CV.inH=this.value; cvDraw(); };
-  document.querySelectorAll('[data-cvg]').forEach(function(b){ b.onclick=function(){ CV.geo=b.getAttribute('data-cvg'); ls.set('csvfix.cvGeo',CV.geo); cvDraw(); }; });
+  document.querySelectorAll('[data-cvg]').forEach(function(b){ b.onclick=function(){ CV.geo=b.getAttribute('data-cvg'); ls.set('csvfix.cvGeo',CV.geo); cvDraw(); if(CV.geo==='here' && !cvGeoFresh()) cvHere(); }; });
+  if($('#cvGeoUpd')) $('#cvGeoUpd').onclick=cvHere;
   if($('#cvGN')) $('#cvGN').oninput=function(){ CV.gN=this.value.trim(); ls.set('csvfix.cvGN',CV.gN); };
   $('#cv1Go').onclick=cvOne;
   $('#cvPick').onclick=function(){ var i=document.createElement('input'); i.type='file'; i.accept='.csv,.txt,text/csv,text/plain,*/*'; document.body.appendChild(i); i.style.display='none';
@@ -3981,12 +3986,32 @@ function cvDraw(){
   if(CV.res) cvShowBatch();
 }
 /* geoid height N (GEOID18) from NGS for a lat/lon; cached ~100 m */
+/* site geoid value: remembered (with where it came from) so it works later without signal */
+CV.gAt=(function(){ try{ return JSON.parse(ls.get('csvfix.cvGAt')||'null'); }catch(e){ return null; } })();
+function cvSaveSite(n,lat,lon,src){ CV.gN=String(n); CV.gAt={lat:lat, lon:lon, src:src, t:Date.now()}; ls.set('csvfix.cvGN',CV.gN); ls.set('csvfix.cvGAt',JSON.stringify(CV.gAt)); }
+function cvGeoFresh(){ return CV.gAt && CV.gAt.src==='here' && Date.now()-CV.gAt.t<12*3600e3; }
+function cvKm(a,b,c,d){ var D=Math.PI/180, x=(d-b)*D*Math.cos((a+c)/2*D), y=(c-a)*D; return Math.sqrt(x*x+y*y)*6371; }
+function cvGeoLine(){ if(CV.geoBusy) return '<div class="cvwait" style="margin:8px 0 0"><div class="spin"></div> '+escH(CV.geoBusy)+'</div>';
+  if(CV.gAt&&CV.gAt.src==='here') return '<div class="row" style="align-items:center;gap:8px;margin-top:8px"><div style="flex:1"><b style="font-size:16px">N = '+(+CV.gN).toFixed(3)+' m</b><div class="muted" style="font-size:12.5px">GEOID18 at your location ('+CV.gAt.lat.toFixed(4)+', '+CV.gAt.lon.toFixed(4)+') · '+new Date(CV.gAt.t).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'. Used for every point.</div></div><button class="btn" id="cvGeoUpd"><i class="ic" data-ic="refresh"></i></button></div>';
+  return '<button class="btn block mt" id="cvGeoUpd"><i class="ic" data-ic="locate"></i> Use my location’s geoid</button>'+(CV.geoErr?'<p class="danger cvnote">'+escH(CV.geoErr)+'</p>':''); }
+function cvHere(){
+  if(!navigator.geolocation){ CV.geoErr='This phone / browser won’t share its location.'; cvDraw(); return; }
+  CV.geoErr=''; CV.geoBusy='Finding your location…'; cvDraw();
+  navigator.geolocation.getCurrentPosition(function(pos){ var la=pos.coords.latitude, lo=pos.coords.longitude; CV.geoBusy='Looking up GEOID18 here…'; cvDraw();
+    cvNgs(la,lo).then(function(n){ CV.geoBusy=''; cvSaveSite(n,la,lo,'here'); cvDraw(); toast('Geoid N = '+n.toFixed(3)+' m at your location', true); })
+      .catch(function(e){ CV.geoBusy=''; CV.geoErr='Couldn’t reach NGS for the geoid ('+(e&&e.message||e)+'). Try again with signal, or Type it in.'; cvDraw(); });
+  }, function(err){ CV.geoBusy=''; CV.geoErr=err&&err.code===1?'Location is turned off for this app — allow it in Settings › Safari › Location (or the browser’s site settings).':'Couldn’t get your location — try again.'; cvDraw(); },
+  {enableHighAccuracy:false, timeout:15000, maximumAge:600000});
+}
+function cvNgs(lat,lon){ var k=lat.toFixed(3)+','+lon.toFixed(3); if(CV.cache[k]!=null) return Promise.resolve(CV.cache[k]);
+  var ctl=window.AbortController?new AbortController():null, to=setTimeout(function(){ if(ctl) ctl.abort(); }, 12000);
+  return fetch('https://geodesy.noaa.gov/api/geoid/ght?lat='+lat.toFixed(8)+'&lon='+lon.toFixed(8)+'&model=14', ctl?{signal:ctl.signal}:{}).then(function(r){ clearTimeout(to); if(!r.ok) throw new Error('NGS '+r.status); return r.json(); })
+    .then(function(j){ var n=parseFloat(j.geoidHeight); if(isNaN(n)) throw new Error('no geoid value'); CV.cache[k]=n; return n; }, function(e){ clearTimeout(to); throw e; }); }
 function cvGeoid(lat,lon){
   if(CV.inH==='none') return Promise.resolve(0);
-  if(CV.geo==='manual'){ var v=parseFloat(CV.gN); return isNaN(v)?Promise.reject(new Error('Type the geoid height N first')):Promise.resolve(v); }
-  var k=lat.toFixed(3)+','+lon.toFixed(3); if(CV.cache[k]!=null) return Promise.resolve(CV.cache[k]);
-  return fetch('https://geodesy.noaa.gov/api/geoid/ght?lat='+lat.toFixed(8)+'&lon='+lon.toFixed(8)+'&model=14').then(function(r){ if(!r.ok) throw new Error('NGS '+r.status); return r.json(); })
-    .then(function(j){ var n=parseFloat(j.geoidHeight); if(isNaN(n)) throw new Error('no geoid value'); CV.cache[k]=n; return n; });
+  if(CV.geo==='manual'||CV.geo==='here'){ var v=parseFloat(CV.gN); return isNaN(v)?Promise.reject(new Error(CV.geo==='here'?'Type the geoid height N first — tap “Use my location’s geoid”':'Type the geoid height N first')):Promise.resolve(v); }
+  return cvNgs(lat,lon).then(function(n){ if(!CV.gAt || cvKm(lat,lon,CV.gAt.lat,CV.gAt.lon)>1) cvSaveSite(n,lat,lon,'point'); return n; }, function(e){
+    var v=parseFloat(CV.gN); if(CV.gAt && !isNaN(v) && cvKm(lat,lon,CV.gAt.lat,CV.gAt.lon)<=10){ CV.offline=true; return v; } throw e; });
 }
 /* one input record → full result. ne2ll: {p,N,E,Z,d}; ll2ne: {p,lat,lon,H,d} */
 function cvConvert(r){
@@ -4011,15 +4036,15 @@ function cvOne(){
   else { r={p:p, lat:GEO.parseAng(a), lon:GEO.parseAng(b), H:z}; if(isNaN(r.lat)||isNaN(r.lon)){ toast('Couldn’t read that latitude / longitude', true); return; } if(r.lon>0 && !/[EW]/i.test(b)) r.lon=-r.lon; }
   var keepH=CV.inH; if(isNaN(z)) CV.inH='none';
   o.innerHTML='<div class="cvwait"><div class="spin"></div> Converting…</div>';
-  var pr=cvConvert(r); CV.inH=keepH; pr.then(function(x){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'WGS84/ITRF2014 @'+CV.epoch:'NAD83(2011)';
-    var h='<div class="cvres"><div class="cvh">'+escH(x.p)+' · '+escH(dn)+'</div>'+
+  CV.offline=false; var pr=cvConvert(r); CV.inH=keepH; pr.then(function(x){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'WGS84/ITRF2014 @'+CV.epoch:'NAD83(2011)';
+    var h='<div class="cvres"><div class="cvh">'+escH(x.p)+' · '+escH(dn)+'</div>'+(CV.offline?'<div class="cvoff">No signal — used your saved site geoid ('+(+CV.gN).toFixed(3)+' m)</div>':'')+
       cvCopyRow('Latitude',x.lat.toFixed(9))+cvCopyRow('Longitude',x.lon.toFixed(9))+cvCopyRow('Lat (DMS)',GEO.dms(x.lat,'N','S'))+cvCopyRow('Lon (DMS)',GEO.dms(x.lon,'E','W'))+
       (isNaN(x.h)?'':cvCopyRow('Ellipsoid h (m)',x.h.toFixed(3)))+(isNaN(x.H)||CV.inH==='none'?'':cvCopyRow('Elevation NAVD88 (m)',x.H.toFixed(3))+cvCopyRow('Elevation ('+U+')',(x.H/GEO.unitK(CV.units)).toFixed(3)))+
       (isNaN(x.gN)?'':cvCopyRow('Geoid N (m)',x.gN.toFixed(3)))+cvCopyRow('Northing ('+U+')',x.N.toFixed(3))+cvCopyRow('Easting ('+U+')',x.E.toFixed(3))+'</div>';
     o.innerHTML=h; cvBindCopy(o);
   }).catch(function(e){ o.innerHTML='<p class="danger" style="margin:8px 0 0">'+escH(cvErr(e))+'</p>'; });
 }
-function cvErr(e){ var m=e&&e.message||String(e); return /Type the geoid/.test(m)?m:'Couldn’t reach NGS for the geoid height ('+m+'). Switch Geoid to “Type it in” and enter N for your site (NCAT shows it), or pick “No heights”.'; }
+function cvErr(e){ var m=e&&e.message||String(e); return /Type the geoid/.test(m)?m:'Couldn’t reach NGS for the geoid height ('+m+'). Try “My location” when you have signal, or “Type it in” with N for your site (NCAT shows it), or pick “No heights”.'; }
 function cvBindCopy(root){ root.querySelectorAll('[data-cp]').forEach(function(b){ b.onclick=function(){ var v=b.getAttribute('data-cp'); (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(function(){ toast('Copied '+v, true); }).catch(function(){ toast(v, true); }); }; }); }
 /* ---- files ---- */
 function cvLoad(pf){ if(!pf||!pf.rows.length){ toast('That file looks empty', true); return; }
@@ -4054,7 +4079,7 @@ function cvRun(){
     recs.push(o); });
   if(!recs.length){ toast('No rows could be read with those columns', true); return; }
   var keepH=CV.inH; if(m.z<0) CV.inH='none'; var runH=CV.inH; CV.inH=keepH;
-  var out=new Array(recs.length), done=0, i=0, failed=null, el=$('#cvOut');
+  CV.offline=false; var out=new Array(recs.length), done=0, i=0, failed=null, el=$('#cvOut');
   el.innerHTML='<div class="cvwait"><div class="spin"></div> <span id="cvProg">Converting 0 / '+recs.length+'…</span></div>';
   function next(){ if(failed) return; if(i>=recs.length) return; var k=i++;
     var kh=CV.inH; CV.inH=runH; var pr=cvConvert(recs[k]); CV.inH=kh; pr.then(function(x){ out[k]=x; done++; var pe=$('#cvProg'); if(pe&&done%10===0) pe.textContent='Converting '+done+' / '+recs.length+'…';
@@ -4068,7 +4093,7 @@ function cvCols(){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'ITRF2014':'NAD83
 function cvVal(x,c){ if(c[1]==='latd') return GEO.dms(x.lat,'N','S'); if(c[1]==='lond') return GEO.dms(x.lon,'E','W'); var v=x[c[1]]; return c[2]!=null?cvF(v,c[2]):String(v==null?'':v); }
 function cvShowRes(){
   var R=CV.res, cols=cvCols(), sh=R.rows.slice(0,40);
-  var h='<div class="cvok">'+R.rows.length.toLocaleString()+' points converted'+(R.bad?' · <span class="danger">'+R.bad+' rows skipped (unreadable)</span>':'')+'</div><div class="cvtbl"><table><tr>'+cols.map(function(c){ return '<th>'+escH(c[0])+'</th>'; }).join('')+'</tr>'+
+  var h=(CV.offline?'<div class="cvoff" style="border-radius:10px;margin-top:12px">No signal for some points — used your saved site geoid ('+(+CV.gN).toFixed(3)+' m)</div>':'')+'<div class="cvok">'+R.rows.length.toLocaleString()+' points converted'+(R.bad?' · <span class="danger">'+R.bad+' rows skipped (unreadable)</span>':'')+'</div><div class="cvtbl"><table><tr>'+cols.map(function(c){ return '<th>'+escH(c[0])+'</th>'; }).join('')+'</tr>'+
     sh.map(function(x){ return '<tr>'+cols.map(function(c){ return '<td>'+escH(cvVal(x,c))+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>'+(R.rows.length>40?'<p class="muted cvnote">Showing the first 40.</p>':'')+
     '<button class="btn primary block mt" id="cvSave"><i class="ic" data-ic="download"></i> Save CSV</button>'+
     (R.dir==='ll2ne'?'<button class="btn block mt" id="cvEdit"><i class="ic" data-ic="layers"></i> Open as PNEZD in the editor</button>':'<button class="btn block mt" id="cvBase"><i class="ic" data-ic="download"></i> Save base file (Name, Lat, Lon, Ellipsoid h)</button>');
