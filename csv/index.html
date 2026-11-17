@@ -3940,7 +3940,7 @@ var GEO=(function(){
 
 
 /* ---------------- Coordinate Converter: State Plane / UTM N,E,Z  <->  latitude, longitude, heights (like NGS NCAT) ---------------- */
-var CV={dir:ls.get('csvfix.cvDir')||'ne2ll', zone:ls.get('csvfix.cvZone')||'2302', units:ls.get('csvfix.cvUnits')||'usft', datum:ls.get('csvfix.cvDatum')||'nad',
+var CV={dir:ls.get('csvfix.cvDir')||'ne2ll', zone:ls.get('csvfix.cvZone')||'2302', units:ls.get('csvfix.cvUnits')||'usft', datum:(function(d){ return d==='nad'||!d?'11':d; })(ls.get('csvfix.cvDatum')), gdatum:ls.get('csvfix.cvGDatum')||'11',
   inH:'ortho', geo:ls.get('csvfix.cvGeo')||'auto', gN:ls.get('csvfix.cvGN')||'', epoch:null, res:null, cache:{}};
 function cvEpoch(){ var d=new Date(), y=d.getFullYear(); return +(y+(d-new Date(y,0,1))/(new Date(y+1,0,1)-new Date(y,0,1))).toFixed(2); }
 function showCv(){ cvNamePlace(); cvLocLabel(); ['#home','#gridScreen','#photoScreen','#planScreen','#tpScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#cvScreen').classList.add('on'); if(CV.epoch==null) CV.epoch=cvEpoch(); cvDraw(); }
@@ -3948,14 +3948,16 @@ function cvZoneOpts(){ var Z=GEO.Z, sp=[], ut=[];
   Object.keys(Z).forEach(function(c){ (c.indexOf('UTM')===0?ut:sp).push(c); }); sp.sort(function(a,b){ return Z[a][0].localeCompare(Z[b][0]); });
   return '<optgroup label="State Plane (NAD83)">'+sp.map(function(c){ return '<option value="'+c+'"'+(c===CV.zone?' selected':'')+'>'+escH(Z[c][0])+' ('+c+')</option>'; }).join('')+'</optgroup>'+
     '<optgroup label="UTM (NAD83)">'+ut.map(function(c){ return '<option value="'+c+'"'+(c===CV.zone?' selected':'')+'>'+escH(Z[c][0])+'</option>'; }).join('')+'</optgroup>'; }
-var CV_UL={usft:'US ft', ift:'Intl ft', m:'m'};
+var CV_UL={usft:'US ft', ift:'Intl ft', m:'m'}, CV_ULL={usft:'US Survey Feet', ift:'International Feet', m:'Meters'};
 function cvDraw(){
   var ne=CV.dir==='ne2ll', u=CV_UL[CV.units];
   var h='<div class="seg cvdir" style="display:flex"><button data-cvd="ne2ll"'+(ne?' class="on"':'')+'>N / E → Lat / Lon</button><button data-cvd="ll2ne"'+(!ne?' class="on"':'')+'>Lat / Lon → N / E</button></div>'+
     '<div class="card"><h3>Coordinate system</h3>'+
       '<div class="field"><label>Grid zone</label><select class="inp" id="cvZone">'+cvZoneOpts()+'</select></div>'+
-      '<div class="row mt" style="gap:8px"><div class="field" style="flex:1"><label>Grid units</label><select class="inp" id="cvUnits">'+Object.keys(CV_UL).map(function(k){ return '<option value="'+k+'"'+(k===CV.units?' selected':'')+'>'+CV_UL[k]+'</option>'; }).join('')+'</select></div>'+
-      '<div class="field" style="flex:1.4"><label>Lat / Lon datum</label><select class="inp" id="cvDatum"><option value="nad"'+(CV.datum==='nad'?' selected':'')+'>NAD83(2011)</option><option value="itrf"'+(CV.datum==='itrf'?' selected':'')+'>WGS84 / ITRF2014</option></select></div></div>'+
+      '<div class="field mt"><label>Grid units</label><select class="inp" id="cvUnits">'+Object.keys(CV_ULL).map(function(k){ return '<option value="'+k+'"'+(k===CV.units?' selected':'')+'>'+CV_ULL[k]+'</option>'; }).join('')+'</select></div>'+
+      '<div class="row mt" style="gap:8px"><div class="field" style="flex:1"><label>N / E datum</label><select class="inp" id="cvGDatum">'+CV_DATUMS.filter(function(d){ return d[0]!=='27'&&d[0]!=='itrf'; }).map(function(d){ return '<option value="'+d[0]+'"'+(d[0]===CV.gdatum?' selected':'')+'>'+d[1]+'</option>'; }).join('')+'</select></div>'+
+      '<div class="field" style="flex:1"><label>Lat / Lon datum</label><select class="inp" id="cvDatum">'+CV_DATUMS.map(function(d){ return '<option value="'+d[0]+'"'+(d[0]===CV.datum?' selected':'')+'>'+d[1]+'</option>'; }).join('')+'</select></div></div>'+
+      (CV.gdatum!=='11'||(CV.datum!=='11'&&CV.datum!=='itrf')?'<p class="muted cvnote">Older NAD83 realizations and NAD27 use NGS’s NADCON5 grids (lower 48), same as NCAT. NAD27 state plane (SPCS27) isn’t supported — convert NAD27 lat / lon instead.</p>':'')+
       (CV.datum==='itrf'?'<div class="field mt"><label>Epoch (decimal year)</label><input class="inp num" id="cvEp" inputmode="decimal" value="'+CV.epoch+'"></div><p class="muted cvnote">NAD83 ↔ WGS84/ITRF2014 uses NGS’s 14-parameter transformation at this epoch (≈1.3 m shift here). Use the same frame your base / corrections use.</p>':
         '<p class="muted cvnote">Grid ↔ lat/lon is exact NAD83 math (same as NCAT). Most local bases and NAD83 rovers want NAD83(2011).</p>')+
     '</div>'+
@@ -3979,6 +3981,7 @@ function cvDraw(){
   $('#cvZone').onchange=function(){ CV.zone=this.value; ls.set('csvfix.cvZone',CV.zone); };
   $('#cvUnits').onchange=function(){ CV.units=this.value; ls.set('csvfix.cvUnits',CV.units); cvDraw(); };
   $('#cvDatum').onchange=function(){ CV.datum=this.value; ls.set('csvfix.cvDatum',CV.datum); cvDraw(); };
+  $('#cvGDatum').onchange=function(){ CV.gdatum=this.value; ls.set('csvfix.cvGDatum',CV.gdatum); cvDraw(); };
   if($('#cvEp')) $('#cvEp').onchange=function(){ var v=parseFloat(this.value); if(v>1990&&v<2100) CV.epoch=v; else this.value=CV.epoch; };
   $('#cvInH').onchange=function(){ CV.inH=this.value; cvDraw(); };
   document.querySelectorAll('[data-cvg]').forEach(function(b){ b.onclick=function(){ CV.geo=b.getAttribute('data-cvg'); ls.set('csvfix.cvGeo',CV.geo); cvDraw(); if(CV.geo==='here' && !cvGeoFresh()) cvHere(); }; });
@@ -4028,7 +4031,7 @@ function cvUpdateLoc(){
     cvNgs(la,lo).then(function(n){ cvSaveSite(n,la,lo,'here'); return n; }, function(){ return null; }).then(function(n){
       if(n==null){ CV.gAt={lat:la,lon:lo,src:'here',t:Date.now()}; }
       cvNamePlace(function(g){ var msg=[], pz=cvPickZone(la,lo,g.state);
-        if(pz){ CV.zone=pz.code; CV.units=pz.units; ls.set('csvfix.cvZone',CV.zone); ls.set('csvfix.cvUnits',CV.units); msg.push(GEO.Z[pz.code][0]+', '+CV_UL[pz.units]);
+        if(pz){ CV.zone=pz.code; ls.set('csvfix.cvZone',CV.zone); msg.push(GEO.Z[pz.code][0]+(pz.units==='ift'&&CV.units!=='ift'?' (this state’s law uses International Feet — change units if the job does)':''));
           if(pz.near) setTimeout(function(){ toast('Near the line between '+GEO.Z[pz.code][0]+' and '+GEO.Z[pz.near][0]+' — check which zone the job uses', true); },3500); }
         else msg.push(g.place?'zone unchanged (no State Plane zone found for '+(g.state||'here')+')':'zone unchanged (needs signal to know the state)');
         msg.push(n!=null?'geoid '+n.toFixed(3)+' m':'geoid unchanged (outside GEOID18)');
@@ -4069,19 +4072,52 @@ function cvGeoid(lat,lon){
     var v=parseFloat(CV.gN); if(CV.gAt && !isNaN(v) && cvKm(lat,lon,CV.gAt.lat,CV.gAt.lon)<=10){ CV.offline=true; return v; } throw e; });
 }
 /* one input record → full result. ne2ll: {p,N,E,Z,d}; ll2ne: {p,lat,lon,H,d} */
+/* ---- NAD83 realizations + NAD27 via NGS NADCON5 grids (CONUS), shipped as small deflated 1° tiles; biquadratic like NCAT ---- */
+var CV_DATUMS=[['11','NAD83(2011)'],['07','NAD83(NSRS2007)'],['fbn','NAD83(FBN)'],['harn','NAD83(HARN)'],['86','NAD83(1986)'],['27','NAD27'],['itrf','WGS84 / ITRF2014']];
+var NC_ORDER=['27','86','harn','fbn','07','11'], NC_STEP=['27_86','86_harn','harn_fbn','fbn_07','07_11'], NC={tiles:{}};
+function cvDn(k){ for(var i=0;i<CV_DATUMS.length;i++) if(CV_DATUMS[i][0]===k) return CV_DATUMS[i][1]; return k; }
+function ncIndex(){ return NC.idxP||(NC.idxP=fetch('nadcon5/index.json').then(function(r){ if(!r.ok) throw new Error('datum grids '+r.status); return r.json(); }).then(function(j){ Object.keys(j).forEach(function(k){ var s={}; j[k].tiles.forEach(function(t){ s[t]=1; }); j[k].set=s; }); return j; }).catch(function(e){ NC.idxP=null; throw e; })); }
+function ncInflate(buf){ if(!window.DecompressionStream) return Promise.reject(new Error('this browser can’t unpack the datum grids — update iOS / the browser'));
+  return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer(); }
+function ncTile(step,key){ var id=step+'/'+key; if(NC.tiles[id]) return NC.tiles[id];
+  var p=NC.tiles[id]=fetch('nadcon5/'+id+'.bin').then(function(r){ if(!r.ok) throw new Error('datum grid '+r.status); return r.arrayBuffer(); }).then(ncInflate).then(function(b){
+    var dv=new DataView(b), S=dv.getUint8(0), n=dv.getUint16(2,true), o=4+S*8, bands=[];
+    for(var s=0;s<S;s++){ var base=dv.getFloat32(4+s*8,true), sc=dv.getFloat32(8+s*8,true), a=new Float64Array(n*n), raw=new Int16Array(b.slice(o+s*n*n*2, o+(s+1)*n*n*2));
+      for(var r=0;r<n;r++){ var acc=0; for(var c=0;c<n;c++){ acc+=raw[r*n+c]; a[r*n+c]=base+acc*sc; } } bands.push(a); }
+    return {S:S, n:n, b:bands}; });
+  p.catch(function(){ delete NC.tiles[id]; }); return p; }
+function ncShift(step,lat,lon){ // → [dLat", dLon"(+east), dh m]
+  if(!(lat>=24&&lat<50&&lon>=-125&&lon<-66)) return Promise.reject(new Error('outside the NADCON5 grids (lower 48 only) — use NAD83(2011) or WGS84 here'));
+  return ncIndex().then(function(I){ var g=I[step], la0=Math.floor(lat), lo0=Math.floor(lon), key=la0+'_'+(-lo0); if(!g.set[key]) return [0,0,0];
+    return ncTile(step,key).then(function(T){ var k=g.k, n=T.n, y=(lat-la0)*k+1, x=(lon-lo0)*k+1, j0=Math.min(n-3,Math.max(0,Math.round(y)-1)), i0=Math.min(n-3,Math.max(0,Math.round(x)-1)), Y=y-j0, X=x-i0;
+      var q=function(f0,f1,f2,t){ return f0+(f1-f0)*t+(f2-2*f1+f0)*t*(t-1)/2; };
+      return [0,1,2].map(function(s){ if(s>=T.S) return 0; var A=T.b[s], row=function(r){ var o=(j0+r)*n+i0; return q(A[o],A[o+1],A[o+2],X); }; return q(row(0),row(1),row(2),Y); }); }); }); }
+function ncStep(p,i,fwd){ var st=NC_STEP[i];
+  if(fwd) return ncShift(st,p.lat,p.lon).then(function(d){ return {lat:p.lat+d[0]/3600, lon:p.lon+d[1]/3600, h:p.h+d[2]}; });
+  var q={lat:p.lat,lon:p.lon}, it=0; // inverse: find the older position that moves onto p
+  return (function loop(){ return ncShift(st,q.lat,q.lon).then(function(d){ var nq={lat:p.lat-d[0]/3600, lon:p.lon-d[1]/3600}; var done=Math.abs(nq.lat-q.lat)<1e-11&&Math.abs(nq.lon-q.lon)<1e-11; q=nq; if(done||++it>=6) return {lat:q.lat, lon:q.lon, h:p.h-d[2]}; return loop(); }); })(); }
+/* datum k position → NAD83(2011), and back. ITRF/WGS84 via the 14-parameter transformation at CV.epoch */
+function ncToHub(p,k){ if(k==='itrf'){ var t=GEO.itrfToNad(p.lat,p.lon,p.h,CV.epoch||cvEpoch()); return Promise.resolve(t); }
+  var i=NC_ORDER.indexOf(k), c=Promise.resolve(p); for(var s=i;s<5;s++) (function(s){ c=c.then(function(x){ return ncStep(x,s,true); }); })(s); return c; }
+function ncFromHub(p,k){ if(k==='itrf') return Promise.resolve(GEO.nadToItrf(p.lat,p.lon,p.h,CV.epoch||cvEpoch()));
+  var i=NC_ORDER.indexOf(k), c=Promise.resolve(p); for(var s=4;s>=i;s--) (function(s){ c=c.then(function(x){ return ncStep(x,s,false); }); })(s); return c; }
 function cvConvert(r){
-  var inH=CV.inH, K=GEO.unitK(CV.units), ep=CV.epoch||cvEpoch(), out={p:r.p, d:r.d||''};
+  var inH=CV.inH, K=GEO.unitK(CV.units), gd=CV.gdatum, ld=CV.datum, out={p:r.p, d:r.d||''};
   if(CV.dir==='ne2ll'){
-    var ll=GEO.toLL(CV.zone, r.N*K, r.E*K); out.N=r.N; out.E=r.E;
-    return cvGeoid(ll.lat,ll.lon).then(function(gn){ var z=r.Z*K, H, hN;
-      if(inH==='ell'){ hN=z; H=z-gn; } else if(inH==='ortho'){ H=z; hN=z+gn; } else { H=z; hN=z; }
-      var g=CV.datum==='itrf'?GEO.nadToItrf(ll.lat,ll.lon,isNaN(hN)?0:hN,ep):{lat:ll.lat,lon:ll.lon,h:hN};
-      out.lat=g.lat; out.lon=g.lon; out.h=isNaN(hN)?NaN:g.h; out.H=H; out.gN=inH==='none'?NaN:gn; out.Z=r.Z; return out; });
+    var ll=GEO.toLL(CV.zone, r.N*K, r.E*K), z=r.Z*K; out.N=r.N; out.E=r.E; out.Z=r.Z;
+    return ncToHub({lat:ll.lat, lon:ll.lon, h:inH==='ell'&&!isNaN(z)?z:0}, gd).then(function(hub){
+      return cvGeoid(hub.lat,hub.lon).then(function(gn){ var H, h11;
+        if(inH==='ell'){ h11=hub.h; H=h11-gn; } else if(inH==='ortho'){ H=z; h11=z+gn; } else { H=z; h11=isNaN(z)?0:z; }
+        return ncFromHub({lat:hub.lat, lon:hub.lon, h:isNaN(h11)?0:h11}, ld).then(function(g){
+          out.lat=g.lat; out.lon=g.lon; out.h=(isNaN(z)||inH==='none')?NaN:g.h; out.H=H; out.gN=inH==='none'?NaN:gn; return out; }); }); });
   }
-  return cvGeoid(r.lat,r.lon).then(function(gn){ var nad={lat:r.lat,lon:r.lon}, hIn=r.H, hN, H;
-    if(CV.datum==='itrf'){ var hx=inH==='ell'?(isNaN(hIn)?0:hIn):(isNaN(hIn)?0:hIn+gn); var t=GEO.itrfToNad(r.lat,r.lon,hx,ep); nad={lat:t.lat,lon:t.lon}; if(inH==='ell') hIn=t.h; }
-    if(inH==='ell'){ hN=hIn; H=hIn-gn; } else if(inH==='ortho'){ H=hIn; hN=hIn+gn; } else { H=hIn; hN=hIn; }
-    var g=GEO.toGrid(CV.zone,nad.lat,nad.lon); out.N=g.N/K; out.E=g.E/K; out.Z=H/K; out.lat=r.lat; out.lon=r.lon; out.h=hN; out.H=H; out.gN=inH==='none'?NaN:gn; return out; });
+  var hIn=r.H;
+  return ncToHub({lat:r.lat, lon:r.lon, h:inH==='ell'&&!isNaN(hIn)?hIn:0}, ld).then(function(hub){
+    return cvGeoid(hub.lat,hub.lon).then(function(gn){ var H, h11;
+      if(inH==='ell'){ h11=hub.h; H=h11-gn; } else if(inH==='ortho'){ H=hIn; h11=hIn+gn; } else { H=hIn; h11=hIn; }
+      var hb={lat:hub.lat, lon:hub.lon, h:isNaN(h11)?0:h11};
+      return Promise.all([ncFromHub(hb,gd), inH==='ell'||ld==='11'?null:ncFromHub(hb,ld)]).then(function(R){ var gp=R[0], g=GEO.toGrid(CV.zone,gp.lat,gp.lon);
+        out.N=g.N/K; out.E=g.E/K; out.Z=H/K; out.lat=r.lat; out.lon=r.lon; out.h=(isNaN(hIn)||inH==='none')?NaN:(inH==='ell'?hIn:(R[1]?R[1].h:h11)); out.H=H; out.gN=inH==='none'?NaN:gn; return out; }); }); });
 }
 function cvF(v,d){ return v==null||isNaN(v)?'':v.toFixed(d); }
 function cvCopyRow(lab,val){ return '<div class="cvrow"><span>'+lab+'</span><b class="num">'+escH(val)+'</b><button class="cvcp" data-cp="'+escH(val)+'" aria-label="Copy"><i class="ic" data-ic="copy"></i></button></div>'; }
@@ -4091,7 +4127,7 @@ function cvOne(){
   else { r={p:p, lat:GEO.parseAng(a), lon:GEO.parseAng(b), H:z}; if(isNaN(r.lat)||isNaN(r.lon)){ toast('Couldn’t read that latitude / longitude', true); return; } if(r.lon>0 && !/[EW]/i.test(b)) r.lon=-r.lon; }
   var keepH=CV.inH; if(isNaN(z)) CV.inH='none';
   o.innerHTML='<div class="cvwait"><div class="spin"></div> Converting…</div>';
-  CV.offline=false; var pr=cvConvert(r); CV.inH=keepH; pr.then(function(x){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'WGS84/ITRF2014 @'+CV.epoch:'NAD83(2011)';
+  CV.offline=false; var pr=cvConvert(r); CV.inH=keepH; pr.then(function(x){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'WGS84/ITRF2014 @'+CV.epoch:cvDn(CV.datum);
     var h='<div class="cvres"><div class="cvh">'+escH(x.p)+' · '+escH(dn)+'</div>'+(CV.offline?'<div class="cvoff">No signal — used your saved site geoid ('+(+CV.gN).toFixed(3)+' m'+(CV.gAt&&CV.gAt.place?', '+escH(CV.gAt.place):'')+')</div>':'')+
       cvCopyRow('Latitude',x.lat.toFixed(9))+cvCopyRow('Longitude',x.lon.toFixed(9))+cvCopyRow('Lat (DMS)',GEO.dms(x.lat,'N','S'))+cvCopyRow('Lon (DMS)',GEO.dms(x.lon,'E','W'))+
       (isNaN(x.h)?'':cvCopyRow('Ellipsoid h (m)',x.h.toFixed(3)))+(isNaN(x.H)||CV.inH==='none'?'':cvCopyRow('Elevation NAVD88 (m)',x.H.toFixed(3))+cvCopyRow('Elevation ('+U+')',(x.H/GEO.unitK(CV.units)).toFixed(3)))+
@@ -4142,7 +4178,7 @@ function cvRun(){
     .catch(function(e){ if(failed) return; failed=e; el.innerHTML='<p class="danger" style="margin:8px 0 0">'+escH(cvErr(e))+'</p>'; }); }
   for(var w=0;w<4;w++) next();
 }
-function cvCols(){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'ITRF2014':'NAD83(2011)', hs=CV.res.inH!=='none';
+function cvCols(){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'ITRF2014':cvDn(CV.datum), hs=CV.res.inH!=='none';
   if(CV.res.dir==='ne2ll') return [['Point','p'],['Latitude ('+dn+')','lat',9],['Longitude ('+dn+')','lon',9],['Lat DMS','latd'],['Lon DMS','lond']].concat(hs?[['Ellipsoid h (m)','h',3],['Elevation NAVD88 (m)','H',3],['Geoid N (m)','gN',3]]:[]).concat([['Northing ('+U+')','N',3],['Easting ('+U+')','E',3],['Elevation ('+U+')','Z',3],['Description','d']]);
   return [['Point','p'],['Northing ('+U+')','N',3],['Easting ('+U+')','E',3],['Elevation ('+U+')','Z',3],['Description','d'],['Latitude','lat',9],['Longitude','lon',9]].concat(hs?[['Ellipsoid h (m)','h',3],['Geoid N (m)','gN',3]]:[]); }
 function cvVal(x,c){ if(c[1]==='latd') return GEO.dms(x.lat,'N','S'); if(c[1]==='lond') return GEO.dms(x.lon,'E','W'); var v=x[c[1]]; return c[2]!=null?cvF(v,c[2]):String(v==null?'':v); }
@@ -4156,7 +4192,7 @@ function cvShowRes(){
   var q=function(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }, base=CV.src.name.replace(/\.(csv|txt)$/i,'');
   $('#cvSave').onclick=function(){ var t=[cols.map(function(c){ return q(c[0]); }).join(',')].concat(R.rows.map(function(x){ return cols.map(function(c){ return q(cvVal(x,c)); }).join(','); })).join('\r\n')+'\r\n';
     tpShare(base+(R.dir==='ne2ll'?'-latlon':'-grid')+'.csv', new Blob([t],{type:'text/csv'}), 'text/csv'); };
-  if($('#cvBase')) $('#cvBase').onclick=function(){ var dn=CV.datum==='itrf'?'ITRF2014':'NAD83(2011)', t=['Name,Latitude ('+dn+'),Longitude ('+dn+'),Ellipsoid height (m)'].concat(R.rows.map(function(x){ return [q(x.p),x.lat.toFixed(9),x.lon.toFixed(9),cvF(x.h,3)].join(','); })).join('\r\n')+'\r\n';
+  if($('#cvBase')) $('#cvBase').onclick=function(){ var dn=CV.datum==='itrf'?'ITRF2014':cvDn(CV.datum), t=['Name,Latitude ('+dn+'),Longitude ('+dn+'),Ellipsoid height (m)'].concat(R.rows.map(function(x){ return [q(x.p),x.lat.toFixed(9),x.lon.toFixed(9),cvF(x.h,3)].join(','); })).join('\r\n')+'\r\n';
     tpShare(base+'-base-llh.csv', new Blob([t],{type:'text/csv'}), 'text/csv'); };
   if($('#cvEdit')) $('#cvEdit').onclick=function(){ file={name:base+'-grid.csv', delim:',', header:null, rows:R.rows.map(function(x){ return [x.p, x.N.toFixed(3), x.E.toFixed(3), cvF(x.Z,3), x.d||'']; }), roles:['P','N','E','Z','D']}; hist=[]; save(); showGrid(); };
 }
