@@ -1,6 +1,6 @@
 // CSV Fix offline cache: always asks GitHub for the newest copy first (skips the phone's HTTP cache),
 // falls back to the saved copy when there is no signal in the field.
-var V = 'csvfix-v43';
+var V = 'csvfix-v44';
 var G = 'csvfix-geoid18'; // geoid tiles: kept across updates, used offline once looked up
 var FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png', './favicon-32.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(V).then(function (c) { return c.addAll(FILES.map(function (f) { return new Request(f, { cache: 'reload' }); })); })); self.skipWaiting(); });

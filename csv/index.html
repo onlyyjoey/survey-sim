@@ -179,6 +179,9 @@ html,body{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:1
 .cvoff{padding:7px 12px;font-size:12.5px;font-weight:650;background:color-mix(in srgb,#e8930c 18%,transparent);color:#a15c00}
 .cvgeo .btn i.ic{margin-right:4px}
 .cvplace{font-size:14px;font-weight:700;margin:2px 0 1px;display:flex;align-items:center;gap:5px}.cvplace i.ic{color:var(--accent)}
+.cvloc{display:inline-flex;align-items:center;gap:5px;max-width:52%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:6px 10px 6px 8px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:none}
+.cvloc i.ic{color:var(--accent);width:17px;height:17px;flex:none}.cvloc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cvloc.busy i.ic{animation:sp 1s linear infinite}
 .cvwait{display:flex;gap:10px;align-items:center;margin-top:12px;color:var(--muted)}
 .cvsrc{margin:12px 0 8px;font-size:14px}.cvmap{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cvok{margin:12px 0 8px;font-weight:750}.cvtbl{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:300px}.cvtbl table{border-collapse:collapse;font-size:12px;white-space:nowrap}.cvtbl th,.cvtbl td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.cvtbl th{position:sticky;top:0;background:var(--panel2)}
@@ -546,7 +549,8 @@ select.inp{font-size:15px;padding:10px}
 <section class="screen" id="cvScreen">
   <div class="topbar">
     <button class="iconbtn" id="cvBack">‹ Back</button>
-    <h1>Coordinate Converter</h1>
+    <h1>Converter</h1>
+    <button class="cvloc" id="cvLocB" title="Update location: geoid, place and coordinate system"><i class="ic" data-ic="locate"></i><span id="cvLocT">Update location</span></button>
   </div>
   <div class="scroll"><div class="wrap" id="cvBody"></div></div>
 </section>
@@ -3939,7 +3943,7 @@ var GEO=(function(){
 var CV={dir:ls.get('csvfix.cvDir')||'ne2ll', zone:ls.get('csvfix.cvZone')||'2302', units:ls.get('csvfix.cvUnits')||'usft', datum:ls.get('csvfix.cvDatum')||'nad',
   inH:'ortho', geo:ls.get('csvfix.cvGeo')||'auto', gN:ls.get('csvfix.cvGN')||'', epoch:null, res:null, cache:{}};
 function cvEpoch(){ var d=new Date(), y=d.getFullYear(); return +(y+(d-new Date(y,0,1))/(new Date(y+1,0,1)-new Date(y,0,1))).toFixed(2); }
-function showCv(){ cvNamePlace(); ['#home','#gridScreen','#photoScreen','#planScreen','#tpScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#cvScreen').classList.add('on'); if(CV.epoch==null) CV.epoch=cvEpoch(); cvDraw(); }
+function showCv(){ cvNamePlace(); cvLocLabel(); ['#home','#gridScreen','#photoScreen','#planScreen','#tpScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#cvScreen').classList.add('on'); if(CV.epoch==null) CV.epoch=cvEpoch(); cvDraw(); }
 function cvZoneOpts(){ var Z=GEO.Z, sp=[], ut=[];
   Object.keys(Z).forEach(function(c){ (c.indexOf('UTM')===0?ut:sp).push(c); }); sp.sort(function(a,b){ return Z[a][0].localeCompare(Z[b][0]); });
   return '<optgroup label="State Plane (NAD83)">'+sp.map(function(c){ return '<option value="'+c+'"'+(c===CV.zone?' selected':'')+'>'+escH(Z[c][0])+' ('+c+')</option>'; }).join('')+'</optgroup>'+
@@ -3998,10 +4002,41 @@ function cvPlace(lat,lon){
     return fetch(u, c?{signal:c.signal}:{}).then(function(r){ clearTimeout(t); if(!r.ok) throw new Error(r.status); return r.json(); }, function(e){ clearTimeout(t); throw e; }); };
   var fmt=function(town,st,county){ return [town||county, st].filter(Boolean).join(', '); };
   return q('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+lat.toFixed(5)+'&longitude='+lon.toFixed(5)+'&localityLanguage=en')
-    .then(function(j){ var n=fmt(j.city||j.locality, j.principalSubdivision); if(!n) throw new Error('none'); return n; })
-    .catch(function(){ return q('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&lat='+lat.toFixed(5)+'&lon='+lon.toFixed(5)).then(function(j){ var a=j.address||{}; var n=fmt(a.city||a.town||a.village||a.hamlet, a.state, a.county); if(!n) throw new Error('none'); return n; }); });
+    .then(function(j){ var n=fmt(j.city||j.locality, j.principalSubdivision); if(!n) throw new Error('none'); return {name:n, state:j.principalSubdivision||''}; })
+    .catch(function(){ return q('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&lat='+lat.toFixed(5)+'&lon='+lon.toFixed(5)).then(function(j){ var a=j.address||{}; var n=fmt(a.city||a.town||a.village||a.hamlet, a.state, a.county); if(!n) throw new Error('none'); return {name:n, state:a.state||''}; }); });
 }
-function cvNamePlace(){ var g=CV.gAt; if(!g||g.place) return; cvPlace(g.lat,g.lon).then(function(n){ if(CV.gAt!==g) return; g.place=n; ls.set('csvfix.cvGAt',JSON.stringify(g)); if($('#cvScreen').classList.contains('on')) cvDraw(); }).catch(function(){}); }
+function cvNamePlace(then){ var g=CV.gAt; if(!g){ if(then) then({}); return; } if(g.place){ cvLocLabel(); if(then) then(g); return; }
+  cvPlace(g.lat,g.lon).then(function(r){ if(CV.gAt!==g) return; g.place=r.name; g.state=r.state; ls.set('csvfix.cvGAt',JSON.stringify(g)); cvLocLabel(); if(then) then(g); else if($('#cvScreen').classList.contains('on')) cvDraw(); })
+    .catch(function(){ cvLocLabel(); if(then) then(g); }); }
+var CV_ST={Alabama:'AL',Alaska:'AK',Arizona:'AZ',Arkansas:'AR',California:'CA',Colorado:'CO',Connecticut:'CT',Delaware:'DE',Florida:'FL',Georgia:'GA',Hawaii:'HI',Idaho:'ID',Illinois:'IL',Indiana:'IN',Iowa:'IA',Kansas:'KS',Kentucky:'KY',Louisiana:'LA',Maine:'ME',Maryland:'MD',Massachusetts:'MA',Michigan:'MI',Minnesota:'MN',Mississippi:'MS',Missouri:'MO',Montana:'MT',Nebraska:'NE',Nevada:'NV','New Hampshire':'NH','New Jersey':'NJ','New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND',Ohio:'OH',Oklahoma:'OK',Oregon:'OR',Pennsylvania:'PA','Rhode Island':'RI','South Carolina':'SC','South Dakota':'SD',Tennessee:'TN',Texas:'TX',Utah:'UT',Vermont:'VT',Virginia:'VA',Washington:'WA','West Virginia':'WV',Wisconsin:'WI',Wyoming:'WY','Puerto Rico':'PR'};
+function cvLocLabel(){ var t=$('#cvLocT'); if(!t) return; var g=CV.gAt; t.textContent=g&&g.place?g.place.replace(/, ([A-Za-z ]+)$/,function(m,st){ return ', '+(CV_ST[st]||st); }):'Update location'; }
+/* pick the State Plane zone for a spot: the state's zone whose central meridian (TM) / middle parallel (Lambert) is closest.
+   Real zone lines follow county lines, so near a line it says so. Units: international feet where the state uses them by law. */
+var CV_IFT={Arizona:1,Michigan:1,Montana:1,'North Dakota':1,Oregon:1,'South Carolina':1,Utah:1};
+function cvPickZone(lat,lon,state){
+  var Z=GEO.Z, st=String(state||'').replace(/^State of /,'');
+  var cands=Object.keys(Z).filter(function(c){ var n=Z[c][0]; return c.indexOf('UTM')<0 && !/Single Zone/.test(n) && st && (n===st || n.indexOf(st+' ')===0 || (/Puerto Rico|Virgin/.test(st)&&/^Puerto Rico/.test(n))); });
+  if(!cands.length) return null;
+  var sc=cands.map(function(c){ var z=Z[c], d=z[1]==='T'?Math.abs(lon-z[3])*Math.cos(lat*Math.PI/180):Math.abs(lat-(z[2]+z[3])/2); return {c:c,d:d}; }).sort(function(a,b){ return a.d-b.d; });
+  return {code:sc[0].c, near:sc.length>1&&sc[1].d-sc[0].d<0.12?sc[1].c:null, units:CV_IFT[st]?'ift':'usft'};
+}
+function cvUpdateLoc(){
+  var b=$('#cvLocB'); if(b.disabled) return; if(!navigator.geolocation){ toast('This phone / browser won’t share its location', true); return; }
+  b.disabled=true; b.classList.add('busy'); $('#cvLocT').textContent='Locating…';
+  var done=function(){ b.disabled=false; b.classList.remove('busy'); cvLocLabel(); };
+  navigator.geolocation.getCurrentPosition(function(pos){ var la=pos.coords.latitude, lo=pos.coords.longitude; $('#cvLocT').textContent='Updating…';
+    cvNgs(la,lo).then(function(n){ cvSaveSite(n,la,lo,'here'); return n; }, function(){ return null; }).then(function(n){
+      if(n==null){ CV.gAt={lat:la,lon:lo,src:'here',t:Date.now()}; }
+      cvNamePlace(function(g){ var msg=[], pz=cvPickZone(la,lo,g.state);
+        if(pz){ CV.zone=pz.code; CV.units=pz.units; ls.set('csvfix.cvZone',CV.zone); ls.set('csvfix.cvUnits',CV.units); msg.push(GEO.Z[pz.code][0]+', '+CV_UL[pz.units]);
+          if(pz.near) setTimeout(function(){ toast('Near the line between '+GEO.Z[pz.code][0]+' and '+GEO.Z[pz.near][0]+' — check which zone the job uses', true); },3500); }
+        else msg.push(g.place?'zone unchanged (no State Plane zone found for '+(g.state||'here')+')':'zone unchanged (needs signal to know the state)');
+        msg.push(n!=null?'geoid '+n.toFixed(3)+' m':'geoid unchanged (outside GEOID18)');
+        done(); cvDraw(); toast((g.place?g.place+' · ':'')+msg.join(' · '), true); });
+    });
+  }, function(err){ done(); toast(err&&err.code===1?'Location is off for this app — allow it in Settings › Safari › Location':'Couldn’t get your location — try again', true); },
+  {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
+}
 function cvGeoLine(){ if(CV.geoBusy) return '<div class="cvwait" style="margin:8px 0 0"><div class="spin"></div> '+escH(CV.geoBusy)+'</div>';
   if(CV.gAt&&CV.gAt.src==='here') return '<div class="row" style="align-items:center;gap:8px;margin-top:8px"><div style="flex:1"><b style="font-size:16px">N = '+(+CV.gN).toFixed(3)+' m</b><div class="cvplace"><i class="ic" data-ic="pin"></i> '+escH(CV.gAt.place||'Finding place name…')+'</div><div class="muted" style="font-size:12.5px">GEOID18 at your location ('+CV.gAt.lat.toFixed(4)+', '+CV.gAt.lon.toFixed(4)+') · '+new Date(CV.gAt.t).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'. Used for every point.</div></div><button class="btn" id="cvGeoUpd"><i class="ic" data-ic="refresh"></i></button></div>';
   return '<button class="btn block mt" id="cvGeoUpd"><i class="ic" data-ic="locate"></i> Use my location’s geoid</button>'+(CV.geoErr?'<p class="danger cvnote">'+escH(CV.geoErr)+'</p>':''); }
@@ -4126,6 +4161,7 @@ function cvShowRes(){
   if($('#cvEdit')) $('#cvEdit').onclick=function(){ file={name:base+'-grid.csv', delim:',', header:null, rows:R.rows.map(function(x){ return [x.p, x.N.toFixed(3), x.E.toFixed(3), cvF(x.Z,3), x.d||'']; }), roles:['P','N','E','Z','D']}; hist=[]; save(); showGrid(); };
 }
 $('#cvBack').onclick=function(){ showHome(); };
+$('#cvLocB').onclick=cvUpdateLoc;
 
 /* ---------------- settings: color theme, light/dark, motion ---------------- */
 var THEMES=[['Blue','#2563eb'],['Orange','#e2691b'],['Green','#16a34a'],['Teal','#0d9488'],['Purple','#7c3aed'],['Red','#dc2626'],['Pink','#db2777'],['Gold','#ca8a04'],['Slate','#475569']];
