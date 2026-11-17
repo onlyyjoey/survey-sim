@@ -170,6 +170,15 @@ html,body{touch-action:manipulation;overflow-x:hidden;-webkit-text-size-adjust:1
 .lacts button{border:0;width:88px;color:#fff;font-weight:800;font-size:14.5px;cursor:pointer}
 .lacts .la-clr{background:#e8930c}.lacts .la-del{background:var(--bad);transition:width .18s}.lacts .la-del.full{width:100vw}
 .lrow.gone{opacity:0}
+.hci i.ic{width:25px;height:25px}
+.cvdir{margin:4px 0 12px}.cvdir button{flex:1;font-weight:750}
+.cvnote{font-size:12.5px;margin:8px 0 0;line-height:1.4}
+.cvres{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}.cvh{padding:8px 12px;font-weight:800;font-size:13px;background:var(--panel2)}
+.cvrow{display:flex;align-items:center;gap:8px;padding:8px 6px 8px 12px;border-top:1px solid var(--line)}.cvrow span{flex:none;width:118px;font-size:12.5px;color:var(--muted);font-weight:650}.cvrow b{flex:1;font-size:15px;word-break:break-all}
+.cvcp{border:0;background:none;color:var(--accent);width:36px;height:36px;border-radius:9px;cursor:pointer;flex:none}.cvcp:active{background:var(--panel2)}
+.cvwait{display:flex;gap:10px;align-items:center;margin-top:12px;color:var(--muted)}
+.cvsrc{margin:12px 0 8px;font-size:14px}.cvmap{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cvok{margin:12px 0 8px;font-weight:750}.cvtbl{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:300px}.cvtbl table{border-collapse:collapse;font-size:12px;white-space:nowrap}.cvtbl th,.cvtbl td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.cvtbl th{position:sticky;top:0;background:var(--panel2)}
 .srow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:6px}.srow.off{opacity:.55}
 .srow .mn{flex:1;min-width:0}.srow .mn b{display:block;font-size:14.5px}.srow .mn>span{display:block;font-size:12px;color:var(--muted);margin-top:1px}
 .ssw{flex:none;width:22px;height:22px;border-radius:6px;opacity:.55;margin-top:2px}
@@ -397,6 +406,7 @@ select.inp{font-size:15px;padding:10px}
       <button class="hc" data-go="photos"><span class="hci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></span><span class="hct"><b>Photos to CSV</b><span>Read N / E / Z from photos, screenshots &amp; PDFs</span></span><span class="hcg">›</span></button>
       <button class="hc" data-go="plan"><span class="hci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/><circle cx="12" cy="14.5" r="2.6"/><path d="M12 10.2v1.7M12 17.1v1.7M7.7 14.5h1.7M14.6 14.5h1.7"/></svg></span><span class="hct"><b>PDF Editor</b><span>Tap for coordinates · georeference · export DXF</span></span><span class="hcg">›</span></button>
       <button class="hc" data-go="tp3"><span class="hci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 2.8 8 12 12.8 21.2 8z"/><path d="m2.8 12 9.2 4.8 9.2-4.8"/><path d="m2.8 16 9.2 4.8 9.2-4.8"/></svg></span><span class="hct"><b>Project File Editor</b><span>TP3 · boundary cut, layers, combine, clean up</span></span><span class="hcg">›</span></button>
+      <button class="hc" data-go="conv"><span class="hci"><i class="ic" data-ic="globe"></i></span><span class="hct"><b>Coordinate Converter</b><span>N / E / Z ⇄ lat / lon / height · State Plane, UTM, NAD83 / WGS84</span></span><span class="hcg">›</span></button>
       <p class="muted" style="text-align:center;margin-top:14px">Works with PNEZD / PENZD point files. Everything stays on your phone.</p>
     </div>
 
@@ -421,6 +431,7 @@ select.inp{font-size:15px;padding:10px}
         <button class="qt wide" data-go="combine"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2.2"/><path d="M15 9h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-4"/></svg></div><div class="tx"><b>Combine CSV</b><span>Add a newer file on top — choose what happens to duplicate points</span></div></button>
         <button class="qt wide" data-go="plan"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/><circle cx="12" cy="14.5" r="2.6"/><path d="M12 10.2v1.7M12 17.1v1.7M7.7 14.5h1.7M14.6 14.5h1.7"/></svg></div><div class="tx"><b>PDF Editor</b><span>Tap for coordinates · georeference · export DXF</span></div></button>
         <button class="qt wide" data-go="tp3"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 2.8 8 12 12.8 21.2 8z"/><path d="m2.8 12 9.2 4.8 9.2-4.8"/><path d="m2.8 16 9.2 4.8 9.2-4.8"/></svg></div><div class="tx"><b>Project File Editor</b><span>TP3 · boundary cut, layers, combine, clean up</span></div></button>
+        <button class="qt wide" data-go="conv"><div class="oi"><i class="ic" data-ic="globe"></i></div><div class="tx"><b>Coordinate Converter</b><span>This file’s N / E / Z → lat / lon / ellipsoid height (or back)</span></div></button>
         <button class="qt wide" data-go="export"><div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div><div class="tx"><b>Save / Share</b><span>Export the CSV</span></div></button>
       </div>
       <div class="row mt">
@@ -528,6 +539,15 @@ select.inp{font-size:15px;padding:10px}
   <div id="tpInfo" class="pvinfo"></div>
 </section>
 
+<!-- ============ COORDINATE CONVERTER ============ -->
+<section class="screen" id="cvScreen">
+  <div class="topbar">
+    <button class="iconbtn" id="cvBack">‹ Back</button>
+    <h1>Coordinate Converter</h1>
+  </div>
+  <div class="scroll"><div class="wrap" id="cvBody"></div></div>
+</section>
+
 <!-- ============ SHEETS ============ -->
 <div class="veil" id="veil"><div class="sheet" id="sheet">
   <div class="sh"><h2 id="shTitle"></h2><button class="iconbtn" id="shClose">Done</button></div>
@@ -581,6 +601,7 @@ var ICP={
   eraser:'<path d="M20 20H9.5L4.2 14.7a1.5 1.5 0 0 1 0-2.1l8.5-8.5a1.5 1.5 0 0 1 2.1 0l4.7 4.7a1.5 1.5 0 0 1 0 2.1L11 19.4"/><path d="m8 9.5 6.5 6.5"/>',
   'pin-x':'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><path d="m10 8 4 4M14 8l-4 4"/>',
   surface:'<path d="M3 15.5 8.5 7l5 5 3-3.5 4.5 7z"/><path d="m8.5 7 3 9.5M13.5 12l3 4.5M16.5 8.5l-5 8"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>',
   square:'<rect x="4" y="4" width="16" height="16" rx="3"/>',
   grip:'<path d="M5 8h14M5 12h14M5 16h14"/>',
   'move-h':'<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'
@@ -776,7 +797,7 @@ $('#toastUndo').onclick = function(){ $('#toast').classList.remove('on'); if(toa
 
 /* ---------------- screens ---------------- */
 function showHome(){
-  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#home').classList.add('on');
+  $('#gridScreen').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#cvScreen').classList.remove('on'); $('#home').classList.add('on');
   $('#noFile').hidden = !!file; $('#hasFile').hidden = !file;
   if(file){
     $('#fName').textContent = file.name;
@@ -792,7 +813,7 @@ function showHome(){
   updUndo();
 }
 function showGrid(){
-  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#photoScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#cvScreen').classList.remove('on'); $('#gridScreen').classList.add('on');
   $('#gTitle').textContent = file.name; layoutGrid(); updUndo();
 }
 function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); else showHome(); }
@@ -800,6 +821,7 @@ function refresh(){ if($('#gridScreen').classList.contains('on')) layoutGrid(); 
 function go(where){
   if(where==='photos'){ showPhotos(); return; }
   if(where==='tp3'){ pickTp3(); return; }
+  if(where==='conv'){ showCv(); return; }
   if(where==='plan'){ var pi=$('#planIn'); pi.value=''; pi.click(); return; }
   if(!file && where!=='home') return;
   if(where==='grid') showGrid();
@@ -2341,7 +2363,7 @@ $('#phGo').onclick=function(){
   toast((addTo?'Added ':'Created ')+rows.length+' points — check them, then Export', true);
 };
 function showPhotos(){
-  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
+  $('#home').classList.remove('on'); $('#gridScreen').classList.remove('on'); $('#planScreen').classList.remove('on'); $('#tpScreen').classList.remove('on'); $('#cvScreen').classList.remove('on'); $('#photoScreen').classList.add('on');
   if(file){ var mx=maxPoint(); if(mx) $('#phStart').value=mx+1; }
   phRender();
   loadTess().catch(function(){});   // start downloading the reader early
@@ -2362,7 +2384,7 @@ function askPdf(pdfs, others){
   $('#apPts').onclick=function(){ closeSheet(); if(!$('#photoScreen').classList.contains('on')) showPhotos(); phAddFiles(pdfs.concat(others||[])); };
   $('#apPlan').onclick=function(){ closeSheet(); openPlan(pdfs[0]); if(others&&others.length){ /* photos stay for later */ } };
 }
-function showPlanScreen(){ ['#home','#gridScreen','#photoScreen','#tpScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#planScreen').classList.add('on'); }
+function showPlanScreen(){ ['#home','#gridScreen','#photoScreen','#tpScreen','#cvScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#planScreen').classList.add('on'); }
 async function openPlan(f){
   showPlanScreen();
   PV={file:f, name:(f.name||'plan').replace(/\.pdf$/i,''), z:1, tx:0, ty:0, mode:'look', snap:true, grid:false, picks:[], ctrl:[], useAuto:true, show:{}, area:'auto', box:null, heal:1};
@@ -3139,7 +3161,7 @@ function pickTp3(){ var i=$('#tpIn'); i.value=''; i.click(); }
 function tpPicked(){ var f=this.files&&this.files[0]; if(f){ this.value=''; openTp3(f); } }
 $('#tpIn').addEventListener('change', tpPicked); $('#tpIn').addEventListener('input', function(){ if(this.files&&this.files[0]) tpPicked.call(this); });
 $('#planIn').addEventListener('change', function(){ var f=this.files&&this.files[0]; if(f){ this.value=''; openPlan(f); } });
-function showTpScreen(){ ['#home','#gridScreen','#photoScreen','#planScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#tpScreen').classList.add('on'); }
+function showTpScreen(){ ['#home','#gridScreen','#photoScreen','#planScreen','#cvScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#tpScreen').classList.add('on'); }
 async function openTp3(f){
   showTpScreen(); $('#tpTitle').textContent=f.name.replace(/\.tp3$/i,'');
   $('#tpStatus').innerHTML='<div class="spin"></div><span>Opening '+escH(f.name)+' ('+(f.size/1e6).toFixed(1)+' MB)…</span>'; $('#tpInfo').innerHTML='';
@@ -3777,6 +3799,288 @@ function tpLookAlikes(){
   }
   draw();
 }
+
+/* ===================== GEO: State Plane (NAD83 SPCS) / UTM <-> lat-lon, GRS80, + ITRF2014 <-> NAD83(2011) ===================== */
+var GEO=(function(){
+  var a=6378137, f=1/298.257222101, e2=f*(2-f), e=Math.sqrt(e2), D=Math.PI/180;
+  var USFT=1200/3937, IFT=0.3048;
+  function dm(d,m){ return (Math.abs(d)+(m||0)/60)*(d<0?-1:1); }
+  /* zone table: code: [name, 'T', lat0, lon0(W negative), k0, FE m, FN m] | [name,'L', lat1, lat2, lat0, lon0, FE, FN] */
+  var Z={
+    '0101':['Alabama East','T',dm(30,30),-dm(85,50),1-1/25000,200000,0],
+    '0102':['Alabama West','T',30,-dm(87,30),1-1/15000,600000,0],
+    '5002':['Alaska 2','T',54,-142,0.9999,500000,0],'5003':['Alaska 3','T',54,-146,0.9999,500000,0],'5004':['Alaska 4','T',54,-150,0.9999,500000,0],
+    '5005':['Alaska 5','T',54,-154,0.9999,500000,0],'5006':['Alaska 6','T',54,-158,0.9999,500000,0],'5007':['Alaska 7','T',54,-162,0.9999,500000,0],
+    '5008':['Alaska 8','T',54,-166,0.9999,500000,0],'5009':['Alaska 9','T',54,-170,0.9999,500000,0],
+    '5010':['Alaska 10','L',dm(51,50),dm(53,50),51,-176,1000000,0],
+    '0201':['Arizona East','T',31,-dm(110,10),0.9999,213360,0],'0202':['Arizona Central','T',31,-dm(111,55),0.9999,213360,0],'0203':['Arizona West','T',31,-dm(113,45),1-1/15000,213360,0],
+    '0301':['Arkansas North','L',dm(34,56),dm(36,14),dm(34,20),-92,400000,0],'0302':['Arkansas South','L',dm(33,18),dm(34,46),dm(32,40),-92,400000,400000],
+    '0401':['California I','L',40,dm(41,40),dm(39,20),-122,2000000,500000],'0402':['California II','L',dm(38,20),dm(39,50),dm(37,40),-122,2000000,500000],
+    '0403':['California III','L',dm(37,4),dm(38,26),dm(36,30),-dm(120,30),2000000,500000],'0404':['California IV','L',36,dm(37,15),dm(35,20),-119,2000000,500000],
+    '0405':['California V','L',dm(34,2),dm(35,28),dm(33,30),-118,2000000,500000],'0406':['California VI','L',dm(32,47),dm(33,53),dm(32,10),-dm(116,15),2000000,500000],
+    '0501':['Colorado North','L',dm(39,43),dm(40,47),dm(39,20),-dm(105,30),914401.8289,304800.6096],'0502':['Colorado Central','L',dm(38,27),dm(39,45),dm(37,50),-dm(105,30),914401.8289,304800.6096],
+    '0503':['Colorado South','L',dm(37,14),dm(38,26),dm(36,40),-dm(105,30),914401.8289,304800.6096],
+    '0600':['Connecticut','L',dm(41,12),dm(41,52),dm(40,50),-dm(72,45),304800.6096,152400.3048],
+    '0700':['Delaware','T',38,-dm(75,25),0.999995,200000,0],
+    '0901':['Florida East','T',dm(24,20),-81,1-1/17000,200000,0],'0902':['Florida West','T',dm(24,20),-82,1-1/17000,200000,0],'0903':['Florida North','L',dm(29,35),dm(30,45),29,-dm(84,30),600000,0],
+    '1001':['Georgia East','T',30,-dm(82,10),0.9999,200000,0],'1002':['Georgia West','T',30,-dm(84,10),0.9999,700000,0],
+    '5101':['Hawaii 1','T',dm(18,50),-dm(155,30),1-1/30000,500000,0],'5102':['Hawaii 2','T',dm(20,20),-dm(156,40),1-1/30000,500000,0],'5103':['Hawaii 3','T',dm(21,10),-158,0.99999,500000,0],
+    '5104':['Hawaii 4','T',dm(21,50),-dm(159,30),0.99999,500000,0],'5105':['Hawaii 5','T',dm(21,40),-dm(160,10),1,500000,0],
+    '1101':['Idaho East','T',dm(41,40),-dm(112,10),1-1/19000,200000,0],'1102':['Idaho Central','T',dm(41,40),-114,1-1/19000,500000,0],'1103':['Idaho West','T',dm(41,40),-dm(115,45),1-1/15000,800000,0],
+    '1201':['Illinois East','T',dm(36,40),-dm(88,20),1-1/40000,300000,0],'1202':['Illinois West','T',dm(36,40),-dm(90,10),1-1/17000,700000,0],
+    '1301':['Indiana East','T',dm(37,30),-dm(85,40),1-1/30000,100000,250000],'1302':['Indiana West','T',dm(37,30),-dm(87,5),1-1/30000,900000,250000],
+    '1401':['Iowa North','L',dm(42,4),dm(43,16),dm(41,30),-dm(93,30),1500000,1000000],'1402':['Iowa South','L',dm(40,37),dm(41,47),40,-dm(93,30),500000,0],
+    '1501':['Kansas North','L',dm(38,43),dm(39,47),dm(38,20),-98,400000,0],'1502':['Kansas South','L',dm(37,16),dm(38,34),dm(36,40),-dm(98,30),400000,400000],
+    '1600':['Kentucky Single Zone','L',dm(37,5),dm(38,40),dm(36,20),-dm(85,45),1500000,1000000],
+    '1601':['Kentucky North','L',dm(37,58),dm(38,58),dm(37,30),-dm(84,15),500000,0],'1602':['Kentucky South','L',dm(36,44),dm(37,56),dm(36,20),-dm(85,45),500000,500000],
+    '1701':['Louisiana North','L',dm(31,10),dm(32,40),dm(30,30),-dm(92,30),1000000,0],'1702':['Louisiana South','L',dm(29,18),dm(30,42),dm(28,30),-dm(91,20),1000000,0],
+    '1703':['Louisiana Offshore','L',dm(26,10),dm(27,50),dm(25,30),-dm(91,20),1000000,0],
+    '1801':['Maine East','T',dm(43,40),-dm(68,30),0.9999,300000,0],'1802':['Maine West','T',dm(42,50),-dm(70,10),1-1/30000,900000,0],
+    '1900':['Maryland','L',dm(38,18),dm(39,27),dm(37,40),-77,400000,0],
+    '2001':['Massachusetts Mainland','L',dm(41,43),dm(42,41),41,-dm(71,30),200000,750000],'2002':['Massachusetts Island','L',dm(41,17),dm(41,29),41,-dm(70,30),500000,0],
+    '2111':['Michigan North','L',dm(45,29),dm(47,5),dm(44,47),-87,8000000,0],'2112':['Michigan Central','L',dm(44,11),dm(45,42),dm(43,19),-dm(84,22),6000000,0],
+    '2113':['Michigan South','L',dm(42,6),dm(43,40),dm(41,30),-dm(84,22),4000000,0],
+    '2201':['Minnesota North','L',dm(47,2),dm(48,38),dm(46,30),-dm(93,6),800000,100000],'2202':['Minnesota Central','L',dm(45,37),dm(47,3),45,-dm(94,15),800000,100000],
+    '2203':['Minnesota South','L',dm(43,47),dm(45,13),43,-94,800000,100000],
+    '2301':['Mississippi East','T',dm(29,30),-dm(88,50),1-1/20000,300000,0],'2302':['Mississippi West','T',dm(29,30),-dm(90,20),1-1/20000,700000,0],
+    '2401':['Missouri East','T',dm(35,50),-dm(90,30),1-1/15000,250000,0],'2402':['Missouri Central','T',dm(35,50),-dm(92,30),1-1/15000,500000,0],
+    '2403':['Missouri West','T',dm(36,10),-dm(94,30),1-1/17000,850000,0],
+    '2500':['Montana','L',45,49,dm(44,15),-dm(109,30),600000,0],
+    '2600':['Nebraska','L',40,43,dm(39,50),-100,500000,0],
+    '2701':['Nevada East','T',dm(34,45),-dm(115,35),0.9999,200000,8000000],'2702':['Nevada Central','T',dm(34,45),-dm(116,40),0.9999,500000,6000000],
+    '2703':['Nevada West','T',dm(34,45),-dm(118,35),0.9999,800000,4000000],
+    '2800':['New Hampshire','T',dm(42,30),-dm(71,40),1-1/30000,300000,0],
+    '2900':['New Jersey','T',dm(38,50),-dm(74,30),0.9999,150000,0],
+    '3001':['New Mexico East','T',31,-dm(104,20),1-1/11000,165000,0],'3002':['New Mexico Central','T',31,-dm(106,15),0.9999,500000,0],'3003':['New Mexico West','T',31,-dm(107,50),1-1/12000,830000,0],
+    '3101':['New York East','T',dm(38,50),-dm(74,30),0.9999,150000,0],'3102':['New York Central','T',40,-dm(76,35),1-1/16000,250000,0],
+    '3103':['New York West','T',40,-dm(78,35),1-1/16000,350000,0],'3104':['New York Long Island','L',dm(40,40),dm(41,2),dm(40,10),-74,300000,0],
+    '3200':['North Carolina','L',dm(34,20),dm(36,10),dm(33,45),-79,609601.22,0],
+    '3301':['North Dakota North','L',dm(47,26),dm(48,44),47,-dm(100,30),600000,0],'3302':['North Dakota South','L',dm(46,11),dm(47,29),dm(45,40),-dm(100,30),600000,0],
+    '3401':['Ohio North','L',dm(40,26),dm(41,42),dm(39,40),-dm(82,30),600000,0],'3402':['Ohio South','L',dm(38,44),dm(40,2),38,-dm(82,30),600000,0],
+    '3501':['Oklahoma North','L',dm(35,34),dm(36,46),35,-98,600000,0],'3502':['Oklahoma South','L',dm(33,56),dm(35,14),dm(33,20),-98,600000,0],
+    '3601':['Oregon North','L',dm(44,20),46,dm(43,40),-dm(120,30),2500000,0],'3602':['Oregon South','L',dm(42,20),44,dm(41,40),-dm(120,30),1500000,0],
+    '3701':['Pennsylvania North','L',dm(40,53),dm(41,57),dm(40,10),-dm(77,45),600000,0],'3702':['Pennsylvania South','L',dm(39,56),dm(40,58),dm(39,20),-dm(77,45),600000,0],
+    '3800':['Rhode Island','T',dm(41,5),-dm(71,30),1-1/160000,100000,0],
+    '3900':['South Carolina','L',dm(32,30),dm(34,50),dm(31,50),-81,609600,0],
+    '4001':['South Dakota North','L',dm(44,25),dm(45,41),dm(43,50),-100,600000,0],'4002':['South Dakota South','L',dm(42,50),dm(44,24),dm(42,20),-dm(100,20),600000,0],
+    '4100':['Tennessee','L',dm(35,15),dm(36,25),dm(34,20),-86,600000,0],
+    '4201':['Texas North','L',dm(34,39),dm(36,11),34,-dm(101,30),200000,1000000],'4202':['Texas North Central','L',dm(32,8),dm(33,58),dm(31,40),-dm(98,30),600000,2000000],
+    '4203':['Texas Central','L',dm(30,7),dm(31,53),dm(29,40),-dm(100,20),700000,3000000],'4204':['Texas South Central','L',dm(28,23),dm(30,17),dm(27,50),-99,600000,4000000],
+    '4205':['Texas South','L',dm(26,10),dm(27,50),dm(25,40),-dm(98,30),300000,5000000],
+    '4301':['Utah North','L',dm(40,43),dm(41,47),dm(40,20),-dm(111,30),500000,1000000],'4302':['Utah Central','L',dm(39,1),dm(40,39),dm(38,20),-dm(111,30),500000,2000000],
+    '4303':['Utah South','L',dm(37,13),dm(38,21),dm(36,40),-dm(111,30),500000,3000000],
+    '4400':['Vermont','T',dm(42,30),-dm(72,30),1-1/28000,500000,0],
+    '4501':['Virginia North','L',dm(38,2),dm(39,12),dm(37,40),-dm(78,30),3500000,2000000],'4502':['Virginia South','L',dm(36,46),dm(37,58),dm(36,20),-dm(78,30),3500000,1000000],
+    '4601':['Washington North','L',dm(47,30),dm(48,44),47,-dm(120,50),500000,0],'4602':['Washington South','L',dm(45,50),dm(47,20),dm(45,20),-dm(120,30),500000,0],
+    '4701':['West Virginia North','L',39,dm(40,15),dm(38,30),-dm(79,30),600000,0],'4702':['West Virginia South','L',dm(37,29),dm(38,53),37,-81,600000,0],
+    '4801':['Wisconsin North','L',dm(45,34),dm(46,46),dm(45,10),-90,600000,0],'4802':['Wisconsin Central','L',dm(44,15),dm(45,30),dm(43,50),-90,600000,0],
+    '4803':['Wisconsin South','L',dm(42,44),dm(44,4),42,-90,600000,0],
+    '4901':['Wyoming East','T',dm(40,30),-dm(105,10),1-1/16000,200000,0],'4902':['Wyoming East Central','T',dm(40,30),-dm(107,20),1-1/16000,400000,100000],
+    '4903':['Wyoming West Central','T',dm(40,30),-dm(108,45),1-1/16000,600000,0],'4904':['Wyoming West','T',dm(40,30),-dm(110,5),1-1/16000,800000,100000],
+    '5200':['Puerto Rico & Virgin Is.','L',dm(18,2),dm(18,26),dm(17,50),-dm(66,26),200000,200000],
+    '5400':['Guam','T',dm(13,30),dm(144,45),1,100000,200000]
+  };
+  for(var u=1;u<=60;u++) Z['UTM'+(u<10?'0':'')+u]=['UTM zone '+u+'N','T',0,-183+6*u,0.9996,500000,0];
+  /* ---- Transverse Mercator (Krüger n-series, sub-mm) ---- */
+  var n=f/(2-f), n2=n*n, A=a/(1+n)*(1+n2/4+n2*n2/64);
+  var al=[n/2-2*n2/3+5*n*n2/16+41*n2*n2/180, 13*n2/48-3*n*n2/5+557*n2*n2/1440, 61*n*n2/240-103*n2*n2/140, 49561*n2*n2/161280];
+  var be=[n/2-2*n2/3+37*n*n2/96-n2*n2/360, n2/48+n*n2/15-437*n2*n2/1440, 17*n*n2/480-37*n2*n2/840, 4397*n2*n2/161280];
+  function tmXi(lat){ // returns meridian-arc style northing for lat at lon0 (xi'*A)
+    var t=Math.sinh(atanh(Math.sin(lat))-e*atanh(e*Math.sin(lat))), xi=Math.atan(t), s=xi; for(var j=1;j<=4;j++) s+=al[j-1]*Math.sin(2*j*xi); return A*s; }
+  function atanh(x){ return 0.5*Math.log((1+x)/(1-x)); }
+  function tmFwd(z,lat,lon){ var k0=z[4], L=(lon-z[3])*D, ph=lat*D;
+    var t=Math.sinh(atanh(Math.sin(ph))-e*atanh(e*Math.sin(ph))), xi=Math.atan2(t,Math.cos(L)), eta=atanh(Math.sin(L)/Math.sqrt(1+t*t)), x=eta, y=xi;
+    for(var j=1;j<=4;j++){ x+=al[j-1]*Math.cos(2*j*xi)*Math.sinh(2*j*eta); y+=al[j-1]*Math.sin(2*j*xi)*Math.cosh(2*j*eta); }
+    return {E:z[5]+k0*A*x, N:z[6]+k0*A*y-k0*tmXi(z[2]*D)}; }
+  function tmInv(z,N,E){ var k0=z[4], xi=(N-z[6]+k0*tmXi(z[2]*D))/(k0*A), eta=(E-z[5])/(k0*A), x=xi, y=eta;
+    for(var j=1;j<=4;j++){ x-=be[j-1]*Math.sin(2*j*xi)*Math.cosh(2*j*eta); y-=be[j-1]*Math.cos(2*j*xi)*Math.sinh(2*j*eta); }
+    var chi=Math.asin(Math.sin(x)/Math.cosh(y)), lon=z[3]*D+Math.atan2(Math.sinh(y),Math.cos(x));
+    var ph=chi; for(var it=0;it<20;it++){ var p2=Math.asin(Math.tanh(atanh(Math.sin(chi))+e*atanh(e*Math.sin(ph)))); if(Math.abs(p2-ph)<1e-14){ ph=p2; break; } ph=p2; }
+    return {lat:ph/D, lon:lon/D}; }
+  /* ---- Lambert Conformal Conic, 2 standard parallels ---- */
+  function lm(ph){ return Math.cos(ph)/Math.sqrt(1-e2*Math.sin(ph)*Math.sin(ph)); }
+  function lt(ph){ var s=Math.sin(ph); return Math.tan(Math.PI/4-ph/2)/Math.pow((1-e*s)/(1+e*s),e/2); }
+  function lcc(z){ if(z.c) return z.c; var p1=z[2]*D,p2=z[3]*D,p0=z[4]*D, m1=lm(p1),m2=lm(p2),t1=lt(p1),t2=lt(p2),t0=lt(p0);
+    var nn=(Math.log(m1)-Math.log(m2))/(Math.log(t1)-Math.log(t2)), F=m1/(nn*Math.pow(t1,nn)), r0=a*F*Math.pow(t0,nn); return z.c={n:nn,F:F,r0:r0}; }
+  function lcFwd(z,lat,lon){ var c=lcc(z), r=a*c.F*Math.pow(lt(lat*D),c.n), th=c.n*(lon-z[5])*D; return {E:z[6]+r*Math.sin(th), N:z[7]+c.r0-r*Math.cos(th)}; }
+  function lcInv(z,N,E){ var c=lcc(z), x=E-z[6], y=c.r0-(N-z[7]), r=(c.n<0?-1:1)*Math.sqrt(x*x+y*y), t=Math.pow(r/(a*c.F),1/c.n), th=Math.atan2(x*(c.n<0?-1:1),y*(c.n<0?-1:1));
+    var ph=Math.PI/2-2*Math.atan(t); for(var it=0;it<30;it++){ var s=Math.sin(ph), p2=Math.PI/2-2*Math.atan(t*Math.pow((1-e*s)/(1+e*s),e/2)); if(Math.abs(p2-ph)<1e-14){ ph=p2; break; } ph=p2; }
+    return {lat:ph/D, lon:th/c.n/D+z[5]}; }
+  function toLL(code,N,E){ var z=Z[code]; return z[1]==='T'?tmInv(z,N,E):lcInv(z,N,E); }
+  function toGrid(code,lat,lon){ var z=Z[code]; return z[1]==='T'?tmFwd(z,lat,lon):lcFwd(z,lat,lon); }
+  /* ---- geodetic <-> ECEF, and the NGS 14-parameter ITRF2014 -> NAD83(2011) transformation (epoch-dependent) ---- */
+  function toXYZ(lat,lon,h){ var p=lat*D,l=lon*D,s=Math.sin(p),N=a/Math.sqrt(1-e2*s*s); return [(N+h)*Math.cos(p)*Math.cos(l),(N+h)*Math.cos(p)*Math.sin(l),(N*(1-e2)+h)*s]; }
+  function fromXYZ(X,Y,Zc){ var p=Math.hypot(X,Y), lon=Math.atan2(Y,X), lat=Math.atan2(Zc,p*(1-e2)), h=0;
+    for(var i=0;i<10;i++){ var s=Math.sin(lat), N=a/Math.sqrt(1-e2*s*s); h=p/Math.cos(lat)-N; lat=Math.atan2(Zc,p*(1-e2*N/(N+h))); }
+    return {lat:lat/D, lon:lon/D, h:h}; }
+  var MAS=Math.PI/180/3600000;
+  var HP={t:[1.00530,-1.90921,-0.54157], r:[26.78138,-0.42027,10.93206], s:0.36891, dt:[0.00079,-0.00060,-0.00144], dr:[0.06667,-0.75744,-0.05133], ds:-0.07201, t0:2010.0};
+  function helm(X,yr,sign){ var dy=yr-HP.t0, T=[0,1,2].map(function(i){ return sign*(HP.t[i]+HP.dt[i]*dy); }), R=[0,1,2].map(function(i){ return sign*(HP.r[i]+HP.dr[i]*dy)*MAS; }), S=sign*(HP.s+HP.ds*dy)*1e-9;
+    return [T[0]+(1+S)*X[0]+R[2]*X[1]-R[1]*X[2], T[1]-R[2]*X[0]+(1+S)*X[1]+R[0]*X[2], T[2]+R[1]*X[0]-R[0]*X[1]+(1+S)*X[2]]; }
+  /* ITRF2014 (≈ WGS84 G1762+) at epoch yr <-> NAD83(2011) at the same epoch (positions; no plate-motion velocity applied) */
+  function itrfToNad(lat,lon,h,yr){ var X=helm(toXYZ(lat,lon,h),yr,1); return fromXYZ(X[0],X[1],X[2]); }
+  function nadToItrf(lat,lon,h,yr){ var Y=toXYZ(lat,lon,h), X=Y.slice(); for(var i=0;i<6;i++){ var B=helm(X,yr,1); X=[X[0]+(Y[0]-B[0]),X[1]+(Y[1]-B[1]),X[2]+(Y[2]-B[2])]; } return fromXYZ(X[0],X[1],X[2]); }
+  function unitK(u){ return u==='m'?1:u==='ift'?IFT:USFT; } // metres per unit
+  function dms(v,pos,neg,dp){ var s=v<0?neg:pos; v=Math.abs(v); var d=Math.floor(v), m=Math.floor((v-d)*60), sec=((v-d)*60-m)*60; sec=+sec.toFixed(dp==null?5:dp); if(sec>=60){ sec=0; m++; } if(m>=60){ m=0; d++; }
+    return d+'°'+(m<10?'0':'')+m+"'"+(sec<10?'0':'')+sec.toFixed(dp==null?5:dp)+'"'+s; }
+  function parseAng(t){ // 32.2501 | -90.5 | 32 15 0.5 | 32°15'00.5"N | N321500.5 | 90 30 0 W
+    t=String(t).trim(); if(!t) return NaN; var neg=/[SW]/i.test(t)||/^-/.test(t); t=t.replace(/[NSEW]/ig,' ').replace(/[°º'"′″:,]/g,' ').replace(/^-/,'').trim();
+    var p=t.split(/\s+/).map(Number); if(p.some(isNaN)) return NaN; var v;
+    if(p.length===1){ v=p[0]; if(/^\d{6,7}(\.\d+)?$/.test(t)){ var s=t.split('.')[0], L=s.length; v=+s.slice(0,L-4)+(+s.slice(L-4,L-2))/60+(+(s.slice(L-2)+(t.indexOf('.')>=0?'.'+t.split('.')[1]:'')))/3600; } }
+    else v=p[0]+(p[1]||0)/60+(p[2]||0)/3600; return neg?-v:v; }
+  return {Z:Z, toLL:toLL, toGrid:toGrid, itrfToNad:itrfToNad, nadToItrf:nadToItrf, toXYZ:toXYZ, fromXYZ:fromXYZ, unitK:unitK, dms:dms, parseAng:parseAng, USFT:USFT};
+})();
+
+
+/* ---------------- Coordinate Converter: State Plane / UTM N,E,Z  <->  latitude, longitude, heights (like NGS NCAT) ---------------- */
+var CV={dir:ls.get('csvfix.cvDir')||'ne2ll', zone:ls.get('csvfix.cvZone')||'2302', units:ls.get('csvfix.cvUnits')||'usft', datum:ls.get('csvfix.cvDatum')||'nad',
+  inH:'ortho', geo:ls.get('csvfix.cvGeo')||'auto', gN:ls.get('csvfix.cvGN')||'', epoch:null, res:null, cache:{}};
+function cvEpoch(){ var d=new Date(), y=d.getFullYear(); return +(y+(d-new Date(y,0,1))/(new Date(y+1,0,1)-new Date(y,0,1))).toFixed(2); }
+function showCv(){ ['#home','#gridScreen','#photoScreen','#planScreen','#tpScreen'].forEach(function(s){ $(s).classList.remove('on'); }); $('#cvScreen').classList.add('on'); if(CV.epoch==null) CV.epoch=cvEpoch(); cvDraw(); }
+function cvZoneOpts(){ var Z=GEO.Z, sp=[], ut=[];
+  Object.keys(Z).forEach(function(c){ (c.indexOf('UTM')===0?ut:sp).push(c); }); sp.sort(function(a,b){ return Z[a][0].localeCompare(Z[b][0]); });
+  return '<optgroup label="State Plane (NAD83)">'+sp.map(function(c){ return '<option value="'+c+'"'+(c===CV.zone?' selected':'')+'>'+escH(Z[c][0])+' ('+c+')</option>'; }).join('')+'</optgroup>'+
+    '<optgroup label="UTM (NAD83)">'+ut.map(function(c){ return '<option value="'+c+'"'+(c===CV.zone?' selected':'')+'>'+escH(Z[c][0])+'</option>'; }).join('')+'</optgroup>'; }
+var CV_UL={usft:'US ft', ift:'Intl ft', m:'m'};
+function cvDraw(){
+  var ne=CV.dir==='ne2ll', u=CV_UL[CV.units];
+  var h='<div class="seg cvdir" style="display:flex"><button data-cvd="ne2ll"'+(ne?' class="on"':'')+'>N / E → Lat / Lon</button><button data-cvd="ll2ne"'+(!ne?' class="on"':'')+'>Lat / Lon → N / E</button></div>'+
+    '<div class="card"><h3>Coordinate system</h3>'+
+      '<div class="field"><label>Grid zone</label><select class="inp" id="cvZone">'+cvZoneOpts()+'</select></div>'+
+      '<div class="row mt" style="gap:8px"><div class="field" style="flex:1"><label>Grid units</label><select class="inp" id="cvUnits">'+Object.keys(CV_UL).map(function(k){ return '<option value="'+k+'"'+(k===CV.units?' selected':'')+'>'+CV_UL[k]+'</option>'; }).join('')+'</select></div>'+
+      '<div class="field" style="flex:1.4"><label>Lat / Lon datum</label><select class="inp" id="cvDatum"><option value="nad"'+(CV.datum==='nad'?' selected':'')+'>NAD83(2011)</option><option value="itrf"'+(CV.datum==='itrf'?' selected':'')+'>WGS84 / ITRF2014</option></select></div></div>'+
+      (CV.datum==='itrf'?'<div class="field mt"><label>Epoch (decimal year)</label><input class="inp num" id="cvEp" inputmode="decimal" value="'+CV.epoch+'"></div><p class="muted cvnote">NAD83 ↔ WGS84/ITRF2014 uses NGS’s 14-parameter transformation at this epoch (≈1.3 m shift here). Use the same frame your base / corrections use.</p>':
+        '<p class="muted cvnote">Grid ↔ lat/lon is exact NAD83 math (same as NCAT). Most local bases and NAD83 rovers want NAD83(2011).</p>')+
+    '</div>'+
+    '<div class="card"><h3>Heights</h3>'+
+      '<div class="field"><label>'+(ne?'Your Z / elevation is':'Your height column is')+'</label><select class="inp" id="cvInH"><option value="ortho"'+(CV.inH==='ortho'?' selected':'')+'>Orthometric (NAVD88 elevation)</option><option value="ell"'+(CV.inH==='ell'?' selected':'')+'>Ellipsoid height</option><option value="none"'+(CV.inH==='none'?' selected':'')+'>No heights / copy as-is</option></select></div>'+
+      (CV.inH==='none'?'':'<div class="field mt"><label>Geoid separation (GEOID18)</label><div class="seg" style="display:flex"><button data-cvg="auto"'+(CV.geo==='auto'?' class="on"':'')+'>Look up (online)</button><button data-cvg="manual"'+(CV.geo==='manual'?' class="on"':'')+'>Type it in</button></div></div>'+
+        (CV.geo==='manual'?'<div class="field mt"><label>Geoid height N (m) — e.g. from NCAT or your collector</label><input class="inp num" id="cvGN" inputmode="decimal" placeholder="-27.315" value="'+escH(CV.gN)+'"></div>':'<p class="muted cvnote">Looks up GEOID18 for each point from NGS (needs signal). Ellipsoid h = elevation + N.</p>'))+
+    '</div>'+
+    '<div class="card"><h3>One point</h3>'+(ne?
+      '<div class="row" style="gap:8px"><div class="field" style="flex:1"><label>Name</label><input class="inp" id="cv1P" value="CP1"></div><div class="field" style="flex:2"><label>Northing ('+u+')</label><input class="inp num" id="cv1N" inputmode="decimal"></div></div>'+
+      '<div class="row mt" style="gap:8px"><div class="field" style="flex:1"><label>Easting ('+u+')</label><input class="inp num" id="cv1E" inputmode="decimal"></div><div class="field" style="flex:1"><label>Elev ('+u+')</label><input class="inp num" id="cv1Z" inputmode="decimal"></div></div>':
+      '<div class="row" style="gap:8px"><div class="field" style="flex:1"><label>Name</label><input class="inp" id="cv1P" value="CP1"></div><div class="field" style="flex:2"><label>Latitude</label><input class="inp" id="cv1N" placeholder="32.2533 or 32 15 11.9 N"></div></div>'+
+      '<div class="row mt" style="gap:8px"><div class="field" style="flex:2"><label>Longitude</label><input class="inp" id="cv1E" placeholder="-90.512 or 90 30 43.2 W"></div><div class="field" style="flex:1"><label>Height (m)</label><input class="inp num" id="cv1Z" inputmode="decimal"></div></div>')+
+      '<button class="btn primary block mt" id="cv1Go">Convert</button><div id="cv1Out"></div></div>'+
+    '<div class="card"><h3>A whole file</h3><p class="muted cvnote" style="margin-top:0">'+(ne?'A CSV with point, N, E, elevation (PNEZD / PENZD like the rest of the app).':'A CSV from engineering with latitude / longitude (decimal or DMS) and height. Columns are found automatically; you can change them.')+'</p>'+
+      '<div class="row" style="gap:8px"><button class="btn" style="flex:1" id="cvPick"><i class="ic" data-ic="file"></i> Pick a CSV</button>'+(ne&&file?'<button class="btn" style="flex:1" id="cvOpen"><i class="ic" data-ic="layers"></i> Use “'+escH(file.name.length>18?file.name.slice(0,16)+'…':file.name)+'”</button>':'')+'</div><div id="cvBatch"></div></div>';
+  $('#cvBody').innerHTML=h;
+  document.querySelectorAll('[data-cvd]').forEach(function(b){ b.onclick=function(){ CV.dir=b.getAttribute('data-cvd'); ls.set('csvfix.cvDir',CV.dir); CV.inH=CV.dir==='ne2ll'?'ortho':'ell'; CV.res=null; cvDraw(); }; });
+  $('#cvZone').onchange=function(){ CV.zone=this.value; ls.set('csvfix.cvZone',CV.zone); };
+  $('#cvUnits').onchange=function(){ CV.units=this.value; ls.set('csvfix.cvUnits',CV.units); cvDraw(); };
+  $('#cvDatum').onchange=function(){ CV.datum=this.value; ls.set('csvfix.cvDatum',CV.datum); cvDraw(); };
+  if($('#cvEp')) $('#cvEp').onchange=function(){ var v=parseFloat(this.value); if(v>1990&&v<2100) CV.epoch=v; else this.value=CV.epoch; };
+  $('#cvInH').onchange=function(){ CV.inH=this.value; cvDraw(); };
+  document.querySelectorAll('[data-cvg]').forEach(function(b){ b.onclick=function(){ CV.geo=b.getAttribute('data-cvg'); ls.set('csvfix.cvGeo',CV.geo); cvDraw(); }; });
+  if($('#cvGN')) $('#cvGN').oninput=function(){ CV.gN=this.value.trim(); ls.set('csvfix.cvGN',CV.gN); };
+  $('#cv1Go').onclick=cvOne;
+  $('#cvPick').onclick=function(){ var i=document.createElement('input'); i.type='file'; i.accept='.csv,.txt,text/csv,text/plain,*/*'; document.body.appendChild(i); i.style.display='none';
+    i.onchange=function(){ var f=i.files[0]; i.remove(); if(!f) return; f.text().then(function(t){ cvLoad(parseCsvText(f.name,t)); }); }; i.click(); };
+  if($('#cvOpen')) $('#cvOpen').onclick=function(){ cvLoad({name:file.name, header:file.header, rows:file.rows, roles:file.roles}); };
+  if(CV.res) cvShowBatch();
+}
+/* geoid height N (GEOID18) from NGS for a lat/lon; cached ~100 m */
+function cvGeoid(lat,lon){
+  if(CV.inH==='none') return Promise.resolve(0);
+  if(CV.geo==='manual'){ var v=parseFloat(CV.gN); return isNaN(v)?Promise.reject(new Error('Type the geoid height N first')):Promise.resolve(v); }
+  var k=lat.toFixed(3)+','+lon.toFixed(3); if(CV.cache[k]!=null) return Promise.resolve(CV.cache[k]);
+  return fetch('https://geodesy.noaa.gov/api/geoid/ght?lat='+lat.toFixed(8)+'&lon='+lon.toFixed(8)+'&model=14').then(function(r){ if(!r.ok) throw new Error('NGS '+r.status); return r.json(); })
+    .then(function(j){ var n=parseFloat(j.geoidHeight); if(isNaN(n)) throw new Error('no geoid value'); CV.cache[k]=n; return n; });
+}
+/* one input record → full result. ne2ll: {p,N,E,Z,d}; ll2ne: {p,lat,lon,H,d} */
+function cvConvert(r){
+  var inH=CV.inH, K=GEO.unitK(CV.units), ep=CV.epoch||cvEpoch(), out={p:r.p, d:r.d||''};
+  if(CV.dir==='ne2ll'){
+    var ll=GEO.toLL(CV.zone, r.N*K, r.E*K); out.N=r.N; out.E=r.E;
+    return cvGeoid(ll.lat,ll.lon).then(function(gn){ var z=r.Z*K, H, hN;
+      if(inH==='ell'){ hN=z; H=z-gn; } else if(inH==='ortho'){ H=z; hN=z+gn; } else { H=z; hN=z; }
+      var g=CV.datum==='itrf'?GEO.nadToItrf(ll.lat,ll.lon,isNaN(hN)?0:hN,ep):{lat:ll.lat,lon:ll.lon,h:hN};
+      out.lat=g.lat; out.lon=g.lon; out.h=isNaN(hN)?NaN:g.h; out.H=H; out.gN=inH==='none'?NaN:gn; out.Z=r.Z; return out; });
+  }
+  return cvGeoid(r.lat,r.lon).then(function(gn){ var nad={lat:r.lat,lon:r.lon}, hIn=r.H, hN, H;
+    if(CV.datum==='itrf'){ var hx=inH==='ell'?(isNaN(hIn)?0:hIn):(isNaN(hIn)?0:hIn+gn); var t=GEO.itrfToNad(r.lat,r.lon,hx,ep); nad={lat:t.lat,lon:t.lon}; if(inH==='ell') hIn=t.h; }
+    if(inH==='ell'){ hN=hIn; H=hIn-gn; } else if(inH==='ortho'){ H=hIn; hN=hIn+gn; } else { H=hIn; hN=hIn; }
+    var g=GEO.toGrid(CV.zone,nad.lat,nad.lon); out.N=g.N/K; out.E=g.E/K; out.Z=H/K; out.lat=r.lat; out.lon=r.lon; out.h=hN; out.H=H; out.gN=inH==='none'?NaN:gn; return out; });
+}
+function cvF(v,d){ return v==null||isNaN(v)?'':v.toFixed(d); }
+function cvCopyRow(lab,val){ return '<div class="cvrow"><span>'+lab+'</span><b class="num">'+escH(val)+'</b><button class="cvcp" data-cp="'+escH(val)+'" aria-label="Copy"><i class="ic" data-ic="copy"></i></button></div>'; }
+function cvOne(){
+  var o=$('#cv1Out'), p=$('#cv1P').value.trim()||'CP1', a=$('#cv1N').value, b=$('#cv1E').value, z=parseFloat($('#cv1Z').value), r;
+  if(CV.dir==='ne2ll'){ r={p:p, N:parseFloat(String(a).replace(/,/g,'')), E:parseFloat(String(b).replace(/,/g,'')), Z:z}; if(isNaN(r.N)||isNaN(r.E)){ toast('Type the northing and easting', true); return; } }
+  else { r={p:p, lat:GEO.parseAng(a), lon:GEO.parseAng(b), H:z}; if(isNaN(r.lat)||isNaN(r.lon)){ toast('Couldn’t read that latitude / longitude', true); return; } if(r.lon>0 && !/[EW]/i.test(b)) r.lon=-r.lon; }
+  var keepH=CV.inH; if(isNaN(z)) CV.inH='none';
+  o.innerHTML='<div class="cvwait"><div class="spin"></div> Converting…</div>';
+  var pr=cvConvert(r); CV.inH=keepH; pr.then(function(x){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'WGS84/ITRF2014 @'+CV.epoch:'NAD83(2011)';
+    var h='<div class="cvres"><div class="cvh">'+escH(x.p)+' · '+escH(dn)+'</div>'+
+      cvCopyRow('Latitude',x.lat.toFixed(9))+cvCopyRow('Longitude',x.lon.toFixed(9))+cvCopyRow('Lat (DMS)',GEO.dms(x.lat,'N','S'))+cvCopyRow('Lon (DMS)',GEO.dms(x.lon,'E','W'))+
+      (isNaN(x.h)?'':cvCopyRow('Ellipsoid h (m)',x.h.toFixed(3)))+(isNaN(x.H)||CV.inH==='none'?'':cvCopyRow('Elevation NAVD88 (m)',x.H.toFixed(3))+cvCopyRow('Elevation ('+U+')',(x.H/GEO.unitK(CV.units)).toFixed(3)))+
+      (isNaN(x.gN)?'':cvCopyRow('Geoid N (m)',x.gN.toFixed(3)))+cvCopyRow('Northing ('+U+')',x.N.toFixed(3))+cvCopyRow('Easting ('+U+')',x.E.toFixed(3))+'</div>';
+    o.innerHTML=h; cvBindCopy(o);
+  }).catch(function(e){ o.innerHTML='<p class="danger" style="margin:8px 0 0">'+escH(cvErr(e))+'</p>'; });
+}
+function cvErr(e){ var m=e&&e.message||String(e); return /Type the geoid/.test(m)?m:'Couldn’t reach NGS for the geoid height ('+m+'). Switch Geoid to “Type it in” and enter N for your site (NCAT shows it), or pick “No heights”.'; }
+function cvBindCopy(root){ root.querySelectorAll('[data-cp]').forEach(function(b){ b.onclick=function(){ var v=b.getAttribute('data-cp'); (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(function(){ toast('Copied '+v, true); }).catch(function(){ toast(v, true); }); }; }); }
+/* ---- files ---- */
+function cvLoad(pf){ if(!pf||!pf.rows.length){ toast('That file looks empty', true); return; }
+  var H=pf.header, n=Math.max.apply(null,pf.rows.map(function(r){ return r.length; })), m={p:-1,a:-1,b:-1,z:-1,d:-1};
+  if(CV.dir==='ne2ll'){ var R=pf.roles||guessRoles(H,n); m.p=R.indexOf('P'); m.a=R.indexOf('N'); m.b=R.indexOf('E'); m.z=R.indexOf('Z'); m.d=R.indexOf('D'); }
+  else { var nm=function(re){ if(!H) return -1; for(var i=0;i<H.length;i++) if(re.test(String(H[i]).trim())) return i; return -1; };
+    m.a=nm(/^(lat|latitude|lat\.?\s*\(.*\)|y)$/i); m.b=nm(/^(lon|long|lng|longitude|lon\.?\s*\(.*\)|x)$/i); m.z=nm(/(ellip|^h$|height|elev|^z$|ht)/i); m.p=nm(/^(p|pt|point|name|id|station|pt ?#)$/i); m.d=nm(/^(d|desc|description|code|note)$/i);
+    if(m.a<0||m.b<0){ // guess from values: two angle-looking columns
+      var s=pf.rows.slice(0,20), angs=[]; for(var c=0;c<n;c++){ var v=s.map(function(r){ return GEO.parseAng(r[c]); }); if(v.every(function(x){ return !isNaN(x)&&Math.abs(x)<=180; }) && v.some(function(x){ return Math.abs(x)>1; })) angs.push({c:c,v:v}); }
+      var la=angs.find(function(o){ return o.v.every(function(x){ return Math.abs(x)<=90; }); }); var lo=angs.find(function(o){ return o!==la; });
+      if(la&&lo){ m.a=la.c; m.b=lo.c; var rest=[]; for(c=0;c<n;c++) if(c!==m.a&&c!==m.b) rest.push(c);
+        if(m.p<0) m.p=rest.find(function(c){ return c<m.a; }); if(m.p==null) m.p=-1;
+        if(m.z<0){ var zc=rest.find(function(c){ return c>m.b && s.every(function(r){ return isNum(r[c]); }); }); m.z=zc==null?-1:zc; }
+        if(m.d<0){ var dc=rest.find(function(c){ return c!==m.p&&c!==m.z&&s.some(function(r){ return r[c]&&!isNum(r[c]); }); }); m.d=dc==null?-1:dc; } } } }
+  CV.src={name:pf.name, header:H, rows:pf.rows, n:n, m:m}; CV.res=null; cvShowBatch();
+}
+function cvShowBatch(){
+  var S=CV.src; if(!S) return; var ne=CV.dir==='ne2ll', H=S.header, cn=function(i){ return (H&&H[i]&&String(H[i]).trim())||('Column '+(i+1))+(S.rows[0]&&S.rows[0][i]!=null?' — '+String(S.rows[0][i]).slice(0,14):''); };
+  var sel=function(k,lab){ var h='<div class="field"><label>'+lab+'</label><select class="inp" data-cvm="'+k+'"><option value="-1">—</option>'; for(var i=0;i<S.n;i++) h+='<option value="'+i+'"'+(S.m[k]===i?' selected':'')+'>'+escH(cn(i))+'</option>'; return h+'</select></div>'; };
+  var h='<div class="cvsrc"><b>'+escH(S.name)+'</b> · '+S.rows.length.toLocaleString()+' rows</div><div class="cvmap">'+sel('p','Point')+sel('a',ne?'Northing':'Latitude')+sel('b',ne?'Easting':'Longitude')+sel('z',ne?'Elevation':'Height')+sel('d','Description')+'</div>'+
+    '<button class="btn primary block mt" id="cvRun">Convert '+S.rows.length.toLocaleString()+' points</button><div id="cvOut"></div>';
+  $('#cvBatch').innerHTML=h;
+  document.querySelectorAll('[data-cvm]').forEach(function(s){ s.onchange=function(){ S.m[s.getAttribute('data-cvm')]=+s.value; CV.res=null; $('#cvOut').innerHTML=''; }; });
+  $('#cvRun').onclick=cvRun; if(CV.res) cvShowRes();
+}
+function cvRun(){
+  var S=CV.src, m=S.m, ne=CV.dir==='ne2ll', recs=[], bad=0;
+  if(m.a<0||m.b<0){ toast('Pick the '+(ne?'northing and easting':'latitude and longitude')+' columns', true); return; }
+  S.rows.forEach(function(r,i){ var p=m.p>=0?String(r[m.p]).trim():String(i+1), d=m.d>=0?r[m.d]:'', z=m.z>=0?parseFloat(String(r[m.z]).replace(/,/g,'')):NaN, o;
+    if(ne){ o={p:p, N:parseFloat(String(r[m.a]).replace(/,/g,'')), E:parseFloat(String(r[m.b]).replace(/,/g,'')), Z:z, d:d}; if(isNaN(o.N)||isNaN(o.E)){ bad++; return; } }
+    else { o={p:p, lat:GEO.parseAng(r[m.a]), lon:GEO.parseAng(r[m.b]), H:z, d:d}; if(isNaN(o.lat)||isNaN(o.lon)){ bad++; return; } if(o.lon>0 && !/[EW]/i.test(String(r[m.b]))) o.lon=-o.lon; }
+    recs.push(o); });
+  if(!recs.length){ toast('No rows could be read with those columns', true); return; }
+  var keepH=CV.inH; if(m.z<0) CV.inH='none'; var runH=CV.inH; CV.inH=keepH;
+  var out=new Array(recs.length), done=0, i=0, failed=null, el=$('#cvOut');
+  el.innerHTML='<div class="cvwait"><div class="spin"></div> <span id="cvProg">Converting 0 / '+recs.length+'…</span></div>';
+  function next(){ if(failed) return; if(i>=recs.length) return; var k=i++;
+    var kh=CV.inH; CV.inH=runH; var pr=cvConvert(recs[k]); CV.inH=kh; pr.then(function(x){ out[k]=x; done++; var pe=$('#cvProg'); if(pe&&done%10===0) pe.textContent='Converting '+done+' / '+recs.length+'…';
+      if(done===recs.length){ CV.res={rows:out, bad:bad, dir:CV.dir, inH:runH}; cvShowRes(); } else next(); })
+    .catch(function(e){ if(failed) return; failed=e; el.innerHTML='<p class="danger" style="margin:8px 0 0">'+escH(cvErr(e))+'</p>'; }); }
+  for(var w=0;w<4;w++) next();
+}
+function cvCols(){ var U=CV_UL[CV.units], dn=CV.datum==='itrf'?'ITRF2014':'NAD83(2011)', hs=CV.res.inH!=='none';
+  if(CV.res.dir==='ne2ll') return [['Point','p'],['Latitude ('+dn+')','lat',9],['Longitude ('+dn+')','lon',9],['Lat DMS','latd'],['Lon DMS','lond']].concat(hs?[['Ellipsoid h (m)','h',3],['Elevation NAVD88 (m)','H',3],['Geoid N (m)','gN',3]]:[]).concat([['Northing ('+U+')','N',3],['Easting ('+U+')','E',3],['Elevation ('+U+')','Z',3],['Description','d']]);
+  return [['Point','p'],['Northing ('+U+')','N',3],['Easting ('+U+')','E',3],['Elevation ('+U+')','Z',3],['Description','d'],['Latitude','lat',9],['Longitude','lon',9]].concat(hs?[['Ellipsoid h (m)','h',3],['Geoid N (m)','gN',3]]:[]); }
+function cvVal(x,c){ if(c[1]==='latd') return GEO.dms(x.lat,'N','S'); if(c[1]==='lond') return GEO.dms(x.lon,'E','W'); var v=x[c[1]]; return c[2]!=null?cvF(v,c[2]):String(v==null?'':v); }
+function cvShowRes(){
+  var R=CV.res, cols=cvCols(), sh=R.rows.slice(0,40);
+  var h='<div class="cvok">'+R.rows.length.toLocaleString()+' points converted'+(R.bad?' · <span class="danger">'+R.bad+' rows skipped (unreadable)</span>':'')+'</div><div class="cvtbl"><table><tr>'+cols.map(function(c){ return '<th>'+escH(c[0])+'</th>'; }).join('')+'</tr>'+
+    sh.map(function(x){ return '<tr>'+cols.map(function(c){ return '<td>'+escH(cvVal(x,c))+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>'+(R.rows.length>40?'<p class="muted cvnote">Showing the first 40.</p>':'')+
+    '<button class="btn primary block mt" id="cvSave"><i class="ic" data-ic="download"></i> Save CSV</button>'+
+    (R.dir==='ll2ne'?'<button class="btn block mt" id="cvEdit"><i class="ic" data-ic="layers"></i> Open as PNEZD in the editor</button>':'<button class="btn block mt" id="cvBase"><i class="ic" data-ic="download"></i> Save base file (Name, Lat, Lon, Ellipsoid h)</button>');
+  $('#cvOut').innerHTML=h;
+  var q=function(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }, base=CV.src.name.replace(/\.(csv|txt)$/i,'');
+  $('#cvSave').onclick=function(){ var t=[cols.map(function(c){ return q(c[0]); }).join(',')].concat(R.rows.map(function(x){ return cols.map(function(c){ return q(cvVal(x,c)); }).join(','); })).join('\r\n')+'\r\n';
+    tpShare(base+(R.dir==='ne2ll'?'-latlon':'-grid')+'.csv', new Blob([t],{type:'text/csv'}), 'text/csv'); };
+  if($('#cvBase')) $('#cvBase').onclick=function(){ var dn=CV.datum==='itrf'?'ITRF2014':'NAD83(2011)', t=['Name,Latitude ('+dn+'),Longitude ('+dn+'),Ellipsoid height (m)'].concat(R.rows.map(function(x){ return [q(x.p),x.lat.toFixed(9),x.lon.toFixed(9),cvF(x.h,3)].join(','); })).join('\r\n')+'\r\n';
+    tpShare(base+'-base-llh.csv', new Blob([t],{type:'text/csv'}), 'text/csv'); };
+  if($('#cvEdit')) $('#cvEdit').onclick=function(){ file={name:base+'-grid.csv', delim:',', header:null, rows:R.rows.map(function(x){ return [x.p, x.N.toFixed(3), x.E.toFixed(3), cvF(x.Z,3), x.d||'']; }), roles:['P','N','E','Z','D']}; hist=[]; save(); showGrid(); };
+}
+$('#cvBack').onclick=function(){ showHome(); };
 
 /* ---------------- settings: color theme, light/dark, motion ---------------- */
 var THEMES=[['Blue','#2563eb'],['Orange','#e2691b'],['Green','#16a34a'],['Teal','#0d9488'],['Purple','#7c3aed'],['Red','#dc2626'],['Pink','#db2777'],['Gold','#ca8a04'],['Slate','#475569']];
